@@ -89,6 +89,7 @@ They fill the room to four, react a quarter of a second late, aim a little off, 
 | Game | The one line | Controls, and what A costs | The enemy | How it ends | Out? |
 | --- | --- | --- | --- | --- | --- |
 | **Bate-Bate** (`brawl`) | Jogue todo mundo pra fora! | Stick, A, B, power (pillars 3 and 4) | The edge | Last pet standing, or 75 s | Ghost with meteors |
+| **Come e Cresce** (`grow`) | Coma tudo! O maior vence | Stick; A is a bite (a short lunge), then A rests, longer after a miss. Growing is its own cost: every size is slower | The clock, and any pet two sizes bigger | 40 s; most eaten. Food grows a pet a size for every 5 points, up to 8 sizes. A bite on a pet two sizes smaller shakes a quarter of its food out as crumbs, and it cannot be bitten again for 3 s. A purple pepper shrinks. A feast lands beside the smallest every 6 s | Never |
 | **O Chão é Lava** (`lava`) | Suba numa pedra antes da lava! | Stick; A is a shove (a short lunge that pushes whoever it touches), then A rests, longer after a miss | The lava: it climbs the sides of the floor while an alarm sounds, then covers everything but the rocks | Each wave has one rock fewer than there are pets, and a rock holds one. Whoever is not on a rock when the lava is up is out; the next calm is shorter. Last pet standing, or 45 s. Pets lost in the same wave tie | Ghost that drifts |
 | **Pinta o Chão** (`paint`) | Pinte mais que todo mundo! | Stick only | The clock, and everyone else's feet | 40 s; most tiles. The count is hidden for the last 8 s | Never |
 

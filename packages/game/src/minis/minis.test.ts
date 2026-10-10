@@ -4,7 +4,7 @@ import type { ButtonEdge, SampledInput } from '../input';
 import { initPhysics } from '../physics';
 import { createRng } from '../rng';
 import { Round } from '../round';
-import { lava, paint, pet as petTune, STEP } from '../tuning';
+import { grow, lava, paint, pet as petTune, STEP } from '../tuning';
 import type { GameEvent, GameMode, MiniMode, SeatSetup } from '../types';
 import { Field, rankBy } from './field';
 import { makeRules, type AnyRules } from './index';
@@ -230,6 +230,99 @@ describe('O Chão é Lava', () => {
     run(1);
     expect(of('tired')).toHaveLength(1);
     expect(of('dash')).toHaveLength(1);
+    field.free();
+  });
+});
+
+describe('Come e Cresce', () => {
+  /** Puts a piece of food on the blanket where a test wants it, already landed. */
+  const serve = (field: ReturnType<typeof makeField<'grow'>>['field'], kind: 'apple' | 'donut' | 'melon' | 'pepper', x: number, z: number) => field.rules.foods.push({ id: field.id(), kind, x, z, left: 0 });
+
+  it('feeds whoever reaches a piece, grows the pet a size for every few points, and slows it', () => {
+    const { field, run, of } = makeField('grow', 2);
+    const pet = field.petOfSeat(0)!;
+    field.rules.foods.length = 0;
+    serve(field, 'melon', pet.x, pet.z);
+    serve(field, 'apple', pet.x, pet.z);
+    run(2);
+    expect(of('eat').map(event => [event.seat, event.kind])).toEqual([[0, 'melon'], [0, 'apple']]);
+    expect(field.rules.eaten(0)).toBe(grow.value.melon + grow.value.apple);
+    expect(field.rules.size(0)).toBe(1);
+    expect(pet.scale).toBeCloseTo(1 + grow.growPerSize, 5);
+    expect(field.rules.speed(field, pet)).toBeCloseTo(1 - grow.slowPerSize, 5);
+    expect(field.metric(0)).toBe(5);
+    // Its feet stay on the blanket as it grows.
+    run(20);
+    expect(pet.grounded).toBe(true);
+    field.free();
+  });
+
+  it('shrinks whoever eats a pepper, never below nothing', () => {
+    const { field, run } = makeField('grow', 2);
+    const pet = field.petOfSeat(0)!;
+    field.rules.foods.length = 0;
+    field.rules.points.set(0, 6);
+    serve(field, 'pepper', pet.x, pet.z);
+    run(2);
+    expect(field.rules.eaten(0)).toBe(6 + grow.value.pepper);
+    serve(field, 'pepper', pet.x, pet.z);
+    run(2);
+    expect(field.rules.eaten(0)).toBe(0);
+    expect(pet.scale).toBe(1);
+    field.free();
+  });
+
+  it('lets a bite shake food out of a clearly smaller pet, once, and only bumps anyone else', () => {
+    const { field, run, set, of, walk } = makeField('grow', 2);
+    const rules = field.rules;
+    const big = field.petOfSeat(0)!;
+    const small = field.petOfSeat(1)!;
+    const bite = () => {
+      rules.foods.length = 0;
+      walk(0, small.x + 1.5, small.z);
+      big.dashCooldown = 0;
+      set(0, { x: -1, edges: [press('a', true), press('a', false)] });
+      run(30);
+      set(0, {});
+    };
+    // The same size: a bump, and nothing is lost.
+    rules.points.set(1, 8);
+    bite();
+    expect(of('bite')).toHaveLength(0);
+    expect(rules.eaten(1)).toBe(8);
+    // Two sizes bigger: a quarter of what the small one ate flies out as crumbs.
+    rules.points.set(0, grow.perSize * 4);
+    rules.points.set(1, grow.perSize * 2);
+    run(Math.round(grow.biteRestMiss / STEP));
+    const before = rules.eaten(1);
+    bite();
+    const lost = Math.ceil(before * grow.biteShare);
+    expect(of('bite')[0]).toMatchObject({ seat: 0, victim: small.id, lost });
+    expect(rules.eaten(1)).toBe(before - lost);
+    expect(rules.foods.filter(food => food.kind === 'apple').length).toBeGreaterThanOrEqual(Math.min(lost, grow.maxCrumbs) - 1);
+    // For a moment it cannot be bitten again.
+    expect(small.grabImmune).toBeGreaterThan(0);
+    const after = rules.eaten(1);
+    bite();
+    expect(of('bite')).toHaveLength(1);
+    expect(rules.eaten(1)).toBeGreaterThanOrEqual(after);
+    field.free();
+  });
+
+  it('drops a feast beside whoever is smallest, ranks by what was eaten, and never knocks anyone out', () => {
+    const { field, run } = makeField('grow', 3);
+    const rules = field.rules;
+    rules.points.set(0, 20);
+    rules.points.set(1, 9);
+    rules.foods.length = 0;
+    const smallest = field.petOfSeat(2)!;
+    run(Math.round(grow.feastEvery / STEP) + 2);
+    expect(rules.foods.some(food => food.kind === 'melon' && Math.hypot(food.x - smallest.x, food.z - smallest.z) < 2.5) || rules.eaten(2) >= grow.value.melon).toBe(true);
+    run(Math.round((grow.cap - grow.feastEvery) / STEP) + 2);
+    expect(field.finished).toBe(true);
+    expect(field.out).toEqual([]);
+    const eaten = field.ranking().map(group => group.map(which => rules.eaten(which)));
+    expect(eaten.flat()).toEqual([...eaten.flat()].sort((a, b) => b - a));
     field.free();
   });
 });

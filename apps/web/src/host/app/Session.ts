@@ -424,6 +424,12 @@ export class Session {
       case 'bounty':
         this.nameplates.setCrown(event.seat);
         break;
+      case 'bite': {
+        const bitten = game.round.petById(event.victim)?.seat;
+        this.socket?.send(event.seat, { t: 'haptic', pattern: 'tap' });
+        if (bitten !== undefined) this.socket?.send(bitten, { t: 'haptic', pattern: 'hit' });
+        break;
+      }
       case 'lava':
         // The alarm is felt in every hand, and the pad says what to do at once, not at the next refresh.
         if (event.phase === 'alarm') {

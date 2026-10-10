@@ -59,6 +59,29 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
       // Push in, and shove when close enough to connect. Not every time: a person hesitates too.
       return { ...toward(me, owner.x, owner.z), tapA: near(owner) < 1.6 && rng.chance(0.3) };
     }
+    case 'grow': {
+      const rules = round.rules;
+      const mine = rules.size(seat);
+      // A pet two sizes bigger, close by, is a mouth to keep away from.
+      const threat = round.pets.find(other => other !== me && rules.size(other.seat) >= mine + 2 && Math.hypot(other.x - me.x, other.z - me.z) < 2.2);
+      if (threat) return toward(me, me.x * 2 - threat.x, me.z * 2 - threat.z);
+      // A pet two sizes smaller, in reach, is worth a bite, when the bot thinks of it.
+      const prey = round.pets.find(other => other !== me && rules.size(other.seat) <= mine - 2 && other.grabImmune <= 0 && Math.hypot(other.x - me.x, other.z - me.z) < 2);
+      if (prey && me.dashCooldown <= 0 && rng.chance(0.15)) return { ...toward(me, prey.x, prey.z), tapA: true };
+      // Otherwise the best piece for the walk: worth more is worth going farther for, and a pepper is never worth it.
+      let best: { x: number; z: number } | null = null;
+      let score = -Infinity;
+      for (const food of rules.foods) {
+        if (food.kind === 'pepper') continue;
+        const value = food.kind === 'melon' ? 4 : food.kind === 'donut' ? 2 : 1;
+        const worth = value * 2.2 - Math.hypot(food.x - me.x, food.z - me.z) + rng.range(0, 1);
+        if (worth > score) {
+          score = worth;
+          best = food;
+        }
+      }
+      return best ? toward(me, best.x, best.z) : STILL;
+    }
     default:
       return STILL;
   }

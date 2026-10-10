@@ -224,6 +224,9 @@ export type GameEvent =
   /** Pinta o Chão: a bucket of paint is coming down, and one was kicked over. */
   | { t: 'bucket'; id: number; x: number; z: number; delay: number }
   | { t: 'splash'; seat: number; x: number; z: number; radius: number }
+  /** Come e Cresce: a pet ate something, and a pet bit a smaller one, which lost that many points. */
+  | { t: 'eat'; pet: number; seat: number; kind: 'apple' | 'donut' | 'melon' | 'pepper'; x: number; z: number }
+  | { t: 'bite'; pet: number; seat: number; victim: number; lost: number }
   /** O Chão é Lava: a new phase of a wave has begun. `seconds` is how long it lasts. */
   | { t: 'lava'; phase: 'calm' | 'alarm' | 'flood'; wave: number; seconds: number }
   | { t: 'spawn'; pet: number; seat: number }

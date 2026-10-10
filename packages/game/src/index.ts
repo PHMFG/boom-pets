@@ -9,6 +9,7 @@ export { Field, type MiniRules } from './minis/field';
 export type { AnyRules } from './minis';
 export type { Bucket, PaintRules } from './minis/paint';
 export { ROCK, type LavaRules } from './minis/lava';
+export type { Food, FoodKind, GrowRules } from './minis/grow';
 export * from './scoring';
 export * as tuning from './tuning';
 export * from './types';

@@ -30,6 +30,7 @@ export const strings = {
     victory: 'VITÓRIA!',
     lavaWarn: 'SOBE!',
     lava: 'LAVA!',
+    bite: 'NHAC!',
   },
 
   /** Shown in the HUD, on phones and (in capitals) as 3D words when a power starts. */

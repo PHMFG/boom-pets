@@ -170,6 +170,44 @@ export const supers = {
   showerSafe: 2.5,
 } as const;
 
+/** Come e Cresce. */
+export const grow = {
+  cap: 40,
+  columns: 16,
+  rows: 12,
+  /** Seconds between two pieces of food with two pets on the blanket (faster with more), and the most that may lie there at once. */
+  foodEvery: 0.9,
+  maxFood: 16,
+  /** Seconds a piece takes to fall. */
+  dropTime: 0.7,
+  /** Chances of an apple, a doughnut, a slice of watermelon and a pepper, out of 100, and what each is worth. The pepper shrinks. */
+  kindWeights: [56, 28, 9, 7],
+  value: { apple: 1, donut: 2, melon: 4, pepper: -4 },
+  /** How near a piece a pet of normal size must be to eat it. */
+  mouth: 0.8,
+  /** Points for each size a pet grows, how many sizes there are, how much bigger each makes it, and how much slower. */
+  perSize: 5,
+  sizes: 8,
+  growPerSize: 0.11,
+  slowPerSize: 0.035,
+  /** Seconds between feasts: a slice of watermelon dropped beside whoever is smallest. */
+  feastEvery: 6,
+  /** A's bite: a short lunge, then a rest, longer after a miss. */
+  biteSpeed: 10,
+  biteSeconds: 0.22,
+  biteRest: 0.7,
+  biteRestMiss: 1,
+  /** A bite only counts on a pet this many sizes smaller. It loses this share of what it ate, as crumbs, and cannot be bitten again for a moment. */
+  biteLead: 2,
+  biteShare: 0.25,
+  maxCrumbs: 8,
+  biteImmune: 3,
+  biteForce: 9,
+  biteLift: 5,
+  /** A bite on anyone else is only this much of a bump. */
+  bumpForce: 3.5,
+} as const;
+
 /** O Chão é Lava. */
 export const lava = {
   cap: 45,

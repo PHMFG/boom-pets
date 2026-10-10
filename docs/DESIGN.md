@@ -153,6 +153,7 @@ It is held without being looked at, so it must work by feel and explain itself i
   | Game | Floor | Around it | Sky |
   | --- | --- | --- | --- |
   | Bate-Bate | White checker | Lavender clouds far below | Day; night when it is the last round |
+  | Come e Cresce | White and pale red gingham | A wooden table, a giant plate and fork, whole fruit beyond the far edge. Food is chunky and bright, each kind its own shape; the pepper wears the curse colours | Day |
   | O Chão é Lava | Pale stone. The rocks to stand on are dark and drawn a little wider than they are: on a pale floor they must be the first thing anyone sees | A sea of lava, brighter than white so it glows, with dark boulders standing in it and two cones at the back | Night |
   | Pinta o Chão | White paper; a painted tile is its player's colour, lightened | A desk, masking tape round the paper, giant pencils, a pot of paint for each player colour | Morning |
 
@@ -168,6 +169,8 @@ It is held without being looked at, so it must work by feel and explain itself i
 | A thrown pet landing on someone | Both squash | Ring, stars | Medium shake |
 | An explosion | Thrown, tumbling | Bright sphere, smoke, sparks, debris, scorch | Shake, colour fringe, extra glow |
 | A SUPER arriving | Its owner changes on the spot; everyone else looks scared | A wide warning on the floor, then a strike and its blast | Close on the owner for the gacha, then shake |
+| Something eaten | Munches, and grows when it has eaten enough | A few crumbs in the eater's colour; a purple puff for a pepper | Nothing |
+| A bite that lands | Thrown back | Stars, a puff, the word NHAC! in the biter's colour | Small shake |
 | The lava's alarm, and the lava | Nothing; those left out burst into sparks | The sea climbs through the alarm, then jumps over the floor. The words SOBE! and LAVA! | Small shake, then a bigger one with a little glow |
 | A bucket of paint kicked over | Nothing | A ring and a burst of cubes in the kicker's colour, as wide as the patch painted | Small shake |
 | A place revealed in the finale | Pops onto its step, which takes its colour | Dust and a ring in its colour | Small shake |

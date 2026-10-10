@@ -30,6 +30,7 @@ import { Renderer } from '../render/Renderer';
 import { Word3D } from '../render/Text3D';
 import { DANGER, HOT, INK, random, SMOKE, syncViews, WHITE, type MapView, type SkyId, type StageKit } from './kit';
 import { BrawlMap } from './maps/BrawlMap';
+import { GrowMap } from './maps/GrowMap';
 import { LavaMap } from './maps/LavaMap';
 import { PaintMap } from './maps/PaintMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
@@ -682,6 +683,8 @@ export class GameStage {
         return new PaintMap(this.kit);
       case 'lava':
         return new LavaMap(this.kit);
+      case 'grow':
+        return new GrowMap(this.kit);
       default:
         return new BrawlMap(this.kit, { night: final, ripple: true });
     }

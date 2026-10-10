@@ -325,6 +325,13 @@ export class AudioEngine {
         }
         return;
       }
+      case 'eat':
+        // A pop, higher for a bigger mouthful; a pepper goes down instead of up.
+        if (event.kind === 'pepper') return this.tone(520, 0.22, 'sawtooth', 0.11, 180);
+        return this.tone(event.kind === 'melon' ? 880 : event.kind === 'donut' ? 740 : 620, 0.08, 'triangle', 0.1, event.kind === 'melon' ? 1320 : 990);
+      case 'bite':
+        this.noise(0.12, 0.35, 3200, 900, 'highpass');
+        return this.sample(['hit1', 'hit2', 'hit3'], 0.7);
       case 'jump':
         return this.tone(420, 0.14, 'triangle', 0.1, 760);
       case 'respawn':
