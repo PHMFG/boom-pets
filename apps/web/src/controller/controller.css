@@ -1,0 +1,678 @@
+/* Phone controller. Values come from shared/tokens.ts; sizes use vmin so they hold in either orientation. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--ink);
+  color: var(--ink);
+  font-family: var(--font-display);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.awake {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Join ───────────────────────────────────────────────────────────────── */
+
+.join {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  width: min(100vw, 420px);
+  height: 100dvh;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.join > * {
+  animation: pop-in var(--pop-in) both;
+}
+
+.join > :nth-child(2) {
+  animation-delay: var(--stagger);
+}
+
+.join > :nth-child(n + 3) {
+  animation-delay: calc(var(--stagger) * 2);
+}
+
+.join-brand {
+  margin: 0 0 6px;
+  color: var(--gold);
+  font-size: 56px;
+  font-weight: 400;
+  line-height: 0.95;
+  text-align: center;
+  -webkit-text-stroke: 10px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 var(--tier-cursed);
+}
+
+.join-field,
+.join-button {
+  width: 100%;
+  border: var(--outline) solid var(--ink);
+  border-radius: var(--radius);
+  outline: 3px solid var(--cream);
+  font-family: var(--font-display);
+  font-size: 30px;
+  text-align: center;
+}
+
+.join-field {
+  padding: 14px;
+  background: var(--cream);
+  color: var(--ink);
+}
+
+.join-field.is-code {
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.join-field::placeholder {
+  color: color-mix(in srgb, var(--ink) 40%, transparent);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.join-button {
+  padding: 18px;
+  background: var(--gold);
+  box-shadow: 0 var(--shadow) 0 var(--tier-cursed);
+  color: var(--ink);
+  transition:
+    transform var(--punch),
+    box-shadow var(--punch);
+}
+
+.join-button:active {
+  transform: translateY(var(--shadow));
+  box-shadow: 0 0 0 var(--tier-cursed);
+}
+
+.join-problem {
+  min-height: 2.4em;
+  margin: 0;
+  color: var(--cream);
+  font-size: 22px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.join-problem:empty {
+  animation: none;
+}
+
+.join-hint {
+  margin: 0;
+  color: color-mix(in srgb, var(--cream) 70%, transparent);
+  font: 600 15px/1.3 system-ui, sans-serif;
+  text-align: center;
+}
+
+.join-hint:empty {
+  display: none;
+}
+
+/* ── Pad ────────────────────────────────────────────────────────────────── */
+
+.pad {
+  --seat: var(--tier-common);
+  /* Where B sits. The lobby panel reads these to stay clear of it. */
+  --b-right: min(47vmin, 222px);
+  --b-size: min(26vmin, 124px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--pattern, none) 0 0 / 64px 64px, var(--seat);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: background-color var(--move);
+}
+
+/* Held upright: the landscape pad turns itself, so the phone's right edge becomes the top. */
+.pad.is-rotated {
+  left: 100vw;
+  width: 100dvh;
+  height: 100vw;
+  transform: rotate(90deg);
+  transform-origin: top left;
+}
+
+.pad::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 0 solid var(--white);
+  pointer-events: none;
+}
+
+.pad.is-buzz::after {
+  animation: buzz 320ms ease-out;
+}
+
+.pad-strip {
+  position: absolute;
+  top: 4vmin;
+  left: 7vmin;
+  display: flex;
+  align-items: center;
+  gap: 2vmin;
+  padding: 1.2vmin 3.2vmin 1.2vmin 2vmin;
+  border: 3px solid var(--ink);
+  border-radius: 99px;
+  background: var(--cream);
+  font-size: 5.6vmin;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.pad-shape {
+  display: flex;
+  width: 6vmin;
+  height: 6vmin;
+}
+
+.pad-banner {
+  position: absolute;
+  top: 4vmin;
+  left: 50%;
+  max-width: 60%;
+  padding: 2vmin 4vmin;
+  border: 3px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 5.4vmin;
+  line-height: 1.15;
+  text-align: center;
+  translate: -50% 0;
+  pointer-events: none;
+  animation: pop-in var(--pop-in) both;
+}
+
+.stick-base {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--punch);
+}
+
+.stick-base.is-active {
+  opacity: 1;
+}
+
+.stick-base::before {
+  content: '';
+  position: absolute;
+  width: 46vmin;
+  max-width: 220px;
+  aspect-ratio: 1;
+  border: var(--outline) solid var(--ink);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--white) 35%, transparent);
+  translate: -50% -50%;
+}
+
+.stick-knob {
+  position: absolute;
+  width: 21vmin;
+  max-width: 100px;
+  aspect-ratio: 1;
+  margin: calc(min(21vmin, 100px) / -2);
+  border: var(--outline) solid var(--ink);
+  border-radius: 50%;
+  background: var(--cream);
+  box-shadow: 0 5px 0 var(--ink);
+}
+
+.pad-button {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: var(--outline) solid var(--ink);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--cream);
+  box-shadow: 0 var(--shadow) 0 var(--ink);
+  color: var(--ink);
+  line-height: 1;
+  pointer-events: none;
+  transition:
+    transform var(--punch),
+    box-shadow var(--punch);
+}
+
+.pad-button.is-down {
+  transform: translateY(var(--shadow));
+  box-shadow: 0 0 0 var(--ink);
+}
+
+.pad-a {
+  right: 7vmin;
+  bottom: 9vmin;
+  width: 36vmin;
+  max-width: 170px;
+  font-size: min(19vmin, 90px);
+}
+
+.pad-b {
+  right: var(--b-right);
+  bottom: min(31vmin, 150px);
+  width: var(--b-size);
+  font-size: min(13vmin, 62px);
+}
+
+.pad-b.is-down {
+  background: var(--gold);
+}
+
+/* Holding A fills it like a gauge. It empties at once on release. */
+.pad-gauge {
+  position: absolute;
+  inset: auto 0 0;
+  height: 0;
+  background: var(--danger);
+}
+
+.pad-a.is-down .pad-gauge {
+  height: 100%;
+  transition: height 1200ms linear;
+}
+
+.pad-letter {
+  position: relative;
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0);
+  }
+}
+
+@keyframes buzz {
+  from {
+    border-width: 5vmin;
+  }
+
+  to {
+    border-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .join > *,
+  .pad-banner {
+    animation: none;
+  }
+}
+
+/* ── Status strip extras ────────────────────────────────────────────────── */
+
+.pad-strip [hidden],
+.pad [hidden] {
+  display: none;
+}
+
+.pad-power {
+  padding: 0.6vmin 2vmin;
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  background: var(--tier);
+  font-size: 4.4vmin;
+  white-space: nowrap;
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad-pity {
+  display: flex;
+  gap: 0.8vmin;
+}
+
+.pad-pip {
+  width: 2.2vmin;
+  height: 2.2vmin;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--white);
+}
+
+.pad-pip.is-on {
+  background: var(--gold);
+}
+
+/* Luck pips only matter during a match. */
+.pad:not([data-screen='play']) .pad-pity {
+  display: none;
+}
+
+/* ── Controls drawn over the pad ────────────────────────────────────────── */
+
+.pad-arrow,
+.pad-ready,
+.pad-emote {
+  display: grid;
+  place-items: center;
+  border: var(--outline) solid var(--ink);
+  background: var(--cream);
+  box-shadow: 0 6px 0 var(--ink);
+  line-height: 1;
+}
+
+.is-tapped {
+  animation: tap var(--punch) 2 alternate;
+}
+
+/* Lobby: the pet picker and the ready button sit top centre, clear of both thumbs. On a short pad
+   (a browser with its bars showing) centre would put them under B, so they slide left of it. */
+.pad-lobby {
+  position: absolute;
+  top: 18vmin;
+  left: min(50%, 100% - var(--b-right) - var(--b-size) - 41vmin);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4vmin;
+  translate: -50% 0;
+}
+
+.pad[data-screen='lobby'] .pad-lobby {
+  display: flex;
+}
+
+.pad-picker {
+  display: flex;
+  align-items: center;
+  gap: 3vmin;
+}
+
+.pad-arrow {
+  width: 15vmin;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  font-size: 7vmin;
+}
+
+.pad-pet {
+  min-width: 38vmin;
+  padding: 2.4vmin 3vmin;
+  border: var(--outline) solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--white);
+  font-size: 7.4vmin;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pad-ready {
+  padding: 3vmin 7vmin;
+  border-radius: var(--radius);
+  background: var(--gold);
+  font-size: 7.4vmin;
+  white-space: nowrap;
+}
+
+.pad-ready.is-on {
+  background: var(--seat-4);
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+/* Emotes: a corner button that fans out four. */
+.pad-tray {
+  position: absolute;
+  top: 4vmin;
+  right: 7vmin;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 2vmin;
+}
+
+.pad-emote {
+  width: 13vmin;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  font-size: 6.4vmin;
+}
+
+.pad-emote:not(.is-toggle) {
+  display: none;
+}
+
+.pad-tray.is-open .pad-emote:not(.is-toggle) {
+  display: grid;
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad[data-screen='results'] .pad-tray,
+.pad[data-screen='wait'] .pad-tray {
+  display: none;
+}
+
+/* ── Modes ──────────────────────────────────────────────────────────────── */
+
+/* Ghost: the screen goes pale and A becomes the meteor, with a ring that refills as it recharges. */
+.pad[data-mode='ghost'] {
+  background-color: color-mix(in srgb, var(--seat) 35%, var(--tier-common));
+}
+
+.pad[data-mode='ghost'] .pad-b {
+  opacity: 0.35;
+}
+
+.pad-cooldown {
+  position: absolute;
+  inset: 0;
+  display: none;
+  border-radius: 50%;
+  background: conic-gradient(color-mix(in srgb, var(--ink) 55%, transparent) var(--angle, 0deg), transparent 0);
+}
+
+.pad[data-mode='ghost'] .pad-cooldown {
+  display: block;
+}
+
+.pad[data-mode='ghost'] .pad-gauge {
+  display: none;
+}
+
+@property --angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.pad-a.is-cooling .pad-cooldown {
+  animation: cooldown var(--cooldown, 4000ms) linear both;
+}
+
+/* Carried: a loud instruction, and the buttons shake until the player mashes free. */
+.pad[data-mode='carried'] .pad-banner {
+  top: 22vmin;
+  background: var(--danger);
+  color: var(--white);
+  font-size: 12vmin;
+}
+
+.pad[data-mode='carried'] .pad-button {
+  animation: wobble 180ms ease-in-out infinite alternate;
+}
+
+/* Held too long: the border pulses in the danger colour, under three times a second. */
+.pad.is-warning::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 3vmin solid var(--danger);
+  pointer-events: none;
+  animation: warn 380ms ease-in-out infinite alternate;
+}
+
+/* Lever and ZICA cover the whole pad. */
+.pad-lever,
+.pad-jinx,
+.pad-results {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.pad[data-mode='lever'] .pad-lever,
+.pad[data-mode='jinx'] .pad-jinx,
+.pad[data-screen='results'] .pad-results {
+  display: flex;
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad-lever {
+  gap: 8vmin;
+  background: var(--gold);
+}
+
+.pad-lever-title {
+  font-size: 22vmin;
+  line-height: 1;
+  -webkit-text-stroke: 2.4vmin var(--ink);
+  paint-order: stroke fill;
+  color: var(--white);
+  rotate: -4deg;
+  animation: breathe 500ms ease-in-out infinite alternate;
+}
+
+.pad-lever-track {
+  position: relative;
+  width: 9vmin;
+  height: 70%;
+  border: var(--outline) solid var(--ink);
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+.pad-lever-knob {
+  position: absolute;
+  top: -6vmin;
+  left: 50%;
+  width: 30vmin;
+  aspect-ratio: 1;
+  margin-left: -15vmin;
+  border: var(--outline) solid var(--ink);
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 8px 0 var(--ink);
+}
+
+.pad-jinx {
+  background: var(--tier-cursed);
+  color: var(--tier-cursed-accent);
+  font-size: 34vmin;
+  line-height: 1;
+  -webkit-text-stroke: 3vmin var(--ink);
+  paint-order: stroke fill;
+  animation: breathe 420ms ease-in-out infinite alternate;
+}
+
+.pad-jinx.is-tapped {
+  animation: jinx 120ms ease-out;
+}
+
+.pad-results {
+  flex-direction: column;
+  gap: 2.5vmin;
+  background: var(--seat);
+}
+
+.pad-place {
+  color: var(--white);
+  font-size: 20vmin;
+  line-height: 1;
+  -webkit-text-stroke: 2.2vmin var(--ink);
+  paint-order: stroke fill;
+}
+
+.pad-award-icon {
+  font-size: 13vmin;
+  line-height: 1;
+}
+
+.pad-award {
+  padding: 1.6vmin 4vmin;
+  border: var(--outline) solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--cream);
+  font-size: 6.4vmin;
+  text-align: center;
+}
+
+@keyframes tap {
+  to {
+    scale: 0.88;
+  }
+}
+
+@keyframes breathe {
+  to {
+    scale: 1.07;
+  }
+}
+
+@keyframes jinx {
+  from {
+    scale: 1.25;
+    rotate: var(--tilt, 6deg);
+  }
+}
+
+@keyframes wobble {
+  from {
+    rotate: -7deg;
+  }
+
+  to {
+    rotate: 7deg;
+  }
+}
+
+@keyframes warn {
+  from {
+    opacity: 0.25;
+  }
+}
+
+@keyframes cooldown {
+  from {
+    --angle: 360deg;
+  }
+
+  to {
+    --angle: 0deg;
+  }
+}

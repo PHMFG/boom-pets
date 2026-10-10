@@ -1,0 +1,13 @@
+{
+  "name": "@boom/tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "@fontsource/lilita-one": "^5.3.0",
+    "@types/node": "^26.6.4",
+    "opentype.js": "^2.0.0"
+  }
+}

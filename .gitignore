@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Unzipped Kenney packs and their zips: re-downloadable, not shipped
+assets-raw/*/
+!assets-raw/README.md
+
+# Playtest logs written by the relay
+playtests/
+
+# Test output
+test-results/
+playwright-report/

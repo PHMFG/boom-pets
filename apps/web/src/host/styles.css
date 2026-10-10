@@ -1,0 +1,99 @@
+/* Host base and the sticker components every host screen shares. Values come from shared/tokens.ts. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-weight: 800;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* A cream card with an ink outline and a hard shadow. */
+.sticker {
+  border: var(--outline) solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--cream);
+  box-shadow: 0 var(--shadow) 0 var(--ink);
+  animation: pop-in var(--pop-in) both;
+}
+
+/* A plastic button: it sits on its shadow and sinks into it when pressed. */
+.button {
+  --lift: 5px;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 7px 10px;
+  background: var(--white);
+  box-shadow: 0 var(--lift) 0 var(--ink);
+  color: var(--ink);
+  font: 800 16px/1.1 var(--font-text);
+  cursor: pointer;
+  transition:
+    transform var(--punch),
+    box-shadow var(--punch),
+    background-color var(--punch);
+}
+
+.button:hover {
+  background: var(--tier-common);
+}
+
+.button:active {
+  transform: translateY(var(--lift));
+  box-shadow: 0 0 0 var(--ink);
+}
+
+.button[aria-pressed='true'] {
+  background: var(--gold);
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.button:focus-visible {
+  outline: 4px solid var(--tier-rare);
+  outline-offset: 2px;
+}
+
+.button.small {
+  --lift: 4px;
+  border-radius: 12px;
+  padding: 5px 4px;
+  font-size: 13px;
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sticker {
+    animation: none;
+  }
+
+  .button {
+    transition: none;
+  }
+}

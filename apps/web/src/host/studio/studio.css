@@ -1,0 +1,55 @@
+.studio {
+  position: relative;
+  height: 100%;
+}
+
+.studio-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.studio-stage canvas {
+  display: block;
+}
+
+.studio-panel {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 330px;
+  max-height: calc(100% - 40px);
+  padding: 14px 16px 16px;
+  overflow-y: auto;
+  transform-origin: top left;
+}
+
+.studio-panel h1 {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.studio-status {
+  margin: -6px 0 0;
+  font-size: 14px;
+}
+
+.studio-status.is-failed {
+  color: var(--danger);
+}
+
+.studio-grid {
+  display: grid;
+  gap: 7px 8px;
+  padding-bottom: 5px;
+}
+
+.studio-grid.two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.studio-grid.three {
+  grid-template-columns: repeat(3, 1fr);
+}

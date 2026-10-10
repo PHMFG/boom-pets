@@ -1,0 +1,7 @@
+packages:
+  - apps/*
+  - packages/*
+  - tools
+# esbuild (used by tsx) runs fine without its install script, so it is not allowed to run one.
+allowBuilds:
+  esbuild: false

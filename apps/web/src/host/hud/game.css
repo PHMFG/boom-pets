@@ -1,0 +1,869 @@
+/* The game HUD. One unit (--u) is one pixel on a 1080-pixel-high screen, so the layout scales with the TV. */
+.game {
+  --u: calc(100vh / 1080);
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+.game-stage,
+.nameplate-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.game-stage canvas {
+  display: block;
+}
+
+.nameplate-layer {
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.game p {
+  margin: 0;
+}
+
+/* ── Title ──────────────────────────────────────────────────────────────── */
+
+/* Bots brawl on the platform behind this; the camera circles them. */
+.title-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The logo sits at the top and the prompt at the bottom, leaving the brawl in the middle in view. */
+  justify-content: flex-start;
+  gap: calc(22 * var(--u));
+  padding-top: calc(64 * var(--u));
+  background: radial-gradient(circle, transparent 40%, color-mix(in srgb, var(--ink) 58%, transparent));
+}
+
+.title-logo {
+  display: flex;
+  gap: calc(56 * var(--u));
+  font-size: calc(210 * var(--u));
+  line-height: 0.9;
+  rotate: -3deg;
+}
+
+.title-word {
+  display: flex;
+  color: var(--gold);
+}
+
+.title-word + .title-word {
+  color: var(--cream);
+}
+
+/* Each letter drops in, then the word does a slow wave: a hop that travels letter to letter. */
+.title-letter {
+  display: inline-block;
+  -webkit-text-stroke: calc(34 * var(--u)) var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 calc(20 * var(--u)) 0 var(--tier-cursed);
+  animation:
+    letter-drop 520ms var(--ease-pop) both calc(var(--i) * 70ms),
+    letter-hop 2600ms ease-in-out infinite calc(900ms + var(--i) * 110ms);
+}
+
+.title-mode {
+  padding: calc(8 * var(--u)) calc(30 * var(--u));
+  background: var(--danger);
+  color: var(--white);
+  font: 400 calc(52 * var(--u)) / 1.1 var(--font-display);
+  rotate: 2deg;
+  animation-delay: 620ms;
+}
+
+.title-press {
+  position: absolute;
+  bottom: calc(96 * var(--u));
+  color: var(--white);
+  font: 400 calc(54 * var(--u)) / 1 var(--font-display);
+  -webkit-text-stroke: calc(10 * var(--u)) var(--ink);
+  paint-order: stroke fill;
+  animation: pop-in var(--pop-in) both 800ms, breathe 900ms ease-in-out infinite alternate 1100ms;
+}
+
+.title-credits {
+  position: absolute;
+  bottom: calc(26 * var(--u));
+  color: color-mix(in srgb, var(--white) 80%, transparent);
+  font: 800 calc(28 * var(--u)) / 1 var(--font-text);
+}
+
+/* On the way out the letters fly apart, each in its own direction. */
+.title-screen.is-leaving {
+  animation: none !important;
+  background: none;
+}
+
+.title-screen.is-leaving .title-letter {
+  animation: letter-fly 360ms ease-in both;
+}
+
+.title-screen.is-leaving .title-mode,
+.title-screen.is-leaving .title-press,
+.title-screen.is-leaving .title-credits {
+  animation: squish-out var(--squish-out) both;
+}
+
+.is-title .nameplate-layer {
+  display: none;
+}
+
+/* A connection message must not cover the logo. */
+.is-title .lobby-banner {
+  top: auto;
+  bottom: calc(180 * var(--u));
+}
+
+/* ── Name tags over pets ────────────────────────────────────────────────── */
+
+.nameplate-anchor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  will-change: transform;
+}
+
+.nameplate {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: calc(3 * var(--u)) calc(13 * var(--u)) calc(3 * var(--u)) calc(7 * var(--u));
+  border: calc(4 * var(--u)) solid var(--ink);
+  border-radius: calc(18 * var(--u));
+  background: var(--cream);
+  box-shadow: 0 calc(5 * var(--u)) 0 var(--ink);
+  font: 400 calc(28 * var(--u)) / 1.1 var(--font-display);
+  white-space: nowrap;
+  translate: -50% 0;
+  animation: pop-in var(--pop-in) both;
+}
+
+.nameplate.is-leaving {
+  animation: squish-out var(--squish-out) both;
+}
+
+.nameplate.is-away {
+  background: var(--tier-common);
+}
+
+.nameplate.has-crown::before {
+  content: '👑';
+}
+
+.nameplate-shape {
+  display: flex;
+  width: calc(24 * var(--u));
+  height: calc(24 * var(--u));
+}
+
+.nameplate-sleep:empty {
+  display: none;
+}
+
+.nameplate-sleep {
+  color: var(--tier-cursed);
+}
+
+/* ── Join card ──────────────────────────────────────────────────────────── */
+
+.join-card {
+  position: absolute;
+  top: calc(32 * var(--u));
+  left: calc(32 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(14 * var(--u));
+  width: calc(400 * var(--u));
+  padding: calc(22 * var(--u));
+  rotate: -1.5deg;
+  text-align: center;
+}
+
+.join-card h1 {
+  font-size: calc(52 * var(--u));
+  line-height: 1;
+}
+
+.join-qr {
+  aspect-ratio: 1;
+  border: calc(4 * var(--u)) solid var(--ink);
+  border-radius: calc(14 * var(--u));
+  overflow: hidden;
+  background: var(--white);
+}
+
+.join-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.join-qr.is-empty {
+  background: repeating-linear-gradient(45deg, var(--white) 0 12px, var(--tier-common) 12px 24px);
+}
+
+.join-wifi {
+  font: 400 calc(30 * var(--u)) / 1.15 var(--font-display);
+}
+
+.join-network,
+.join-url {
+  font-size: calc(28 * var(--u));
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.join-network-input {
+  width: 100%;
+  border: calc(3 * var(--u)) solid var(--ink);
+  border-radius: calc(12 * var(--u));
+  padding: calc(8 * var(--u)) calc(12 * var(--u));
+  background: var(--white);
+  color: var(--ink);
+  font: 800 calc(28 * var(--u)) / 1.1 var(--font-text);
+  text-align: center;
+}
+
+.join-network-input::placeholder {
+  color: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+.join-network-input:focus-visible,
+.chip:focus-visible {
+  outline: calc(4 * var(--u)) solid var(--tier-rare);
+  outline-offset: calc(2 * var(--u));
+}
+
+/* ── Lobby options and prompts ──────────────────────────────────────────── */
+
+.options {
+  position: absolute;
+  top: calc(104 * var(--u));
+  right: calc(32 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(14 * var(--u));
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  border: calc(4 * var(--u)) solid var(--ink);
+  border-radius: calc(18 * var(--u));
+  padding: calc(8 * var(--u)) calc(18 * var(--u)) calc(8 * var(--u)) calc(10 * var(--u));
+  background: var(--cream);
+  box-shadow: 0 calc(6 * var(--u)) 0 var(--ink);
+  color: var(--ink);
+  font: 400 calc(28 * var(--u)) / 1.1 var(--font-display);
+  cursor: pointer;
+  transition:
+    transform var(--punch),
+    box-shadow var(--punch);
+  animation: pop-in var(--pop-in) both;
+}
+
+.chip:nth-child(2) {
+  animation-delay: var(--stagger);
+}
+
+.chip:nth-child(3) {
+  animation-delay: calc(var(--stagger) * 2);
+}
+
+.chip:nth-child(4) {
+  animation-delay: calc(var(--stagger) * 3);
+}
+
+.chip:active {
+  transform: translateY(calc(6 * var(--u)));
+  box-shadow: 0 0 0 var(--ink);
+}
+
+.chip kbd,
+.key-glyph {
+  display: grid;
+  place-items: center;
+  border: calc(3 * var(--u)) solid var(--ink);
+  background: var(--white);
+  font: 400 calc(26 * var(--u)) / 1 var(--font-display);
+}
+
+.chip kbd {
+  min-width: calc(40 * var(--u));
+  height: calc(40 * var(--u));
+  border-radius: calc(10 * var(--u));
+  box-shadow: 0 calc(3 * var(--u)) 0 var(--ink);
+}
+
+.start-prompt,
+.lobby-tip {
+  position: absolute;
+  color: var(--white);
+  font-family: var(--font-display);
+  -webkit-text-stroke: calc(9 * var(--u)) var(--ink);
+  paint-order: stroke fill;
+  white-space: nowrap;
+}
+
+.start-prompt {
+  bottom: calc(150 * var(--u));
+  left: 50%;
+  font-size: calc(58 * var(--u));
+  line-height: 1;
+  translate: -50% 0;
+  animation: pop-in var(--pop-in) both, breathe 900ms ease-in-out infinite alternate var(--pop-in);
+}
+
+.start-prompt:empty {
+  display: none;
+}
+
+.lobby-tip {
+  top: calc(36 * var(--u));
+  right: calc(40 * var(--u));
+  font-size: calc(34 * var(--u));
+  -webkit-text-stroke-width: calc(7 * var(--u));
+  animation: pop-in var(--pop-in) both;
+}
+
+.lobby-banner,
+.lobby-hint {
+  position: absolute;
+  top: calc(32 * var(--u));
+  left: 50%;
+  max-width: calc(820 * var(--u));
+  padding: calc(16 * var(--u)) calc(26 * var(--u));
+  translate: -50% 0;
+  font: 400 calc(32 * var(--u)) / 1.2 var(--font-display);
+  text-align: center;
+}
+
+.lobby-banner {
+  z-index: 3;
+  background: var(--danger);
+  color: var(--white);
+}
+
+/* ── Round bar ──────────────────────────────────────────────────────────── */
+
+.round-bar {
+  position: absolute;
+  top: calc(26 * var(--u));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: calc(22 * var(--u));
+  padding: calc(10 * var(--u)) calc(14 * var(--u)) calc(10 * var(--u)) calc(24 * var(--u));
+  translate: -50% 0;
+  rotate: 1deg;
+}
+
+.round-pips {
+  display: flex;
+  gap: calc(10 * var(--u));
+}
+
+.round-pip {
+  display: grid;
+  place-items: center;
+  min-width: calc(34 * var(--u));
+  height: calc(34 * var(--u));
+  padding: 0 calc(4 * var(--u));
+  border: calc(4 * var(--u)) solid var(--ink);
+  border-radius: 99px;
+  background: var(--white);
+  font: 400 calc(22 * var(--u)) / 1 var(--font-display);
+  transition:
+    background-color var(--move),
+    scale var(--move);
+}
+
+.round-pip.is-done {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.round-pip.is-now {
+  background: var(--gold);
+  scale: 1.25;
+}
+
+/* The timer is a ring that empties as the round runs out. */
+.round-timer {
+  display: grid;
+  place-items: center;
+  width: calc(96 * var(--u));
+  aspect-ratio: 1;
+  border: calc(5 * var(--u)) solid var(--ink);
+  border-radius: 50%;
+  background: conic-gradient(var(--tier-rare) calc(var(--left) * 360deg), var(--white) 0);
+  font: 400 calc(44 * var(--u)) / 1 var(--font-display);
+}
+
+.round-timer.is-late {
+  background: conic-gradient(var(--danger) calc(var(--left) * 360deg), var(--white) 0);
+}
+
+/* In the last ten seconds the number punches on every tick. */
+.round-timer.is-late span {
+  animation: punch 320ms var(--ease-pop);
+}
+
+.round-timer span {
+  display: grid;
+  place-items: center;
+  width: 72%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--cream);
+}
+
+/* ── First-play hints ───────────────────────────────────────────────────── */
+
+.tip {
+  position: absolute;
+  top: calc(170 * var(--u));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: calc(18 * var(--u));
+  padding: calc(14 * var(--u)) calc(28 * var(--u)) calc(14 * var(--u)) calc(16 * var(--u));
+  translate: -50% 0;
+  rotate: -1deg;
+  font: 400 calc(40 * var(--u)) / 1.1 var(--font-display);
+  white-space: nowrap;
+}
+
+/* Drawn like the buttons on the phone, so the hint and the controller match. */
+.key-glyph {
+  width: calc(76 * var(--u));
+  aspect-ratio: 1;
+  border-width: calc(5 * var(--u));
+  border-radius: 50%;
+  background: var(--cream);
+  box-shadow: 0 calc(6 * var(--u)) 0 var(--ink);
+  font-size: calc(46 * var(--u));
+  animation: press 1100ms ease-in-out infinite;
+}
+
+.key-glyph.is-a {
+  background: linear-gradient(to top, var(--danger) 55%, var(--cream) 55%);
+}
+
+/* ── Player strip ───────────────────────────────────────────────────────── */
+
+.seat-strip {
+  position: absolute;
+  right: 0;
+  bottom: calc(24 * var(--u));
+  left: 0;
+  display: flex;
+  justify-content: center;
+  gap: calc(14 * var(--u));
+  padding: 0 calc(28 * var(--u));
+}
+
+.seat-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  width: calc(296 * var(--u));
+  min-width: 0;
+  height: calc(100 * var(--u));
+  padding: 0 calc(14 * var(--u)) 0 calc(12 * var(--u));
+  border-bottom-width: calc(10 * var(--u));
+  border-bottom-color: var(--seat);
+  font: 400 calc(30 * var(--u)) / 1.1 var(--font-display);
+  animation-delay: calc(var(--order) * var(--stagger));
+  transition:
+    background-color var(--move),
+    filter var(--move);
+}
+
+.seat-card.is-free {
+  border-style: dashed;
+  border-bottom-style: solid;
+  background: color-mix(in srgb, var(--cream) 70%, transparent);
+  box-shadow: none;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  animation: none;
+}
+
+.seat-card.is-away {
+  background: var(--tier-common);
+}
+
+.seat-card.is-ghost {
+  background: var(--tier-common);
+  filter: saturate(0.4);
+}
+
+.seat-shape {
+  display: flex;
+  flex: none;
+  width: calc(30 * var(--u));
+  height: calc(30 * var(--u));
+}
+
+.seat-portrait {
+  position: relative;
+  flex: none;
+  width: calc(64 * var(--u));
+  height: calc(64 * var(--u));
+}
+
+.seat-portrait img {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  height: calc(84 * var(--u));
+  translate: -50% 0;
+}
+
+/* The active power: its icon in a ring that empties as the power runs out. */
+.seat-power {
+  position: absolute;
+  top: calc(-34 * var(--u));
+  right: calc(-16 * var(--u));
+  display: grid;
+  place-items: center;
+  width: calc(50 * var(--u));
+  aspect-ratio: 1;
+  border: calc(4 * var(--u)) solid var(--ink);
+  border-radius: 50%;
+  background: conic-gradient(var(--tier) calc(var(--left) * 360deg), var(--white) 0);
+  font-size: calc(26 * var(--u));
+  animation: pop-in var(--pop-in) both;
+}
+
+.seat-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(7 * var(--u));
+  min-width: 0;
+}
+
+.seat-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Luck meter: six pips; the seventh roll after six without a SUPER is guaranteed. */
+.seat-pity {
+  display: flex;
+  gap: calc(4 * var(--u));
+}
+
+.seat-pity i {
+  width: calc(14 * var(--u));
+  height: calc(10 * var(--u));
+  border: calc(2 * var(--u)) solid var(--ink);
+  border-radius: calc(4 * var(--u));
+  background: var(--white);
+  transition: background-color var(--move);
+}
+
+.seat-pity i.is-on {
+  background: var(--gold);
+}
+
+.seat-score {
+  flex: none;
+  font-size: calc(54 * var(--u));
+  line-height: 1;
+  animation: punch 260ms var(--ease-pop, ease-out);
+}
+
+.seat-ready {
+  flex: none;
+  padding: calc(4 * var(--u)) calc(10 * var(--u));
+  border: calc(3 * var(--u)) solid var(--ink);
+  border-radius: calc(12 * var(--u));
+  background: var(--seat-4);
+  font-size: calc(24 * var(--u));
+  rotate: -4deg;
+  animation: pop-in var(--pop-in) both;
+}
+
+/* ── Results ────────────────────────────────────────────────────────────── */
+
+.results {
+  position: absolute;
+  top: calc(36 * var(--u));
+  left: calc(36 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(14 * var(--u));
+  width: calc(760 * var(--u));
+  padding: calc(22 * var(--u)) calc(26 * var(--u));
+  rotate: -1deg;
+}
+
+.results h1 {
+  font-size: calc(64 * var(--u));
+  line-height: 1;
+  text-align: center;
+}
+
+.results ol {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--u));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.result-row {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  height: calc(84 * var(--u));
+  padding: 0 calc(16 * var(--u));
+  border: calc(4 * var(--u)) solid var(--ink);
+  border-left-width: calc(16 * var(--u));
+  border-left-color: var(--seat);
+  border-radius: calc(16 * var(--u));
+  background: var(--white);
+  font: 400 calc(32 * var(--u)) / 1.1 var(--font-display);
+  animation: pop-in var(--pop-in) both;
+  animation-delay: calc(600ms + var(--order) * 120ms);
+}
+
+.result-place {
+  width: calc(56 * var(--u));
+  font-size: calc(40 * var(--u));
+}
+
+.result-portrait {
+  height: calc(88 * var(--u));
+  margin-top: calc(-14 * var(--u));
+}
+
+.result-name {
+  flex: none;
+  max-width: calc(190 * var(--u));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-award {
+  flex: 1;
+  min-width: 0;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+  font: 800 calc(28 * var(--u)) / 1.05 var(--font-text);
+}
+
+.result-score {
+  flex: none;
+  font-size: calc(40 * var(--u));
+}
+
+.results-keys {
+  font: 800 calc(28 * var(--u)) / 1.2 var(--font-text);
+  text-align: center;
+}
+
+/* ── Debug overlay (backtick) ───────────────────────────────────────────── */
+
+.debug-overlay {
+  position: absolute;
+  top: calc(420 * var(--u));
+  right: calc(32 * var(--u));
+  z-index: 4;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 14px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+  color: var(--cream);
+  font: 800 14px/1.3 var(--font-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.debug-overlay dd {
+  margin: 0;
+  text-align: right;
+}
+
+.debug-row {
+  display: contents;
+}
+
+/* ── Event feed ─────────────────────────────────────────────────────────── */
+
+.feed {
+  position: absolute;
+  top: calc(30 * var(--u));
+  right: calc(30 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(10 * var(--u));
+  pointer-events: none;
+}
+
+/* One animation carries a line in, holds it, and squishes it out; the game removes it when it ends. */
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  padding: calc(6 * var(--u)) calc(14 * var(--u));
+  border-width: calc(4 * var(--u));
+  box-shadow: 0 calc(5 * var(--u)) 0 var(--ink);
+  font: 400 calc(30 * var(--u)) / 1.1 var(--font-display);
+  white-space: nowrap;
+  transform-origin: right center;
+  animation: feed-life 3600ms both;
+}
+
+.feed-who {
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  padding: calc(2 * var(--u)) calc(10 * var(--u)) calc(2 * var(--u)) calc(6 * var(--u));
+  border-bottom: calc(6 * var(--u)) solid var(--seat);
+}
+
+.feed-shape {
+  display: flex;
+  width: calc(22 * var(--u));
+  height: calc(22 * var(--u));
+}
+
+.feed-icon {
+  font-size: calc(32 * var(--u));
+}
+
+/* ── Round banner ───────────────────────────────────────────────────────── */
+
+.round-banner {
+  position: absolute;
+  top: calc(170 * var(--u));
+  left: 50%;
+  padding: calc(12 * var(--u)) calc(40 * var(--u));
+  border-bottom-width: calc(14 * var(--u));
+  border-bottom-color: var(--seat);
+  translate: -50% 0;
+  rotate: -2deg;
+  font: 400 calc(72 * var(--u)) / 1.1 var(--font-display);
+  white-space: nowrap;
+}
+
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+
+/* Anything leaving squishes out. `Presence` adds this class and unmounts when it is done. */
+.is-leaving {
+  pointer-events: none;
+  animation: squish-out var(--squish-out) both !important;
+}
+
+@keyframes feed-life {
+  0% {
+    transform: scale(0);
+  }
+
+  6% {
+    transform: scale(1.12);
+  }
+
+  10%,
+  93% {
+    transform: scale(1);
+  }
+
+  96% {
+    transform: scale(1.08);
+  }
+
+  100% {
+    transform: scale(0);
+  }
+}
+
+@keyframes letter-drop {
+  from {
+    transform: translateY(-140%) rotate(-25deg) scale(0.4);
+    opacity: 0;
+  }
+
+  60% {
+    opacity: 1;
+  }
+}
+
+@keyframes letter-hop {
+  0%,
+  16%,
+  100% {
+    transform: none;
+  }
+
+  8% {
+    transform: translateY(-16%) rotate(5deg) scale(1.06, 0.96);
+  }
+}
+
+@keyframes letter-fly {
+  to {
+    transform: translate(calc((var(--i) - 3.5) * 45%), -130%) rotate(calc((var(--i) - 3.5) * 22deg)) scale(0.2);
+    opacity: 0;
+  }
+}
+
+
+@keyframes squish-out {
+  30% {
+    transform: scale(1.08);
+  }
+
+  to {
+    transform: scale(0);
+  }
+}
+
+@keyframes breathe {
+  to {
+    scale: 1.05;
+  }
+}
+
+@keyframes punch {
+  from {
+    scale: 1.6;
+  }
+}
+
+@keyframes press {
+  45%,
+  60% {
+    transform: translateY(calc(6 * var(--u)));
+    box-shadow: 0 0 0 var(--ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game * {
+    animation: none !important;
+  }
+}

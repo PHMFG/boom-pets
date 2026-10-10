@@ -1,0 +1,26 @@
+{
+  "name": "boom-pets",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.21.0",
+  "scripts": {
+    "dev": "concurrently -k -n relay,web -c magenta,cyan \"pnpm --filter @boom/relay dev\" \"pnpm --filter @boom/web dev\"",
+    "build": "pnpm --filter @boom/web build && node tools/check-bundle.ts",
+    "test": "vitest run",
+    "typecheck": "pnpm -r typecheck",
+    "inspect:pets": "node tools/inspect-glb.ts \"assets-raw/cube-pets/Models/GLB format\"",
+    "assets": "node tools/sync-assets.ts",
+    "font": "node tools/font.ts",
+    "fake": "node tools/fake-phones.ts",
+    "sounds": "node tools/sounds.ts",
+    "balance": "pnpm --filter @boom/relay exec tsx ../../tools/balance.ts",
+    "test:e2e": "playwright test",
+    "report": "node tools/playtest-report.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.1",
+    "concurrently": "^10.0.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

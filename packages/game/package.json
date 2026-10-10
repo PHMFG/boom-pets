@@ -1,0 +1,15 @@
+{
+  "name": "@boom/game",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@boom/protocol": "workspace:*",
+    "@dimforge/rapier3d-compat": "^0.21.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@boom/relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@boom/protocol": "workspace:*",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15"
+  }
+}
