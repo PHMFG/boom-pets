@@ -318,20 +318,20 @@ Everything in the build order through S5 is implemented, plus the S6 items that 
 
 ### Definition of done, as checked
 
-Updated after the first session with people, on 9 October 2026: two five-round matches on an iPhone and an Android phone over home Wi-Fi, the first with four players seated. The figures come from that session's logs, as `pnpm report` prints them.
+Two sessions with people stand behind this table. On 9 October 2026, two matches on build 0.1.0 with an iPhone and an Android phone. On 10 October 2026, three matches on build 0.4.2, run from `pnpm play`: six phones in the first (four iPhones, two Android phones) and five in the other two. The figures come from those sessions' logs, as `pnpm report` prints them.
 
 | # | Item | Checked by | Still needs |
 | --- | --- | --- | --- |
-| 1 | Six phones join from the QR code in under 30 seconds each, no install | Real phones scanned the QR code and joined with nothing installed: 12.7 s on the iPhone and 14.6 s on the Android phone from opening the page to being seated, typing the name included. Four phones joined the first match. Browser test: six emulated phones join, each timed | Six real phones at once |
-| 2 | A full 5-round match runs from lobby to results without a crash or desync | Two five-round matches played to their results on real phones. Browser test in real time, and the headless match that replays identically from a seed | — |
-| 3 | Input feels instant on home Wi-Fi (under 80 ms) | Read on the real phones during play: median round trips of 7 to 14 ms, worst 95th percentile 95 ms | — |
+| 1 | Six phones join from the QR code in under 30 seconds each, no install | Six real phones joined one match on 10 October with nothing installed, taking 3.9 to 10.1 s each from opening the page to being seated, typing the name included. The slowest join in any session was 14.6 s | — |
+| 2 | A full 5-round match runs from lobby to results without a crash or desync | Five five-round matches played to their results on real phones. Browser test in real time, and the headless match that replays identically from a seed | — |
+| 3 | Input feels instant on home Wi-Fi (under 80 ms) | Read on the real phones during play: median round trips of 7 to 14 ms across both sessions. The worst 95th percentile was 176 ms on one phone | — |
 | 4 | Solo and duo matches are playable with bots | Browser tests for one and for two players. With people, a two-player match was played with bots switched off | A person playing one match alone with bots, if evidence from people is wanted |
-| 5 | A phone that drops can rejoin the same pet within 10 seconds | Both real phones dropped and came back during play: 0.1 s and 0.5 s, as the phones measured it. The log cannot say whether they were locked or reloaded. Browser test: reload in the lobby, and closed and reopened mid-match | — |
-| 6 | One playtest with 4 or more people run and logged | Run and logged with four players seated, three of whom played; one phone never sent a touch. The log of that match names only two phones, because the relay then forgot phones that left before the end. That is fixed | A session where four or more all play |
+| 5 | A phone that drops can rejoin the same pet within 10 seconds | Three real returns across the sessions, the slowest 0.5 s, as the phones measured it. Browser test: reload in the lobby, and closed and reopened mid-match | — |
+| 6 | One playtest with 4 or more people run and logged | Three matches on 10 October with six, five and five people, all logged | — |
 
-The gate (two people play with no powers and laugh) was the second match: two players, five rounds, and the report from the table was that the game was liked. What that session found wrong, and what changed, is under "After the first playtest" below.
+The gate (two people play with no powers and laugh) was the second match of 9 October, and the report from the table was that the game was liked.
 
-**S6 is reached, by the owner's decision on 10 October 2026.** Two things in the table were never done as written: six real phones at once, and a session where four or more all play. The owner waived both on the strength of the first session, which proved on real phones what those items were there to prove: joining from the QR code, latency, coming back after a drop, and whole matches. They stay listed here as not done, and `pnpm report` will still mark them from the logs when such a session happens.
+**S6 is reached on its own items**, as of the session of 10 October 2026. Before that session the owner had waived two of them (six phones at once, and four or more all playing); the session then did both, so the waiver is no longer what S6 rests on. What that session showed about how the game plays is in `docs/GAMEPLAY.md` under "What playtests have taught".
 
 ### The session that closes S6
 

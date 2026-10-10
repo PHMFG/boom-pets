@@ -95,6 +95,18 @@ Changes come from watching people play, and are checked by measuring.
 
 Also from that session: a grabbed player's joystick was dropped, so they had to lift the thumb and press again once free. A held thumb is now never dropped.
 
+**Second playtest, 10 October 2026 (six phones, then five; build 0.4.2).** Three matches. The first playtest's fixes moved the problem instead of ending it. What the logs show, with nothing changed yet:
+
+| Seen in the logs | The numbers |
+| --- | --- |
+| Throwing is now nearly the only way anyone is knocked out | 44 of 65 knockouts were throws (68%), and 2 were dashes. With bots alone the split had been even |
+| B is the button that pays for mashing | One player grabbed 90 times, missed 218 and threw 83, and won two of the three matches with 78 points each time, against 36 and 24 for second place. A missed grab rests B for 0.4 s, which did not slow this down |
+| Almost nobody charges a dash | Of the dashes players made, 75% to 99% were taps. Four of six players charged fewer than seven dashes in three matches |
+| A is still mashed, now to no effect | Two players pressed A 512 and 340 times while it was resting. The ring on the phone and under the pet is not being read as "wait" |
+| Powers are used about half the time | Five uses in three matches, from about nine powers that waited on the button |
+
+This breaks pillar 3 (mashing B is the best way to play) and pillar 4 (in practice nothing beats a grab). The network side held: joins of 0.4 to 10 s, median latency of 7 to 14 ms, and every drop back within half a second.
+
 ## Checklist for anything that changes how the game plays
 
 1. It answers something seen in play, and you can say which pillar it serves.

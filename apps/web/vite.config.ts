@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 // Relative import: the config is bundled before the workspace packages are resolvable.
-import { RELAY_PORT, WS_PATH } from '../../packages/protocol/src/index';
+import { RELAY_PORT, WS_PATH } from '../../packages/protocol/src/index.ts';
 
 // The version shown on the title screen and on the phone's join page: the one in the root package.json.
 const { version } = JSON.parse(readFileSync(resolve(import.meta.dirname, '../../package.json'), 'utf8')) as { version: string };

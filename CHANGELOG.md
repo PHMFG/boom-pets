@@ -4,7 +4,13 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-Nothing yet.
+### Recorded
+
+- The second playtest (10 October 2026, six phones, build 0.4.2): `docs/PLAN.md` now shows the definition of done met on its own items, and `docs/GAMEPLAY.md` records what the logs showed about how people played, which is that throwing has become the one thing that works.
+
+### Fixed
+
+- Starting the game no longer prints a warning about the web server's configuration.
 
 ## [0.4.2] - 2026-10-10
 
