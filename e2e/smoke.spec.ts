@@ -195,7 +195,8 @@ test('four phones join, play a match with a SUPER gacha, and see their results',
   await page.keyboard.press('Escape');
   await expect(page.locator('.how')).toBeHidden();
   await expect(page.locator('.menu-item')).toHaveCount(3);
-  // The first key press allowed sound, so the menu's own track is playing.
+  // The first key press allowed sound: every announcer line is recorded and loaded, and the menu's own track is playing.
+  await expect.poll(() => page.evaluate(() => (window.__BOOM__ as unknown as { session: { audio: { lines: Map<string, unknown> } } }).session.audio.lines.size), { message: 'the announcer has all his lines' }).toBe(12);
   await expect.poll(() => page.evaluate(() => !(window.__BOOM__ as unknown as { session: { audio: { tracks: Map<string, { element: HTMLAudioElement }> } } }).session.audio.tracks.get('title')!.element.paused), { message: 'the title track plays on the menu' }).toBe(true);
   await expect.poll(() => page.evaluate(() => window.__BOOM__.game.seats.filter(seat => seat.bot).length), { message: 'bots brawl behind the title' }).toBe(4);
   await session.openLobby();

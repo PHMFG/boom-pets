@@ -14,6 +14,7 @@
     "font": "node tools/font.ts",
     "fake": "node tools/fake-phones.ts",
     "sounds": "node tools/sounds.ts",
+    "voice": "node tools/voice.ts",
     "balance": "pnpm --filter @boom/relay exec tsx ../../tools/balance.ts",
     "test:e2e": "playwright test",
     "report": "node tools/playtest-report.ts"

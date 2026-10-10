@@ -11,6 +11,7 @@ Nothing yet.
 ### Added
 
 - **A soundtrack.** Five recorded tracks replace the synthesised tune: one for the main menu, one for the lobby and the results, two battle themes that take turns from one match to the next, and Rio Rumble for the last round, the one that counts double. Tracks fade into each other, the lobby theme picks up where it left off, and the music still ducks under big moments and goes muffled in slow motion. The synthesised tune stays as a stand-in if a file is missing.
+- **A dramatic announcer.** His lines used to be read flat by the browser's own voice, which cannot take effects. They are now recorded and played through a chain of them: deeper than recorded, doubled, saturated, compressed, thrown into a three-second hall with an echo bouncing after it, about 10 dB louder than an impact, with a low boom under the big lines and the music ducking out of the way. He also says more: "Boom Pets!" when the game starts, the countdown "Três! Dois! Um! Já!", "Rodada final! Vale dobrado!", "Fim de jogo!" and the full "Troca da vingança!". `pnpm voice` re-records the lines.
 
 ## [0.3.0] - 2026-10-10
 

@@ -134,6 +134,7 @@ export class Session {
     hud.set({ title: false });
     this.audio.setSong('lobby');
     this.audio.click();
+    this.audio.announce('brand');
     // The demo bots leave in puffs of smoke and the camera settles on the lobby.
     this.stage.setTitle(false);
     this.game.setLobbySeats(this.lobbySeats());
@@ -424,7 +425,10 @@ export class Session {
           this.tipUntil = performance.now() + TIP_MS * 3;
         }
         // The last round counts double, and gets its own track from its countdown on.
-        if (event.phase === 'countdown' && game.isFinalRound && game.rounds > 1) this.audio.setSong('final', true);
+        if (event.phase === 'countdown' && game.isFinalRound && game.rounds > 1) {
+          this.audio.setSong('final', true);
+          this.audio.announce('finalRound');
+        }
         if (event.phase === 'matchEnd') {
           this.log.save(game);
           this.audio.setSong('lobby');

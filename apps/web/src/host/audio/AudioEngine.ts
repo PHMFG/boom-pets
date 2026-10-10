@@ -3,6 +3,7 @@
 // moments and goes muffled in slow motion. If a track's file is missing, a synthesised tune stands in.
 import type { Game, GameEvent } from '@boom/game';
 import { tuning } from '@boom/game';
+import { strings } from '../../shared/strings.pt-BR';
 
 const SAMPLES = ['hit1', 'hit2', 'hit3', 'bump1', 'bump2', 'land1', 'land2', 'wood1', 'wood2', 'crack1', 'crack2', 'clang', 'lever', 'glass', 'ding', 'tick'] as const;
 type Sample = (typeof SAMPLES)[number];
@@ -31,6 +32,39 @@ type TrackId = keyof typeof TRACKS;
 export type Song = TrackId | null;
 type Track = { element: HTMLAudioElement; gain: GainNode; broken: boolean };
 
+/** The announcer's lines, recorded by `pnpm voice` into `public/voice`. */
+export type Line = keyof typeof strings.announcer;
+const LINES = Object.keys(strings.announcer) as Line[];
+/** The countdown numbers give way to anything else being shouted. */
+const QUIET_LINES: ReadonlySet<Line> = new Set(['three', 'two', 'one']);
+/** Lines that land with a low boom under them. */
+const BIG_LINES: ReadonlySet<Line> = new Set(['brand', 'go', 'finalRound', 'matchEnd', 'superPull', 'superCurse', 'kaboom']);
+
+/**
+ * The announcer is a stadium voice: deeper than recorded, doubled, pushed into grit, squashed flat,
+ * then thrown into a big hall with an echo bouncing after it, well above everything else.
+ */
+const ANNOUNCER = {
+  /** Playback speed. Under 1 is deeper and slower. */
+  depth: 0.9,
+  /** A second copy a hair lower and later, which thickens one voice into two. */
+  doubleDetune: 0.985,
+  doubleDelay: 0.018,
+  doubleLevel: 0.6,
+  /** How hard the voice is pushed into the saturator. 1 is clean. */
+  grit: 3,
+  hallSeconds: 3.2,
+  hallLevel: 0.6,
+  echoSeconds: 0.24,
+  echoFeedback: 0.4,
+  echoLevel: 0.36,
+  /**
+   * Final level into the master limiter. Measured at this setting, a line runs about 10 dB hotter than
+   * an impact and peaks just over full scale on the longest one, which the limiter catches.
+   */
+  level: 0.9,
+} as const;
+
 /** Seconds one track takes to fade into the next. */
 const MUSIC_FADE = 0.7;
 /** How loud a recorded track sits on the music bus. The bus itself is kept low so effects stay on top. */
@@ -44,6 +78,10 @@ export class AudioEngine {
   private music!: GainNode;
   private musicFilter!: BiquadFilterNode;
   private readonly buffers = new Map<Sample, AudioBuffer>();
+  private readonly lines = new Map<Line, AudioBuffer>();
+  /** Where a line goes in: the head of the announcer's effects. */
+  private announcer!: GainNode;
+  private announcerBusyUntil = 0;
   private song: Song = null;
   private readonly tracks = new Map<TrackId, Track>();
   /** The stand-in tune playing because the wanted track has no file. */
@@ -83,6 +121,14 @@ export class AudioEngine {
     this.music.gain.value = 0.16;
     this.music.connect(this.musicFilter).connect(this.master);
 
+    this.buildAnnouncer(context);
+    for (const line of LINES) {
+      void fetch(`/voice/${line}.m4a`)
+        .then(response => response.arrayBuffer())
+        .then(bytes => context.decodeAudioData(bytes))
+        .then(buffer => this.lines.set(line, buffer))
+        .catch(() => undefined);
+    }
     for (const name of SAMPLES) {
       void fetch(`/sounds/${name}.m4a`)
         .then(response => response.arrayBuffer())
@@ -175,7 +221,12 @@ export class AudioEngine {
   handle(event: GameEvent): void {
     switch (event.t) {
       case 'countdown':
-        return event.n === 0 ? (this.tone(880, 0.35, 'square', 0.2, 1320), this.say('Já!')) : this.tone(440, 0.14, 'square', 0.16);
+        if (event.n === 0) {
+          this.tone(880, 0.35, 'square', 0.2, 1320);
+          return this.announce('go');
+        }
+        this.tone(440, 0.14, 'square', 0.16);
+        return this.announce(event.n === 3 ? 'three' : event.n === 2 ? 'two' : 'one');
       case 'dash':
         return this.whoosh(0.16 + event.charge * 0.14, 0.12 + event.charge * 0.16);
       case 'dashHit':
@@ -228,7 +279,7 @@ export class AudioEngine {
       case 'gachaStart':
         this.duck(tuning.gacha.duration);
         this.arpeggio([0, 4, 7, 12, 16, 19, 24], 0.045, 'square', 0.14);
-        return this.say('Super sorte!');
+        return this.announce('superPull');
       case 'gachaLever':
         return this.sample(['lever'], 0.7);
       case 'gachaJinx':
@@ -238,21 +289,24 @@ export class AudioEngine {
         if (event.cursed) {
           // The sad trombone.
           [0, -1, -2, -3].forEach((semitone, index) => window.setTimeout(() => this.tone(NOTE(semitone - 12), index === 3 ? 0.6 : 0.24, 'sawtooth', 0.16, index === 3 ? NOTE(semitone - 14) : undefined), index * 260));
-          return this.say('Super zica!');
+          return this.announce('superCurse');
         }
         return this.arpeggio([0, 4, 7, 12, 16, 19, 24, 28], 0.06, 'square', 0.16);
       case 'meteorCall':
         return this.tone(1500, event.delay, 'sine', 0.07, 300);
       case 'revengeSwap':
         this.arpeggio([12, 7, 12, 19], 0.07, 'sawtooth', 0.14);
-        return this.say('Troca!');
+        return this.announce('swap');
       case 'score':
         return this.tone(NOTE(12 + Math.min(12, event.points)), 0.1, 'triangle', 0.12);
       case 'roundWinner':
         return this.arpeggio([0, 4, 7, 12, 7, 12, 16], 0.11, 'square', 0.16);
       case 'phase':
-        if (event.phase === 'roundEnd') this.say('Fim!');
-        if (event.phase === 'matchEnd') this.arpeggio([0, 4, 7, 12, 16, 12, 16, 19, 24], 0.12, 'square', 0.18);
+        if (event.phase === 'roundEnd') this.announce('roundOver');
+        if (event.phase === 'matchEnd') {
+          this.arpeggio([0, 4, 7, 12, 16, 12, 16, 19, 24], 0.12, 'square', 0.18);
+          this.announce('matchEnd');
+        }
         return;
       default:
         return;
@@ -338,7 +392,7 @@ export class AudioEngine {
     // The thump rises in pitch along a chain reaction.
     this.tone(110 * 2 ** (Math.min(chain, 6) / 12), 0.45, 'sine', 0.5, 38);
     this.duck(0.5);
-    if (chain >= 2) this.say('Kabum!');
+    if (chain >= 2) this.announce('kaboom');
   }
 
   /** Pulls the music down for a moment so the important sound cuts through. */
@@ -350,7 +404,104 @@ export class AudioEngine {
     this.music.gain.setTargetAtTime(0.16, context.currentTime + seconds, 0.25);
   }
 
-  /** The announcer: the computer's own Portuguese voice, until real lines are recorded. */
+  /**
+   * The announcer shouts a line. The countdown numbers stay quiet while another line is still being
+   * said; everything else is said at once, over whatever is ringing.
+   */
+  announce(line: Line): void {
+    const context = this.context;
+    if (!context || this.muted) return;
+    const now = context.currentTime;
+    if (QUIET_LINES.has(line) && now < this.announcerBusyUntil) return;
+    const buffer = this.lines.get(line);
+    // No recording (the file is missing, or still loading): the computer's own voice says it, dry.
+    if (!buffer) return this.say(strings.announcer[line]);
+
+    const seconds = buffer.duration / ANNOUNCER.depth;
+    this.announcerBusyUntil = now + seconds;
+    for (const [rate, delay, level] of [[ANNOUNCER.depth, 0, 1], [ANNOUNCER.depth * ANNOUNCER.doubleDetune, ANNOUNCER.doubleDelay, ANNOUNCER.doubleLevel]] as const) {
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      source.playbackRate.value = rate;
+      gain.gain.value = level;
+      source.connect(gain).connect(this.announcer);
+      source.start(now + delay);
+    }
+    if (BIG_LINES.has(line)) {
+      // A drop into the floor and a burst of air under the first syllable.
+      this.tone(70, 0.7, 'sine', 0.6, 28);
+      this.noise(0.35, 0.25, 900, 120, 'lowpass');
+    }
+    // The music gets out of the way for the line and most of its tail.
+    this.duck(seconds + 0.8);
+  }
+
+  /** Builds the chain every announcer line runs through. See ANNOUNCER for what each stage is for. */
+  private buildAnnouncer(context: AudioContext): void {
+    this.announcer = context.createGain();
+    const rumbleCut = context.createBiquadFilter();
+    rumbleCut.type = 'highpass';
+    rumbleCut.frequency.value = 90;
+    const body = context.createBiquadFilter();
+    body.type = 'lowshelf';
+    body.frequency.value = 190;
+    body.gain.value = 6;
+    const presence = context.createBiquadFilter();
+    presence.type = 'peaking';
+    presence.frequency.value = 2800;
+    presence.Q.value = 0.9;
+    presence.gain.value = 5;
+
+    // Grit: a soft clip, the same curve a megaphone or an overdriven desk gives.
+    const drive = context.createGain();
+    drive.gain.value = ANNOUNCER.grit;
+    const saturator = context.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let index = 0; index < curve.length; index++) curve[index] = Math.tanh((index / (curve.length - 1)) * 2 - 1);
+    saturator.curve = curve;
+    saturator.oversample = '4x';
+    const squash = context.createDynamicsCompressor();
+    squash.threshold.value = -26;
+    squash.ratio.value = 9;
+    squash.attack.value = 0.003;
+    squash.release.value = 0.14;
+
+    // The hall: three seconds of decaying noise, different in each ear, heard after a short gap.
+    const hall = context.createConvolver();
+    const length = Math.floor(context.sampleRate * ANNOUNCER.hallSeconds);
+    const impulse = context.createBuffer(2, length, context.sampleRate);
+    const gap = Math.floor(context.sampleRate * 0.025);
+    for (let channel = 0; channel < 2; channel++) {
+      const data = impulse.getChannelData(channel);
+      for (let index = gap; index < length; index++) data[index] = (Math.random() * 2 - 1) * (1 - index / length) ** 2.6;
+    }
+    hall.buffer = impulse;
+    const hallLevel = context.createGain();
+    hallLevel.gain.value = ANNOUNCER.hallLevel;
+
+    // The echo: the line bounces back, darker each time.
+    const echo = context.createDelay(1);
+    echo.delayTime.value = ANNOUNCER.echoSeconds;
+    const echoBack = context.createGain();
+    echoBack.gain.value = ANNOUNCER.echoFeedback;
+    const echoDull = context.createBiquadFilter();
+    echoDull.type = 'lowpass';
+    echoDull.frequency.value = 2400;
+    const echoLevel = context.createGain();
+    echoLevel.gain.value = ANNOUNCER.echoLevel;
+
+    const out = context.createGain();
+    out.gain.value = ANNOUNCER.level;
+    this.announcer.connect(rumbleCut).connect(body).connect(presence).connect(drive).connect(saturator).connect(squash);
+    squash.connect(out);
+    squash.connect(hall).connect(hallLevel).connect(out);
+    squash.connect(echo).connect(echoDull).connect(echoLevel).connect(out);
+    echoDull.connect(echoBack).connect(echo);
+    out.connect(this.master);
+  }
+
+  /** The computer's own Portuguese voice, with no effects: only for a line that has no recording. */
   private say(text: string): void {
     if (this.muted || !this.context || speechSynthesis.speaking) return;
     const line = new SpeechSynthesisUtterance(text);

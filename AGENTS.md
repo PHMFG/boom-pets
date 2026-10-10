@@ -53,6 +53,8 @@ Relay (`apps/relay/src/`): `relay.ts` passes messages, keeps the roster (`room.t
 
 Shared: `apps/web/src/shared/` (tokens, motion, strings, pets, power icons, SVG glyphs) and `packages/protocol/src/` (`index.ts` messages, `schemas.ts` validation for the relay).
 
+Announcer: one recording per line in `apps/web/public/voice/`, made by `pnpm voice`. The drama (depth, doubling, grit, hall, echo, level) is the `ANNOUNCER` block at the top of `audio/AudioEngine.ts`.
+
 Music: five tracks in `apps/web/public/music/` (`title`, `lobby`, `battle-a`, `battle-b`, `rio-rumble`). Which plays when is in `docs/DESIGN.md` under Sound. To change a track, replace its file and keep the name.
 
 Documents: `docs/DESIGN.md` and `docs/GAMEPLAY.md` (the style, above), `docs/PLAN.md` (the original plan and what was built), `CHANGELOG.md` (what changed in each version, and why).
@@ -69,6 +71,7 @@ Other: `tools/` (scripts below), `assets-raw/` (unzipped Kenney packs, not commi
 - `pnpm balance 30`: play 30 bot-only matches without a screen and print pacing numbers. Run it after changing `tuning.ts`, `round.ts` or `bots.ts`. The ranges to stay inside are in `docs/GAMEPLAY.md`.
 - `pnpm font`: rebuild the 3D font after changing `words3d` or the power names. It fails if a character has no glyph.
 - `pnpm assets`, `pnpm sounds`: copy models and skyboxes, and convert impact sounds, from `assets-raw` into `apps/web/public`.
+- `pnpm voice`: record the announcer's lines (`strings.announcer`) into `apps/web/public/voice` with this Mac's Portuguese voice. Run it after changing a line. It needs macOS and ffmpeg; the recordings are committed, so nobody else has to run it.
 - `pnpm inspect:pets`: list parts and clips of every pet model.
 
 ## Host keys

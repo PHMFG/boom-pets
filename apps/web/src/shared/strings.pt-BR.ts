@@ -36,6 +36,25 @@ export const strings = {
     pinata: 'Pinhata',
   },
 
+  /**
+   * What the announcer shouts. `pnpm voice` records each line to `public/voice/<key>.m4a`;
+   * run it again after changing one.
+   */
+  announcer: {
+    brand: 'Boom Pets!',
+    three: 'Três!',
+    two: 'Dois!',
+    one: 'Um!',
+    go: 'Já!',
+    finalRound: 'Rodada final! Vale dobrado!',
+    roundOver: 'Fim!',
+    matchEnd: 'Fim de jogo!',
+    superPull: 'Super sorte!',
+    superCurse: 'Super zica!',
+    swap: 'Troca da vingança!',
+    kaboom: 'Kabum!',
+  },
+
   /** One line on what each power does. Shown beside its name on the TV and on the phone. */
   powerHints: {
     rocket: 'Corre muito mais rápido', megaDash: 'Uma investida gigante, na hora', jelly: 'Quem bater em você volta voando',

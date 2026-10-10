@@ -165,6 +165,7 @@ A new effect goes on this ladder next to something of the same weight, and is no
 
 - One track fades into the next; nothing cuts. Music sits under the effects, ducks for big moments (a gacha, an explosion) and goes muffled in slow motion.
 - If a track's file is missing, a synthesised tune stands in, so the game is never silent.
+- **The announcer is a stadium voice, and the loudest thing in the game.** His lines are recorded (`strings.announcer`, `pnpm voice`) and played deeper than recorded, doubled, pushed into grit, squashed flat and thrown into a big hall with an echo after it; the big lines land with a low boom, and the music gets out of the way. He speaks only at the moments the whole room should look up: the countdown, the final round, the end of a round and of the match, a SUPER and its curse, the revenge swap, a chain of explosions. A new line has to be one of those moments, or he becomes noise.
 - Sound follows size: a bigger charge whooshes longer and louder, a bigger blast booms longer, and each link of a chain reaction thumps higher.
 - Every event that matters is heard as well as seen. S mutes.
 
