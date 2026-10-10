@@ -25,6 +25,8 @@ export const strings = {
     doubleRound: 'VALE DOBRADO!',
     swap: 'TROCA!',
     escaped: 'ESCAPOU!',
+    grabbed: 'PEGOU!',
+    thrown: 'VOA!',
   },
 
   /** Shown in the HUD, on phones and (in capitals) as 3D words when a power starts. */
@@ -32,6 +34,15 @@ export const strings = {
     rocket: 'Botas Foguete', megaDash: 'Mega Investida', jelly: 'Corpo de Gelatina', giant: 'Modo Gigante', decoys: 'Clones Isca',
     reversed: 'Controles Invertidos', pebble: 'Pedrinha', honk: 'Modo Buzina', kaiju: 'Modo Kaiju', meteorShower: 'Chuva de Meteoros',
     pinata: 'Pinhata',
+  },
+
+  /** One line on what each power does. Shown beside its name on the TV and on the phone. */
+  powerHints: {
+    rocket: 'Corre muito mais rápido', megaDash: 'Uma investida gigante, na hora', jelly: 'Quem bater em você volta voando',
+    giant: 'Fica enorme e difícil de empurrar', decoys: 'Três clones que explodem ao toque',
+    reversed: 'Seus controles ficam ao contrário', pebble: 'Fica pequeno e voa com qualquer tapa', honk: 'Buzina sem parar. Só isso.',
+    kaiju: 'Vira um monstro: cada passo é um tremor', meteorShower: 'Chove meteoro em todo mundo, menos em você',
+    pinata: 'Quem acertar você ganha um poder',
   },
 
   tiers: { common: 'Comum', rare: 'Raro', cursed: 'Zicado', super: 'SUPER', superCurse: 'SUPER ZICA' },
@@ -73,7 +84,7 @@ export const strings = {
     networkPlaceholder: 'Nome da rede (opcional)',
     freeSeat: 'Livre',
     sleeping: (seconds: number) => `zzz ${seconds}`,
-    tryIt: 'Treine aqui: A dispara, B agarra.',
+    tryIt: 'Treine aqui: segure A e solte para disparar. B agarra e arremessa.',
     hintNoOne: 'Ninguém entrou ainda? Redes de convidados costumam bloquear a conexão entre aparelhos. Tente a rede de casa.',
     noNetwork: 'Este computador não está em nenhuma rede. Conecte no Wi-Fi.',
     offline: 'Sem conexão com o servidor do jogo. Tentando de novo…',
@@ -85,7 +96,15 @@ export const strings = {
 
   hud: {
     double: '×2',
-    tips: { dash: 'Segure para carregar, solte para disparar', grab: 'Agarre e arremesse barris e bichos' },
+    tips: {
+      dash: 'Segure para carregar, solte para disparar. Só apertar é um empurrãozinho',
+      grab: 'Chegue perto e agarre. Aperte de novo para arremessar',
+      power: 'Pegou um cubo? O poder espera no botão novo do celular',
+    },
+    /** On the card that explains a power: who has it, and whether it is waiting or already running. */
+    powerReady: 'tem',
+    powerOn: 'ativou',
+    powerCursed: 'foi zicado:',
     roundTo: (name: string) => `Rodada de ${name}!`,
     roundTie: 'Empate!',
     resultsTitle: 'Fim de jogo!',
@@ -102,6 +121,7 @@ export const strings = {
     lever: 'Puxe!',
     jinx: 'ZICA!',
     mash: 'Aperte rápido!',
+    usePower: 'Toque para usar',
     waitNext: 'Você entra na próxima partida',
     iosHint: 'Dica: em Compartilhar, toque em “Adicionar à Tela de Início” para jogar em tela cheia.',
     place: (place: number) => `${place}º lugar`,

@@ -12,4 +12,18 @@ export const motion = {
   punch: { ms: 90, scale: 1.2 },
   /** Anything idle. */
   breathe: { ms: 2400, amount: 0.02 },
+  /** Anything asking to be pressed: one swell this long, back and forth. */
+  nudge: { ms: 500 },
+  /** A prompt waiting for a key, slower than a nudge. */
+  prompt: { ms: 1100 },
+  /** Danger: one beat this long, back and forth, which keeps it under three blinks a second. */
+  alarm: { ms: 380 },
+  /** A shake that says "do something": one swing this long. */
+  wobble: { ms: 180 },
+  /** The pulse on a phone's border that stands in for vibration. */
+  buzz: { ms: 320 },
+  /** How long a line of the event feed stays. */
+  feed: { ms: 3600 },
+  /** The title: when the tag line arrives after the letters, and how long the letters take to fly off. */
+  title: { tagDelayMs: 620, flyMs: 360 },
 } as const;

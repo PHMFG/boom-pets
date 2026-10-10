@@ -137,6 +137,9 @@ body {
   /* Where B sits. The lobby panel reads these to stay clear of it. */
   --b-right: min(47vmin, 222px);
   --b-size: min(26vmin, 124px);
+  /* A's size, and the power button's, which sits centred above A. */
+  --a-size: min(36vmin, 170px);
+  --use-size: min(24vmin, 112px);
   position: fixed;
   top: 0;
   left: 0;
@@ -169,7 +172,7 @@ body {
 }
 
 .pad.is-buzz::after {
-  animation: buzz 320ms ease-out;
+  animation: buzz var(--buzz) ease-out;
 }
 
 .pad-strip {
@@ -227,6 +230,11 @@ body {
   opacity: 1;
 }
 
+/* Carried: the stick stays under the thumb but goes dim, because for now nothing listens to it. */
+.pad[data-mode='carried'] .stick-base.is-active {
+  opacity: 0.4;
+}
+
 .stick-base::before {
   content: '';
   position: absolute;
@@ -277,8 +285,7 @@ body {
 .pad-a {
   right: 7vmin;
   bottom: 9vmin;
-  width: 36vmin;
-  max-width: 170px;
+  width: var(--a-size);
   font-size: min(19vmin, 90px);
 }
 
@@ -293,6 +300,17 @@ body {
   background: var(--gold);
 }
 
+/* B says what it would do. Something in reach: it turns gold and shows a hand. Carrying: it shows the throw. */
+.pad-b[data-does='grab'],
+.pad-b[data-does='throw'] {
+  background: var(--gold);
+  animation: breathe var(--nudge) ease-in-out infinite alternate;
+}
+
+.pad-b[data-does='throw'] {
+  background: var(--danger);
+}
+
 /* Holding A fills it like a gauge. It empties at once on release. */
 .pad-gauge {
   position: absolute;
@@ -301,9 +319,9 @@ body {
   background: var(--danger);
 }
 
-.pad-a.is-down .pad-gauge {
+.pad-a.is-charging .pad-gauge {
   height: 100%;
-  transition: height 1200ms linear;
+  transition: height var(--charge) linear;
 }
 
 .pad-letter {
@@ -495,7 +513,8 @@ body {
   background: conic-gradient(color-mix(in srgb, var(--ink) 55%, transparent) var(--angle, 0deg), transparent 0);
 }
 
-.pad[data-mode='ghost'] .pad-cooldown {
+.pad[data-mode='ghost'] .pad-cooldown,
+.pad[data-mode='alive'] .pad-a.is-cooling .pad-cooldown {
   display: block;
 }
 
@@ -513,6 +532,98 @@ body {
   animation: cooldown var(--cooldown, 4000ms) linear both;
 }
 
+/* The power button. It is only there while a power waits, so its arrival is the news. */
+.pad-use {
+  position: absolute;
+  right: calc(7vmin + (var(--a-size) - var(--use-size)) / 2);
+  bottom: calc(9vmin + var(--a-size) + 5vmin);
+  display: grid;
+  place-items: center;
+  width: var(--use-size);
+  aspect-ratio: 1;
+  border: var(--outline) solid var(--ink);
+  border-radius: 50%;
+  background: var(--tier, var(--gold));
+  box-shadow: 0 var(--shadow) 0 var(--ink);
+  font-size: calc(var(--use-size) * 0.52);
+  line-height: 1;
+  transition:
+    transform var(--punch),
+    box-shadow var(--punch);
+}
+
+.pad-use.is-new {
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad-use.is-down {
+  transform: translateY(var(--shadow));
+  box-shadow: 0 0 0 var(--ink);
+}
+
+.pad-use-icon {
+  animation: breathe var(--nudge) ease-in-out infinite alternate;
+}
+
+/* "Toque para usar", on a tag over the button. */
+.pad-use::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: calc(100% + 1.2vmin);
+  left: 50%;
+  padding: 0.8vmin 2vmin;
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  background: var(--cream);
+  font-size: 3.4vmin;
+  white-space: nowrap;
+  translate: -50% 0;
+  pointer-events: none;
+}
+
+/* What the power does: the one waiting on the button, or the one running now. */
+.pad-card {
+  position: absolute;
+  top: 4vmin;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8vmin;
+  max-width: 78vmin;
+  padding: 1.6vmin 3.4vmin 2vmin;
+  border: 3px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--cream);
+  box-shadow: 0 5px 0 var(--ink);
+  text-align: center;
+  translate: -50% 0;
+  pointer-events: none;
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad-card.is-held {
+  background: var(--tier, var(--cream));
+}
+
+.pad-card-name {
+  font-size: 5.6vmin;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.pad-card-hint {
+  font-family: var(--font-text);
+  font-size: 3.8vmin;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+/* The connection banner shares that spot and matters more. */
+.pad-banner:not([hidden]) ~ .pad-card {
+  display: none;
+}
+
 /* Carried: a loud instruction, and the buttons shake until the player mashes free. */
 .pad[data-mode='carried'] .pad-banner {
   top: 22vmin;
@@ -522,7 +633,7 @@ body {
 }
 
 .pad[data-mode='carried'] .pad-button {
-  animation: wobble 180ms ease-in-out infinite alternate;
+  animation: wobble var(--wobble) ease-in-out infinite alternate;
 }
 
 /* Held too long: the border pulses in the danger colour, under three times a second. */
@@ -532,7 +643,7 @@ body {
   inset: 0;
   border: 3vmin solid var(--danger);
   pointer-events: none;
-  animation: warn 380ms ease-in-out infinite alternate;
+  animation: warn var(--alarm) ease-in-out infinite alternate;
 }
 
 /* Lever and ZICA cover the whole pad. */
@@ -565,7 +676,7 @@ body {
   paint-order: stroke fill;
   color: var(--white);
   rotate: -4deg;
-  animation: breathe 500ms ease-in-out infinite alternate;
+  animation: breathe var(--nudge) ease-in-out infinite alternate;
 }
 
 .pad-lever-track {
@@ -597,11 +708,11 @@ body {
   line-height: 1;
   -webkit-text-stroke: 3vmin var(--ink);
   paint-order: stroke fill;
-  animation: breathe 420ms ease-in-out infinite alternate;
+  animation: breathe var(--nudge) ease-in-out infinite alternate;
 }
 
 .pad-jinx.is-tapped {
-  animation: jinx 120ms ease-out;
+  animation: jinx var(--punch) ease-out;
 }
 
 .pad-results {

@@ -232,9 +232,9 @@ export class Round {
       id, seat: setup.seat, decoy, pet: setup.pet, alive: true,
       x, y, z, px: x, py: y, pz: z, vx: 0, vy: 0, vz: 0,
       facing: Math.atan2(-x, -z), grounded: false, falling: false, teeter: false, scale: 1,
-      chargeTime: 0, dashTime: 0, dashCharge: 0, dashX: 0, dashZ: 1, authority: 1,
-      reachTime: 0, reachTarget: null, carriedBy: null, carrying: null, carriedTime: 0, mash: 0, grabImmune: 0,
-      thrown: false, lastHit: null, power: null, powerLeft: 0, powerTotal: 0, slot: null, respawnIn: 0,
+      chargeTime: 0, dashTime: 0, dashCharge: 0, dashX: 0, dashZ: 1, dashCooldown: 0, dashCooldownTotal: 0, authority: 1,
+      reachTime: 0, reachTarget: null, carriedBy: null, carrying: null, carriedTime: 0, mash: 0, grabImmune: 0, grabTarget: null, grabLock: 0,
+      thrown: false, lastHit: null, power: null, powerLeft: 0, powerTotal: 0, held: null, slot: null, respawnIn: 0,
     };
     this.pets.push(pet);
     this.inner.set(id, {
@@ -296,7 +296,11 @@ export class Round {
   private controlPet(pet: Pet, input: SampledInput): void {
     const inner = this.inner.get(pet.id)!;
     pet.grabImmune = Math.max(0, pet.grabImmune - STEP);
-    pet.authority = Math.min(1, pet.authority + STEP / petTune.controlRecovery);
+    pet.grabLock = Math.max(0, pet.grabLock - STEP);
+    pet.dashCooldown = Math.max(0, pet.dashCooldown - STEP);
+    // A thrown pet tumbles: it cannot steer until it lands.
+    pet.authority = pet.thrown ? 0 : Math.min(1, pet.authority + STEP / petTune.controlRecovery);
+    pet.grabTarget = null;
 
     if (pet.carriedBy !== null) return this.tickCarried(pet, input);
 
@@ -307,21 +311,29 @@ export class Round {
       stickZ = -stickZ;
     }
 
-    for (const edge of input.edges) if (edge.button === 'b' && edge.down) this.pressB(pet, stickX, stickZ);
+    for (const edge of input.edges) {
+      if (!edge.down) continue;
+      if (edge.button === 'b') this.pressB(pet, stickX, stickZ);
+      else if (edge.button === 'c') this.usePower(pet, stickX, stickZ);
+    }
     if (pet.reachTime > 0) {
       pet.reachTime -= STEP;
       if (pet.reachTime <= 0) this.finishReach(pet);
     }
+    if (!pet.decoy && !pet.carrying && pet.reachTime <= 0 && pet.dashTime <= 0 && pet.grabLock <= 0) pet.grabTarget = this.inReach(pet, stickX, stickZ);
 
     if (!this.chargeFrozen && pet.dashTime <= 0 && !pet.carrying && !pet.decoy) {
-      // A tap that began and ended between two steps never shows as "held", so it is caught from its edges.
-      const tapped = !input.a && pet.chargeTime === 0 && input.edges.some(edge => edge.button === 'a' && edge.down);
-      if (input.a) {
+      const pressed = input.edges.some(edge => edge.button === 'a' && edge.down);
+      if (pet.dashCooldown > 0) {
+        // Still catching its breath after the last dash: A does nothing, and a press says so.
+        if (pressed) this.hooks.emit({ t: 'tired', pet: pet.id });
+      } else if (input.a) {
         // A stalled connection pauses the charge: it must never run on into a detonation.
         if (!input.stale) pet.chargeTime += STEP;
         if (pet.chargeTime >= dash.overchargeAt) return this.overcharge(pet);
-      } else if (pet.chargeTime > 0 || tapped) {
-        this.startDash(pet, stickX, stickZ);
+      } else if (pet.chargeTime > 0 || pressed) {
+        // A tap that began and ended between two steps never shows as "held", so it is caught from its edges.
+        this.startDash(pet, stickX, stickZ, false);
       }
     }
 
@@ -338,8 +350,23 @@ export class Round {
       return;
     }
 
-    const slowed = pet.chargeTime > 0 || pet.reachTime > 0 ? dash.chargingSpeed : 1;
-    const speed = petTune.speed * (POWER_SPEED[pet.power ?? 'megaDash'] ?? 1) * (pet.carrying ? grab.carrySpeed : 1) * slowed;
+    const prey = pet.reachTime > 0 && pet.reachTarget !== null ? this.petById(pet.reachTarget) : undefined;
+    if (prey) {
+      // Reaching is a lunge at the target, so walking away from a grab does not work. It stops short of a drop.
+      const distance = Math.hypot(prey.x - pet.x, prey.z - pet.z) || 1;
+      const dx = (prey.x - pet.x) / distance;
+      const dz = (prey.z - pet.z) / distance;
+      const go = distance > petTune.radius * (pet.scale + prey.scale) && this.isFloor(pet.x + dx * 0.6, pet.z + dz * 0.6) ? grab.lungeSpeed : 0;
+      pet.facing = Math.atan2(dx, dz);
+      inner.body.setLinvel({ x: dx * go, y: velocity.y, z: dz * go }, true);
+      return;
+    }
+
+    const slowed = pet.chargeTime > 0 ? dash.chargingSpeed : 1;
+    // A carried pet that wriggles drags its carrier's feet.
+    const load = pet.carrying?.kind === 'pet' ? (this.petById(pet.carrying.id)?.mash ?? 0) / grab.escapeTaps : 0;
+    const carry = pet.carrying ? grab.carrySpeed * (1 - grab.struggle * Math.min(1, load)) : 1;
+    const speed = petTune.speed * (POWER_SPEED[pet.power ?? 'megaDash'] ?? 1) * carry * slowed;
     const blend = 1 - Math.exp(-petTune.control * pet.authority * STEP);
     vx += (stickX * speed - vx) * blend;
     vz += (stickZ * speed - vz) * blend;
@@ -389,10 +416,10 @@ export class Round {
     return { x: Math.sin(wanted + bend), z: Math.cos(wanted + bend) };
   }
 
-  private startDash(pet: Pet, stickX: number, stickZ: number): void {
+  /** `mega` is the Mega Dash power: a full charge and more, at once. */
+  private startDash(pet: Pet, stickX: number, stickZ: number, mega: boolean): void {
     const inner = this.inner.get(pet.id)!;
-    const charge = clamp(pet.chargeTime / dash.chargeTime, 0, 1);
-    const mega = pet.power === 'megaDash';
+    const charge = mega ? 1 : clamp(pet.chargeTime / dash.chargeTime, 0, 1);
     const direction = this.aim(pet, stickX, stickZ);
     pet.dashCharge = charge;
     pet.dashX = direction.x;
@@ -403,14 +430,16 @@ export class Round {
     pet.facing = Math.atan2(direction.x, direction.z);
     inner.dashSpeed = lerp(dash.minSpeed, dash.maxSpeed, charge) * (mega ? 1.3 : 1);
     inner.dashBoost = mega ? 2 : 1;
-    if (mega) this.endPower(pet);
     this.hooks.emit({ t: 'dash', pet: pet.id, charge, x: pet.x, z: pet.z, dx: direction.x, dz: direction.z });
   }
 
   private endDash(pet: Pet, hit: boolean): void {
     pet.dashTime = 0;
     pet.authority = hit ? 0.35 : 0.5;
+    // A dash has to be paid for before the next one, and a miss costs more: mashing A gets nowhere.
+    pet.dashCooldown = pet.dashCooldownTotal = hit ? dash.cooldown : dash.cooldownMiss;
     if (pet.power === 'giant') this.breakTiles(pet.x, pet.z, 1.3);
+    this.hooks.emit({ t: 'dashEnd', pet: pet.id, seat: pet.seat, hit });
   }
 
   /** While dashing: the first pet or barrel touched ends the dash with a blast. */
@@ -445,9 +474,19 @@ export class Round {
 
     if (victim.power === 'jelly') {
       // Jelly bounces the attacker back with their own force.
+      this.endDash(attacker, true);
       this.knock(attacker, -attacker.dashX, -attacker.dashZ, force * 0.9, dash.lift, { seat: victim.seat, step: this.steps, cause: 'power' });
-      attacker.dashTime = 0;
       this.hooks.emit({ t: 'dashHit', pet: attacker.id, seat: attacker.seat, x, y: attacker.y, z, charge, radius, victims: [] });
+      return;
+    }
+
+    if (charge < dash.shoveBelow && inner.dashBoost === 1) {
+      // A tap is only a shove: it nudges the one pet it touches, which carries on with whatever it was doing.
+      const pushed = this.knock(victim, attacker.dashX, attacker.dashZ, dash.shoveForce, dash.shoveLift, credit, true);
+      if (victim.power === 'pinata' && !attacker.decoy) this.grantFree(attacker);
+      inner.body.setLinvel({ x: attacker.dashX * 1.5, y: 0, z: attacker.dashZ * 1.5 }, true);
+      this.endDash(attacker, true);
+      this.hooks.emit({ t: 'dashHit', pet: attacker.id, seat: attacker.seat, x, y: attacker.y, z, charge, radius: 0, victims: pushed ? [victim.id] : [] });
       return;
     }
 
@@ -481,9 +520,16 @@ export class Round {
   }
 
   /** Sends a pet flying. Returns false if a power makes it immune. Every knock stamps who did it, for kill credit. */
-  private knock(pet: Pet, dx: number, dz: number, speed: number, lift: number, credit: Credit): boolean {
+  private knock(pet: Pet, dx: number, dz: number, speed: number, lift: number, credit: Credit, light = false): boolean {
     const taken = POWER_KNOCK[pet.power ?? 'megaDash'] ?? 1;
     if (taken === 0) return false;
+    if (light) {
+      // A shove moves a pet without stopping its charge, its grab or what it carries.
+      if (pet.carriedBy === null) this.inner.get(pet.id)!.body.setLinvel({ x: dx * speed * taken, y: lift, z: dz * speed * taken }, true);
+      pet.authority = Math.min(pet.authority, dash.shoveControl);
+      pet.lastHit = credit;
+      return true;
+    }
     this.dropCarried(pet, credit);
     if (pet.carriedBy !== null) this.release(pet, false);
     this.inner.get(pet.id)!.body.setLinvel({ x: dx * speed * taken, y: lift * Math.min(1.5, Math.sqrt(taken)), z: dz * speed * taken }, true);
@@ -617,22 +663,19 @@ export class Round {
 
   private pressB(pet: Pet, stickX: number, stickZ: number): void {
     if (pet.carrying) return this.throwCarried(pet, stickX, stickZ);
-    if (pet.reachTime > 0 || pet.dashTime > 0 || pet.decoy) return;
+    if (pet.reachTime > 0 || pet.dashTime > 0 || pet.decoy || pet.grabLock > 0) return;
 
-    let barrel: Barrel | null = null;
-    let barrelDistance = grab.range + barrelTune.radius;
-    for (const candidate of this.barrels) {
-      if (candidate.carriedBy !== null || candidate.fuse !== null) continue;
-      const distance = Math.hypot(candidate.x - pet.x, candidate.z - pet.z);
-      if (distance < barrelDistance && Math.abs(candidate.y - pet.y) < 1.5) {
-        barrelDistance = distance;
-        barrel = candidate;
-      }
+    const found = this.inReach(pet, stickX, stickZ);
+    const barrel = found?.kind === 'barrel' ? this.barrels.find(candidate => candidate.id === found.id) : undefined;
+    const target = found?.kind === 'pet' ? this.petById(found.id) : undefined;
+    if (!barrel && !target) {
+      // Nothing there: the swipe is seen, and B rests a moment so it cannot be mashed either.
+      pet.grabLock = grab.missLock;
+      this.hooks.emit({ t: 'grabMiss', pet: pet.id });
+      return;
     }
-    const target = this.grabbablePet(pet, grab.range + petTune.radius);
-    const targetDistance = target ? Math.hypot(target.x - pet.x, target.z - pet.z) : Infinity;
 
-    if (barrel && barrelDistance <= targetDistance) {
+    if (barrel) {
       // Barrels are grabbed at once; only pets need the wind-up.
       barrel.carriedBy = pet.id;
       barrel.thrown = false;
@@ -649,20 +692,34 @@ export class Round {
     }
   }
 
-  private grabbablePet(pet: Pet, range: number, only?: number): Pet | null {
-    let best: Pet | null = null;
-    let nearest = range;
-    for (const other of this.pets) {
-      if (!other.alive || other === pet || other.seat === pet.seat || other.carriedBy !== null || other.grabImmune > 0) continue;
-      if (only !== undefined && other.id !== only) continue;
-      // Giants and kaiju are too big to lift.
-      if (other.scale > 1.5 || Math.abs(other.y - pet.y) > 1.5) continue;
-      const distance = Math.hypot(other.x - pet.x, other.z - pet.z);
-      if (distance < nearest) {
-        nearest = distance;
-        best = other;
+  private canGrab(pet: Pet, other: Pet): boolean {
+    if (!other.alive || other === pet || other.seat === pet.seat || other.carriedBy !== null || other.grabImmune > 0) return false;
+    // A pet in mid-dash slips through the hands: a grab beats a charge, and a dash let go in time beats a grab.
+    if (other.dashTime > 0) return false;
+    // Giants and kaiju are too big to lift.
+    return other.scale <= 1.5 && Math.abs(other.y - pet.y) <= 1.5;
+  }
+
+  /** What B would take right now: the barrel or rival in reach, favouring whatever the pet is heading toward. */
+  private inReach(pet: Pet, stickX: number, stickZ: number): { kind: 'pet' | 'barrel'; id: number } | null {
+    const heading = Math.hypot(stickX, stickZ) > 0.25 ? Math.atan2(stickX, stickZ) : pet.facing;
+    let best: { kind: 'pet' | 'barrel'; id: number } | null = null;
+    let lowest = Infinity;
+    const consider = (kind: 'pet' | 'barrel', id: number, x: number, z: number, radius: number) => {
+      const distance = Math.hypot(x - pet.x, z - pet.z);
+      if (distance > grab.range + radius) return;
+      const bearing = Math.atan2(x - pet.x, z - pet.z) - heading;
+      // Something straight ahead counts as nearer than something behind.
+      const score = distance * (1 + 0.5 * (Math.abs(Math.atan2(Math.sin(bearing), Math.cos(bearing))) / Math.PI));
+      if (score < lowest) {
+        lowest = score;
+        best = { kind, id };
       }
+    };
+    for (const barrel of this.barrels) {
+      if (barrel.carriedBy === null && barrel.fuse === null && Math.abs(barrel.y - pet.y) < 1.5) consider('barrel', barrel.id, barrel.x, barrel.z, barrelTune.radius);
     }
+    for (const other of this.pets) if (this.canGrab(pet, other)) consider('pet', other.id, other.x, other.z, petTune.radius * other.scale);
     return best;
   }
 
@@ -671,9 +728,13 @@ export class Round {
     const wanted = pet.reachTarget;
     pet.reachTarget = null;
     if (wanted === null) return;
-    // The target had the wind-up to get away: it must still be close.
-    const target = this.grabbablePet(pet, grab.range + petTune.radius + 0.5, wanted);
-    if (!target) return;
+    // The lunge has closed most of the gap, so only a target that got well clear escapes.
+    const target = this.petById(wanted);
+    if (!target || !this.canGrab(pet, target) || Math.hypot(target.x - pet.x, target.z - pet.z) > grab.range + petTune.radius * target.scale + grab.slack) {
+      pet.grabLock = grab.missLock;
+      this.hooks.emit({ t: 'grabMiss', pet: pet.id });
+      return;
+    }
     this.dropCarried(target, null);
     target.carriedBy = pet.id;
     target.carriedTime = 0;
@@ -692,7 +753,8 @@ export class Round {
     const carrier = pet.carriedBy === null ? undefined : this.petById(pet.carriedBy);
     if (!carrier?.alive) return this.release(pet, false);
     pet.carriedTime += STEP;
-    pet.mash += input.edges.filter(edge => edge.down).length;
+    // The first moment in the air is the grabber's: wriggling only counts after it.
+    if (pet.carriedTime >= grab.escapeGrace) pet.mash += input.edges.filter(edge => edge.down).length;
     if (pet.carriedTime >= grab.escapeTime || pet.mash >= grab.escapeTaps) {
       this.release(pet, true);
       this.hooks.emit({ t: 'escape', pet: pet.id });
@@ -788,6 +850,10 @@ export class Round {
       const landing = floor && position.y <= stand + 0.03 && pet.py > stand - petTune.stepUp && velocity.y <= 0.5;
       if (landing) {
         if (!pet.grounded && velocity.y < -2) this.hooks.emit({ t: 'land', pet: pet.id, speed: -velocity.y });
+        if (pet.thrown) {
+          velocity.x *= grab.landGrip;
+          velocity.z *= grab.landGrip;
+        }
         inner.body.setTranslation({ x: position.x, y: stand, z: position.z }, true);
         inner.body.setLinvel({ x: velocity.x, y: 0, z: velocity.z }, true);
         inner.body.setGravityScale(0, true);
@@ -826,7 +892,8 @@ export class Round {
         if (Math.hypot(other.x - pet.x, other.z - pet.z) > petTune.radius * (pet.scale + other.scale) + 0.1 || Math.abs(other.y - pet.y) > 1.2) continue;
         const speed = Math.hypot(pet.vx, pet.vz) || 1;
         const thrower = inner.thrower === null ? undefined : this.petById(inner.thrower);
-        this.knock(other, pet.vx / speed, pet.vz / speed, 9, 4, { seat: thrower?.seat ?? pet.seat, step: this.steps, cause: 'throw' });
+        this.knock(other, pet.vx / speed, pet.vz / speed, grab.throwHitForce, grab.throwHitLift, { seat: thrower?.seat ?? pet.seat, step: this.steps, cause: 'throw' });
+        this.hooks.emit({ t: 'throwHit', pet: pet.id, victim: other.id, x: (pet.x + other.x) / 2, z: (pet.z + other.z) / 2 });
         pet.thrown = false;
         break;
       }
@@ -983,7 +1050,30 @@ export class Round {
   private grantFree(pet: Pet): void {
     const power = this.hooks.freeCommon();
     this.hooks.emit({ t: 'roll', pet: pet.id, seat: pet.seat, tier: 'common', power, pity: -1, instant: true });
-    this.applyPower(pet.id, power);
+    this.hold(pet, power);
+  }
+
+  /** Puts a power on the pet's power button, replacing one it had not used. */
+  private hold(pet: Pet, power: PowerId): void {
+    pet.held = power;
+    this.hooks.emit({ t: 'powerReady', pet: pet.id, seat: pet.seat, power });
+  }
+
+  /** The power button: starts the power the pet is holding. */
+  private usePower(pet: Pet, stickX: number, stickZ: number): void {
+    const power = pet.held;
+    if (!power || pet.decoy) return;
+    if (power !== 'megaDash') {
+      pet.held = null;
+      return this.applyPower(pet.id, power);
+    }
+    // A Mega Dash is the dash itself, so it waits for a moment when the pet could dash.
+    if (pet.dashTime > 0 || pet.carrying || pet.reachTime > 0 || this.chargeFrozen) return;
+    pet.held = null;
+    pet.chargeTime = 0;
+    this.hooks.emit({ t: 'powerStart', pet: pet.id, seat: pet.seat, power });
+    this.startDash(pet, stickX, stickZ, true);
+    this.hooks.emit({ t: 'powerEnd', pet: pet.id, seat: pet.seat, power });
   }
 
   private tickPowers(): void {
@@ -995,7 +1085,9 @@ export class Round {
           const { tier, power } = pet.slot;
           pet.slot = null;
           if (tier === 'super') this.superPending = { seat: pet.seat, pet: pet.id, power };
-          else this.applyPower(pet.id, power);
+          // A curse does not wait to be asked. Anything good goes on the power button.
+          else if (tier === 'cursed') this.applyPower(pet.id, power);
+          else this.hold(pet, power);
         }
       }
       if (!pet.power) continue;

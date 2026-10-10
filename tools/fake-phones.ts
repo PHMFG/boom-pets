@@ -52,6 +52,9 @@ function startPhone(index: number): WebSocket {
     } else {
       press('b', true);
       setTimeout(() => press('b', false), 80);
+      // Whatever power is waiting gets used sooner or later.
+      press('c', true);
+      setTimeout(() => press('c', false), 80);
     }
   }, 1500 + Math.random() * 1500);
   setInterval(() => {

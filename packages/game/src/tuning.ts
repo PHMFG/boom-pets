@@ -66,19 +66,42 @@ export const dash = {
   /** A barrel only explodes when dashed at this charge or more. */
   barrelCharge: 0.5,
   overchargeForce: 20,
+  /** A dash with less than this share of a full charge (a tap) is only a shove: one pet, a small push, no blast. */
+  shoveBelow: 0.25,
+  shoveForce: 4.5,
+  shoveLift: 1.5,
+  /** Stick control a shoved pet keeps. A real hit leaves none. */
+  shoveControl: 0.6,
+  /** Seconds before A works again after a dash that hit something, and after one that hit nothing. */
+  cooldown: 0.5,
+  cooldownMiss: 0.9,
 } as const;
 
 export const grab = {
-  range: 1.2,
-  /** Seconds a pet reaches before grabbing another pet. Barrels are instant. */
-  windUp: 0.25,
-  carrySpeed: 0.8,
+  range: 1.7,
+  /** Seconds a pet lunges at another pet before the grab lands. Barrels are instant. */
+  windUp: 0.2,
+  lungeSpeed: 9,
+  /** How much farther than `range` the target may be when the lunge ends. */
+  slack: 0.7,
+  /** Seconds B does nothing after a grab at thin air. */
+  missLock: 0.4,
+  carrySpeed: 0.85,
   escapeTime: 2.5,
-  escapeTaps: 6,
+  escapeTaps: 8,
+  /** Seconds a grabbed pet is held before its taps start to count: time to turn toward an edge. */
+  escapeGrace: 0.5,
+  /** How much a carried pet's wriggling slows the carrier, at the last tap before it gets free. */
+  struggle: 0.4,
   /** Seconds a released pet cannot be grabbed again. */
   immunity: 1,
-  throwSpeed: 13,
-  throwLift: 5.5,
+  throwSpeed: 11.5,
+  throwLift: 6.5,
+  /** Share of its speed a thrown pet keeps when it lands. It splats rather than slides, so where it was thrown from matters. */
+  landGrip: 0.45,
+  /** Knock given to a rival that a thrown pet lands on. */
+  throwHitForce: 11,
+  throwHitLift: 5,
 } as const;
 
 export const barrel = {
@@ -138,6 +161,8 @@ export const match = {
   /** Seconds a knock is remembered for kill credit. */
   creditWindow: 3,
   killPoints: 3,
+  /** Extra points for a knockout by throwing. */
+  throwBonus: 1,
   placePoints: [5, 3, 1],
   swapPoints: 2,
   bountyPoints: 2,

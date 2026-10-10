@@ -39,6 +39,8 @@ export function cleanName(raw: string, seat: number): string {
 export class Room {
   readonly code: string;
   private readonly seats = new Map<number, Seat>();
+  /** Phones whose seat ran out since the last playtest log, and when, kept so that log still knows they played. */
+  private departed: { phone: PhoneConnection; at: number }[] = [];
   private readonly makeToken: () => string;
 
   constructor(code: string, makeToken: () => string) {
@@ -93,7 +95,11 @@ export class Room {
     for (const seat of this.seats.values()) {
       if (seat.releaseAt !== null && now >= seat.releaseAt) freed.push(seat.seat);
     }
-    freed.forEach(seat => this.seats.delete(seat));
+    for (const index of freed) {
+      const seat = this.seats.get(index)!;
+      this.departed.push({ at: now, phone: { seat: seat.seat, name: seat.name, device: seat.device, joinMs: seat.joinMs, rejoins: seat.rejoins, worstRejoinMs: seat.worstRejoinMs, left: true } });
+      this.seats.delete(index);
+    }
     return freed;
   }
 
@@ -102,16 +108,22 @@ export class Room {
     if (found) found.rtt = rtt;
   }
 
-  /** Each seated phone's kind, how long it took to join, and its returns since the last call. */
-  takeConnections(): PhoneConnection[] {
-    return [...this.seats.values()]
+  /**
+   * Each phone's kind, how long it took to join, and its returns since the last call. Phones whose seat
+   * ran out at or after `since` (when the match being logged began) come last; earlier leavers were not in it.
+   */
+  takeConnections(since = 0): PhoneConnection[] {
+    const seated = [...this.seats.values()]
       .sort((a, b) => a.seat - b.seat)
-      .map(seat => {
+      .map((seat): PhoneConnection => {
         const taken = { seat: seat.seat, name: seat.name, device: seat.device, joinMs: seat.joinMs, rejoins: seat.rejoins, worstRejoinMs: seat.worstRejoinMs };
         seat.rejoins = 0;
         seat.worstRejoinMs = null;
         return taken;
       });
+    const all = [...seated, ...this.departed.filter(entry => entry.at >= since).map(entry => entry.phone)];
+    this.departed = [];
+    return all;
   }
 
   snapshot(now: number): SeatInfo[] {

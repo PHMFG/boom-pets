@@ -1,13 +1,14 @@
 // Runs the game on the host: the fixed-rate loop, who sits where, when a match starts and ends,
 // and keeping the stage, the sound, the HUD and every phone in step with the simulation.
 import { Game, initPhysics, InputBuffer, POWERS, tuning, type BotStyle, type GameEvent, type SeatSetup } from '@boom/game';
-import { MAX_SEATS, type PhoneMode, type PhoneStatus, type SeatInfo } from '@boom/protocol';
+import { MAX_SEATS, type PhoneMode, type PhoneStatus, type PowerCard, type SeatInfo } from '@boom/protocol';
+import { motion } from '../../shared/motion';
 import { PET_IDS, type PetId } from '../../shared/pets';
 import { AWARD_ICON, CAUSE_ICON, EMOTES, POWER_ICON, TIER_COLOR } from '../../shared/powers';
 import { strings } from '../../shared/strings.pt-BR';
 import { AudioEngine } from '../audio/AudioEngine';
 import type { Nameplates } from '../hud/Nameplates';
-import { hud, type FeedItem, type FeedWho, type Options, type PlayerCard } from '../hud/store';
+import { hud, type FeedItem, type FeedWho, type Options, type PlayerCard, type PowerNote } from '../hud/store';
 import { HostSocket, type PhoneRequest } from '../net/HostSocket';
 import { isPetId, loadPets } from '../render/assets';
 import { GameStage } from '../stages/GameStage';
@@ -15,12 +16,15 @@ import { PlaytestLog } from './PlaytestLog';
 
 const STEP = tuning.STEP;
 const OPTIONS_KEY = 'boom.options';
-const TUTORIAL_KEY = 'boom.tutorialSeen';
+// The number goes up when the controls change, so everyone sees the hints once more.
+const TUTORIAL_KEY = 'boom.tutorialSeen.2';
+const TIP_MS = 7000;
+const POWER_NOTE_MS = 4500;
 /** Seconds between "everyone is ready" and the match starting, so a slip of the thumb can be undone. */
 const AUTO_START = 3;
 const HUD_EVERY_MS = 180;
 /** How long a line stays in the event feed. Matches the feed's enter-and-leave animation. */
-const FEED_MS = 3600;
+const FEED_MS = motion.feed.ms;
 const FEED_LINES = 4;
 /** The bots that brawl behind the title screen. */
 const DEMO_STYLES: readonly BotStyle[] = ['kamikaze', 'thrower', 'coward', 'kamikaze'];
@@ -61,6 +65,7 @@ export class Session {
   private feed: (FeedItem & { until: number })[] = [];
   private feedId = 0;
   private banner: { seat: number; text: string } | null = null;
+  private powerNote: (PowerNote & { until: number }) | null = null;
 
   /** `solo` runs without phones (bots only) and never touches the relay, for testing beside a real session. */
   constructor(stageHost: HTMLElement, nameplates: Nameplates, options: { autostart: boolean; solo: boolean }) {
@@ -340,11 +345,40 @@ export class Session {
           if (seat !== undefined) this.socket?.send(seat, { t: 'haptic', pattern: 'hit' });
         }
         break;
+      case 'dash':
+      case 'dashEnd':
+      case 'throw':
+        // The phone shows A resting after a dash and what B would do, so it hears of these at once, not at the next refresh.
+        this.syncPhones();
+        break;
+      case 'grab':
+        if (event.kind === 'pet') {
+          const grabber = game.round.petById(event.pet)?.seat;
+          const grabbed = game.round.petById(event.target)?.seat;
+          if (grabber !== undefined) this.socket?.send(grabber, { t: 'haptic', pattern: 'tap' });
+          if (grabbed !== undefined) this.socket?.send(grabbed, { t: 'haptic', pattern: 'hit' });
+        }
+        this.syncPhones();
+        break;
+      case 'powerReady':
+        this.socket?.send(event.seat, { t: 'haptic', pattern: 'warn' });
+        this.notePower(event.seat, event.power, 'ready');
+        this.syncPhones();
+        break;
+      case 'powerStart': {
+        // A power someone chose to use was explained when they got it. One that starts by itself is explained now.
+        const tier = POWERS[event.power].tier;
+        if (tier === 'cursed' || tier === 'superCurse') this.notePower(event.seat, event.power, 'cursed');
+        else if (tier === 'super') this.notePower(event.seat, event.power, 'on');
+        this.syncPhones();
+        break;
+      }
       case 'eliminated':
         if (event.decoy) break;
         this.socket?.send(event.seat, { t: 'haptic', pattern: 'boom' });
         // Who knocked out whom, and how. A fall of one's own making has no "by".
-        if (game.phase === 'play') this.pushFeed(event.killer === null ? null : this.who(event.killer), CAUSE_ICON[event.cause], this.who(event.seat), null);
+        // The round may already have ended on this very knockout, so "in a match" is the test, not "still playing".
+        if (game.phase === 'play' || game.phase === 'roundEnd') this.pushFeed(event.killer === null ? null : this.who(event.killer), CAUSE_ICON[event.cause], this.who(event.seat), null);
         break;
       case 'gachaStart':
         this.socket?.send(event.seat, { t: 'haptic', pattern: 'warn' });
@@ -366,9 +400,9 @@ export class Session {
         break;
       case 'phase':
         if (event.phase === 'play' && event.round === 1 && !localStorage.getItem(TUTORIAL_KEY)) {
-          // First ever match: two short hints, one after the other.
+          // First ever match: three short hints, one after the other.
           localStorage.setItem(TUTORIAL_KEY, '1');
-          this.tipUntil = performance.now() + 14_000;
+          this.tipUntil = performance.now() + TIP_MS * 3;
         }
         if (event.phase === 'matchEnd') {
           this.log.save(game);
@@ -385,6 +419,16 @@ export class Session {
 
   private who(seat: number): FeedWho {
     return { seat, name: this.game?.seats.find(candidate => candidate.seat === seat)?.name ?? '' };
+  }
+
+  private powerCard(power: keyof typeof POWERS): PowerCard {
+    return { icon: POWER_ICON[power], name: strings.powers[power], hint: strings.powerHints[power], color: TIER_COLOR[POWERS[power].tier] };
+  }
+
+  private notePower(seat: number, power: keyof typeof POWERS, state: PowerNote['state']): void {
+    if (this.game?.phase !== 'play') return;
+    this.powerNote = { id: this.feedId++, who: this.who(seat), state, ...this.powerCard(power), until: performance.now() + POWER_NOTE_MS };
+    hud.set({ powerNote: this.powerNote });
   }
 
   private pushFeed(by: FeedWho | null, icon: string, target: FeedWho | null, text: string | null): void {
@@ -410,6 +454,7 @@ export class Session {
         score: game.scores.get(seat.seat) ?? 0,
         pity: game.pity.get(seat.seat) ?? 0,
         power: pet?.power ? { icon: POWER_ICON[pet.power], color: TIER_COLOR[POWERS[pet.power].tier], left: pet.powerTotal > 0 ? pet.powerLeft / pet.powerTotal : 0 } : null,
+        held: pet?.held ? { icon: POWER_ICON[pet.held], color: TIER_COLOR[POWERS[pet.held].tier] } : null,
         bounty: game.bounty === seat.seat,
         ghost: game.round.ghosts.some(ghost => ghost.seat === seat.seat),
       };
@@ -418,7 +463,9 @@ export class Session {
     const tipLeft = this.tipUntil - now;
     if (this.feed.some(item => item.until <= now)) this.feed = this.feed.filter(item => item.until > now);
     if (game.phase !== 'roundEnd') this.banner = null;
+    if (this.powerNote && (this.powerNote.until <= now || game.phase !== 'play')) this.powerNote = null;
     hud.set({
+      powerNote: this.powerNote,
       feed: this.feed,
       banner: this.banner,
       phase: game.phase,
@@ -427,7 +474,7 @@ export class Session {
       timeLeft: Math.ceil(game.timeLeft),
       players,
       startIn: this.autoStartAt === null ? null : Math.max(0, Math.ceil((this.autoStartAt - now) / 1000)),
-      tip: game.phase === 'play' && tipLeft > 0 ? (tipLeft > 7000 ? 'dash' : 'grab') : null,
+      tip: game.phase === 'play' && tipLeft > 0 ? (tipLeft > TIP_MS * 2 ? 'dash' : tipLeft > TIP_MS ? 'grab' : 'power') : null,
       results: game.standings.map(entry => ({
         seat: entry.seat,
         name: names.get(entry.seat)?.name ?? '',
@@ -462,12 +509,15 @@ export class Session {
         mode,
         pet: strings.pets[choice.pet],
         ready: choice.ready,
-        power: pet?.power ? { icon: POWER_ICON[pet.power], name: strings.powers[pet.power], color: TIER_COLOR[POWERS[pet.power].tier] } : null,
+        power: pet?.power ? this.powerCard(pet.power) : null,
+        held: pet?.held ? this.powerCard(pet.held) : null,
+        b: pet?.carrying ? 'throw' : pet?.grabTarget ? 'grab' : 'idle',
         pity: game.pity.get(seat) ?? 0,
         bounty: game.bounty === seat,
         score: game.scores.get(seat) ?? 0,
-        // Rounded so the message only changes a few times while the meteor recharges.
-        cooldownMs: ghost ? Math.ceil(ghost.cooldown * 2) * 500 : 0,
+        // A ghost's wait is rounded so the message only changes a few times while the meteor recharges.
+        // A pet's is the whole rest after its dash, steady until the rest is over.
+        cooldownMs: ghost ? Math.ceil(ghost.cooldown * 2) * 500 : pet && pet.dashCooldown > 0 ? Math.round(pet.dashCooldownTotal * 1000) : 0,
         place: standing?.place ?? null,
         award: standing?.award ? { icon: AWARD_ICON[standing.award], name: strings.awards[standing.award] } : null,
       };

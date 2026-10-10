@@ -253,8 +253,10 @@ export class PetView {
     this.ring.visible = onFloor && !carried;
     this.ring.position.y = 0.035 - this.feet.y;
     // The ring swells with the charge and turns to the danger colour at the warning, so the floor shows the risk too.
-    this.ring.scale.setScalar(Math.max(0.001, this.size.value) * (1 + 0.55 * charge));
-    this.ringMaterial.color.set(warning ? colors.danger : this.seatColor);
+    // After a dash it shrinks and goes grey, and grows back as the pet gets its breath: full size means A is ready.
+    const resting = pet.dashCooldownTotal > 0 ? pet.dashCooldown / pet.dashCooldownTotal : 0;
+    this.ring.scale.setScalar(Math.max(0.001, this.size.value) * (1 + 0.55 * charge) * (1 - 0.4 * resting));
+    this.ringMaterial.color.set(warning ? colors.danger : resting > 0 ? colors.steel : this.seatColor);
 
     this.updateBubble(pet, dt);
     this.footDust(pet, speed, context);

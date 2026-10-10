@@ -5,13 +5,16 @@ import { MAX_SEATS, type HostHello, type HostMessage, type PhoneHello, type Phon
 const axis = z.number().min(-1).max(1);
 const haptic = z.object({ t: z.literal('haptic'), pattern: z.enum(['tap', 'hit', 'warn', 'boom', 'win']) });
 const label = z.string().max(40);
+const powerCard = z.object({ icon: label, name: label, hint: z.string().max(80), color: label });
 const status = z.object({
   t: z.literal('status'),
   screen: z.enum(['lobby', 'play', 'results', 'wait']),
   mode: z.enum(['alive', 'ghost', 'carried', 'lever', 'jinx']),
   pet: label,
   ready: z.boolean(),
-  power: z.object({ icon: label, name: label, color: label }).nullable(),
+  power: powerCard.nullable(),
+  held: powerCard.nullable(),
+  b: z.enum(['idle', 'grab', 'throw']),
   pity: z.number().int().min(0).max(99),
   bounty: z.boolean(),
   score: z.number().int(),
@@ -37,8 +40,8 @@ export const hostHelloSchema: z.ZodType<HostHello> = z.object({
 });
 
 export const phoneMessageSchema: z.ZodType<PhoneMessage> = z.discriminatedUnion('t', [
-  z.object({ t: z.literal('input'), seq: z.number().int().nonnegative(), x: axis, y: axis, held: z.number().int().min(0).max(3) }),
-  z.object({ t: z.literal('button'), button: z.enum(['a', 'b']), down: z.boolean() }),
+  z.object({ t: z.literal('input'), seq: z.number().int().nonnegative(), x: axis, y: axis, held: z.number().int().min(0).max(7) }),
+  z.object({ t: z.literal('button'), button: z.enum(['a', 'b', 'c']), down: z.boolean() }),
   z.object({ t: z.literal('ping'), id: z.number().int().nonnegative(), rtt: z.number().min(0).max(60_000).nullable() }),
   z.object({ t: z.literal('pet'), dir: z.union([z.literal(-1), z.literal(1)]) }),
   z.object({ t: z.literal('ready'), ready: z.boolean() }),

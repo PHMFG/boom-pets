@@ -46,6 +46,8 @@ export type PlayerCard = {
   pity: number;
   /** `left` runs from 1 to 0 as the power runs out. */
   power: { icon: string; color: string; left: number } | null;
+  /** A power waiting on this player's power button. */
+  held: { icon: string; color: string } | null;
   bounty: boolean;
   ghost: boolean;
 };
@@ -53,6 +55,9 @@ export type PlayerCard = {
 export type FeedWho = { seat: number; name: string };
 /** One line of the event feed: who did what to whom. */
 export type FeedItem = { id: number; by: FeedWho | null; icon: string; target: FeedWho | null; text: string | null };
+
+/** Explains a power the moment someone gets one: whose it is, whether it waits or runs, and what it does. */
+export type PowerNote = { id: number; who: FeedWho; state: 'ready' | 'on' | 'cursed'; icon: string; name: string; hint: string; color: string };
 
 export type ResultRow = { seat: number; name: string; portrait: string; score: number; place: number; award: { icon: string; name: string } | null };
 export type Options = { rounds: number; bots: boolean; reduced: boolean; muted: boolean };
@@ -73,7 +78,8 @@ export type HudState = {
   /** Whole seconds until the match starts by itself, once everyone is ready. */
   startIn: number | null;
   /** First-play hint currently on screen. */
-  tip: 'dash' | 'grab' | null;
+  tip: 'dash' | 'grab' | 'power' | null;
+  powerNote: PowerNote | null;
   feed: FeedItem[];
   /** Who took the round, shown while the round ends. */
   banner: { seat: number; text: string } | null;
@@ -97,6 +103,7 @@ export const hud = createStore<HudState>({
   options: { rounds: 5, bots: true, reduced: false, muted: false },
   startIn: null,
   tip: null,
+  powerNote: null,
   feed: [],
   banner: null,
   connection: 'connecting',

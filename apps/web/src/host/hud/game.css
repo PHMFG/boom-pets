@@ -75,7 +75,7 @@
   color: var(--white);
   font: 400 calc(52 * var(--u)) / 1.1 var(--font-display);
   rotate: 2deg;
-  animation-delay: 620ms;
+  animation-delay: var(--title-tag-delay);
 }
 
 .title-press {
@@ -102,7 +102,7 @@
 }
 
 .title-screen.is-leaving .title-letter {
-  animation: letter-fly 360ms ease-in both;
+  animation: letter-fly var(--title-fly) ease-in both;
 }
 
 .title-screen.is-leaving .title-mode,
@@ -168,8 +168,43 @@
   height: calc(24 * var(--u));
 }
 
-.nameplate-sleep:empty {
+.nameplate-sleep:empty,
+.nameplate-held:empty,
+.nameplate-hand:empty {
   display: none;
+}
+
+/* A power waiting to be used, worn on the name tag in its tier colour. */
+.nameplate-held {
+  display: grid;
+  place-items: center;
+  width: calc(36 * var(--u));
+  aspect-ratio: 1;
+  margin: calc(-8 * var(--u)) calc(-10 * var(--u)) calc(-8 * var(--u)) 0;
+  border: calc(3 * var(--u)) solid var(--ink);
+  border-radius: 50%;
+  background: var(--tier);
+  font-size: calc(21 * var(--u));
+  line-height: 1;
+  animation: pop-in var(--pop-in) both;
+}
+
+/* Someone could grab this pet right now: a hand in that player's colour. */
+.nameplate-hand {
+  position: absolute;
+  bottom: calc(100% + 2 * var(--u));
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: calc(40 * var(--u));
+  aspect-ratio: 1;
+  border: calc(3 * var(--u)) solid var(--ink);
+  border-radius: 50%;
+  background: var(--grabber);
+  font-size: calc(22 * var(--u));
+  line-height: 1;
+  translate: -50% 0;
+  animation: pop-in var(--pop-in) both;
 }
 
 .nameplate-sleep {
@@ -457,11 +492,75 @@
   background: var(--cream);
   box-shadow: 0 calc(6 * var(--u)) 0 var(--ink);
   font-size: calc(46 * var(--u));
-  animation: press 1100ms ease-in-out infinite;
+  animation: press var(--prompt) ease-in-out infinite;
 }
 
 .key-glyph.is-a {
   background: linear-gradient(to top, var(--danger) 55%, var(--cream) 55%);
+}
+
+.key-glyph.is-power {
+  background: var(--gold);
+}
+
+/* ── Power note: what a power does, the moment someone gets one ─────────── */
+
+.power-note {
+  position: absolute;
+  top: calc(170 * var(--u));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: calc(20 * var(--u));
+  padding: calc(12 * var(--u)) calc(34 * var(--u)) calc(14 * var(--u)) calc(14 * var(--u));
+  translate: -50% 0;
+  rotate: 1deg;
+  white-space: nowrap;
+}
+
+.power-note-icon {
+  display: grid;
+  place-items: center;
+  width: calc(96 * var(--u));
+  aspect-ratio: 1;
+  border: calc(5 * var(--u)) solid var(--ink);
+  border-radius: 50%;
+  background: var(--tier);
+  box-shadow: 0 calc(6 * var(--u)) 0 var(--ink);
+  font-size: calc(56 * var(--u));
+  line-height: 1;
+}
+
+.power-note-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(4 * var(--u));
+}
+
+.power-note-who {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  font: 400 calc(26 * var(--u)) / 1 var(--font-display);
+}
+
+.power-note-name {
+  font: 400 calc(44 * var(--u)) / 1 var(--font-display);
+}
+
+.power-note-hint {
+  font: 800 calc(26 * var(--u)) / 1.1 var(--font-text);
+}
+
+/* A curse is bad news: the card says so with the curse colours. */
+.power-note.is-cursed {
+  background: var(--tier-cursed);
+  color: var(--white);
+}
+
+.power-note.is-cursed .power-note-name {
+  color: var(--tier-cursed-accent);
 }
 
 /* ── Player strip ───────────────────────────────────────────────────────── */
@@ -536,6 +635,24 @@
 }
 
 /* The active power: its icon in a ring that empties as the power runs out. */
+/* A power waiting to be used sits on the other shoulder and pulses: it is ready, not running. */
+.seat-held {
+  position: absolute;
+  top: calc(-34 * var(--u));
+  left: calc(-16 * var(--u));
+  display: grid;
+  place-items: center;
+  width: calc(50 * var(--u));
+  aspect-ratio: 1;
+  border: calc(4 * var(--u)) solid var(--ink);
+  border-radius: 50%;
+  background: var(--tier);
+  font-size: calc(26 * var(--u));
+  animation:
+    pop-in var(--pop-in) both,
+    press var(--prompt) ease-in-out var(--pop-in-ms) infinite;
+}
+
 .seat-power {
   position: absolute;
   top: calc(-34 * var(--u));
@@ -734,7 +851,7 @@
   font: 400 calc(30 * var(--u)) / 1.1 var(--font-display);
   white-space: nowrap;
   transform-origin: right center;
-  animation: feed-life 3600ms both;
+  animation: feed-life var(--feed) both;
 }
 
 .feed-who {

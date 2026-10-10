@@ -47,6 +47,7 @@ export function GameScreen() {
   const options = useStore(hud, state => state.options);
   const startIn = useStore(hud, state => state.startIn);
   const tip = useStore(hud, state => state.tip);
+  const powerNote = useStore(hud, state => state.powerNote);
   const feed = useStore(hud, state => state.feed);
   const banner = useStore(hud, state => state.banner);
   const connection = useStore(hud, state => state.connection);
@@ -227,12 +228,29 @@ export function GameScreen() {
         )}
       </Presence>
 
-      <Presence show={!title && tip !== null}>
+      {/* A power being explained takes the spot of the first-play hint while it is up. */}
+      <Presence show={!title && tip !== null && powerNote === null}>
         {() => (
           <p key={tip} className="tip sticker">
-            <span className={`key-glyph is-${tip === 'dash' ? 'a' : 'b'}`}>{tip === 'dash' ? 'A' : 'B'}</span>
+            <span className={`key-glyph is-${tip === 'dash' ? 'a' : tip === 'grab' ? 'b' : 'power'}`}>{tip === 'dash' ? 'A' : tip === 'grab' ? 'B' : '⚡'}</span>
             {tip && strings.hud.tips[tip]}
           </p>
+        )}
+      </Presence>
+
+      <Presence show={!title && phase === 'play' && powerNote !== null}>
+        {() => (
+          <div key={powerNote?.id} className={`power-note sticker is-${powerNote?.state ?? 'ready'}`} style={{ '--tier': powerNote?.color } as CSSProperties}>
+            <span className="power-note-icon">{powerNote?.icon}</span>
+            <span className="power-note-text">
+              <span className="power-note-who">
+                {powerNote && <Who who={powerNote.who} />}
+                {powerNote?.state === 'ready' ? strings.hud.powerReady : powerNote?.state === 'on' ? strings.hud.powerOn : strings.hud.powerCursed}
+              </span>
+              <span className="power-note-name">{powerNote?.name}</span>
+              <span className="power-note-hint">{powerNote?.hint}</span>
+            </span>
+          </div>
         )}
       </Presence>
 
@@ -353,6 +371,11 @@ function SeatCard({ seat, player, lobby }: { seat: number; player: PlayerCard | 
           {player.power && (
             <span className="seat-power" style={{ '--tier': player.power.color, '--left': player.power.left } as CSSProperties}>
               {player.power.icon}
+            </span>
+          )}
+          {player.held && (
+            <span key={player.held.icon} className="seat-held" style={{ '--tier': player.held.color } as CSSProperties}>
+              {player.held.icon}
             </span>
           )}
         </span>

@@ -1,7 +1,8 @@
 // The play screen: a joystick that appears under the left thumb, and A and B under the right.
 // Built to be used without looking, so every touch on a half counts for that half. What A does,
 // and how the pad looks, follows the status the game sends (alive, ghost, carried, lever, ZICA).
-import type { ButtonName, HapticPattern, PhoneStatus } from '@boom/protocol';
+// A third button appears only while a power is waiting, with a card that says what the power does.
+import type { ButtonName, HapticPattern, PhoneMode, PhoneStatus } from '@boom/protocol';
 import { seatShapeSvg } from '../shared/glyphs';
 import { EMOTES } from '../shared/powers';
 import { strings } from '../shared/strings.pt-BR';
@@ -17,9 +18,11 @@ export type PadEvents = {
 
 const DEAD_ZONE = 0.12;
 const VIBRATION: Record<HapticPattern, number | number[]> = { tap: 15, hit: 60, warn: [40, 60, 40], boom: [90, 40, 140], win: [30, 40, 30, 40, 80] };
-/** Milliseconds of holding A before the overcharge warning. Matches the game's tuning. */
+/** Milliseconds of holding A for a full charge, and before the overcharge warning. They match the game's tuning. */
+const CHARGE_MS = 1200;
 const WARN_AFTER_MS = 1400;
 const PITY_PIPS = 6;
+type ThumbButton = Exclude<ButtonName, 'c'>;
 const text = strings.controller;
 
 /** Vibrates if the phone can. Browsers refuse before the first touch, so that case is skipped quietly. */
@@ -63,8 +66,15 @@ export class Pad {
   private readonly tray: HTMLElement;
   private readonly base: HTMLElement;
   private readonly knob: HTMLElement;
-  private readonly buttons: Record<ButtonName, HTMLElement>;
+  /** The two buttons under the right thumb. The power button is a control of its own. */
+  private readonly buttons: Record<ThumbButton, HTMLElement>;
   private readonly letter: HTMLElement;
+  private readonly bFace: HTMLElement;
+  private readonly use: HTMLElement;
+  private readonly useIcon: HTMLElement;
+  private readonly card: HTMLElement;
+  private readonly cardName: HTMLElement;
+  private readonly cardHint: HTMLElement;
   private readonly lever: HTMLElement;
   private readonly leverKnob: HTMLElement;
   private readonly jinx: HTMLElement;
@@ -75,7 +85,11 @@ export class Pad {
   private stickPointer: number | null = null;
   private stickOrigin = { u: 0, v: 0 };
   /** Which button each finger on the right half is holding. */
-  private readonly presses = new Map<number, ButtonName>();
+  private readonly presses = new Map<number, ThumbButton>();
+  private usePointer: number | null = null;
+  /** performance.now() until which A rests after a dash. */
+  private restUntil = 0;
+  private restTimer = 0;
   private leverPointer: number | null = null;
   private leverStart = 0;
   private warnTimer = 0;
@@ -86,6 +100,7 @@ export class Pad {
   constructor(parent: HTMLElement, name: string, events: PadEvents) {
     this.events = events;
     this.root = element('pad', parent);
+    this.root.style.setProperty('--charge', `${CHARGE_MS}ms`);
 
     const strip = element('pad-strip', this.root);
     this.shape = element('pad-shape', strip);
@@ -120,10 +135,38 @@ export class Pad {
 
     this.base = element('stick-base', this.root);
     this.knob = element('stick-knob', this.base);
-    this.buttons = { b: element('pad-button pad-b', this.root, 'B'), a: element('pad-button pad-a', this.root) };
+    this.buttons = { b: element('pad-button pad-b', this.root), a: element('pad-button pad-a', this.root) };
+    this.bFace = element('pad-letter', this.buttons.b, 'B');
     element('pad-gauge', this.buttons.a);
     element('pad-cooldown', this.buttons.a);
     this.letter = element('pad-letter', this.buttons.a, 'A');
+
+    // A power waits here until the player wants it. The card above says what it does.
+    this.card = element('pad-card', this.root);
+    this.cardName = element('pad-card-name', this.card);
+    this.cardHint = element('pad-card-hint', this.card);
+    this.card.hidden = true;
+    this.use = element('pad-use', this.root);
+    this.use.dataset.ui = '';
+    this.use.dataset.label = text.usePower;
+    this.useIcon = element('pad-use-icon', this.use);
+    this.use.hidden = true;
+    this.use.addEventListener('pointerdown', event => {
+      event.stopPropagation();
+      this.capture(this.use, event);
+      this.usePointer = event.pointerId;
+      this.use.classList.add('is-down');
+      vibrate(20);
+      events.onButton('c', true);
+    });
+    const letGo = (event: PointerEvent) => {
+      if (event.pointerId !== this.usePointer) return;
+      this.usePointer = null;
+      this.use.classList.remove('is-down');
+      events.onButton('c', false);
+    };
+    this.use.addEventListener('pointerup', letGo);
+    this.use.addEventListener('pointercancel', letGo);
 
     // SUPER gacha, for the winner: one giant lever to pull down.
     this.lever = element('pad-lever', this.root);
@@ -183,16 +226,30 @@ export class Pad {
   setStatus(status: PhoneStatus): void {
     const previous = this.status;
     this.status = status;
-    if (status.mode !== previous?.mode || status.screen !== previous?.screen) this.releaseAll();
+    // The lever and ZICA cover the pad, and another screen replaces it: thumbs start over there.
+    // Being grabbed, let go or knocked out does not: the thumbs stay where they are, so a stick held
+    // through a grab steers again the moment the pet is free. Only A's charge face starts over.
+    const covered = (mode: PhoneMode | undefined) => mode === 'lever' || mode === 'jinx';
+    if (status.screen !== previous?.screen || covered(status.mode) !== covered(previous?.mode)) this.releaseAll();
+    else if (status.mode !== previous?.mode) this.showCharge(status.mode === 'alive' && this.buttons.a.classList.contains('is-down'));
     if (status.mode === 'jinx' && previous?.mode !== 'jinx') this.jinxTaps = 0;
-    // A longer wait than last time means a meteor was just dropped: restart the ring.
+    // A longer wait than last time means a dash just ended or a meteor was just dropped: restart the ring.
     if (status.cooldownMs > this.cooldownMs) {
       this.buttons.a.style.setProperty('--cooldown', `${status.cooldownMs}ms`);
       this.buttons.a.classList.remove('is-cooling');
       void this.buttons.a.offsetWidth;
       this.buttons.a.classList.add('is-cooling');
+      if (status.mode === 'alive') this.restUntil = performance.now() + status.cooldownMs;
     }
     this.cooldownMs = status.cooldownMs;
+    // A new power on the button: the button and its card pop in again.
+    if (status.held && status.held.name !== previous?.held?.name) {
+      for (const node of [this.use, this.card]) {
+        node.classList.remove('is-new');
+        void node.offsetWidth;
+        node.classList.add('is-new');
+      }
+    }
     this.render();
   }
 
@@ -213,6 +270,11 @@ export class Pad {
   readonly releaseAll = (): void => {
     this.stickPointer = null;
     this.leverPointer = null;
+    if (this.usePointer !== null) {
+      this.usePointer = null;
+      this.use.classList.remove('is-down');
+      this.events.onButton('c', false);
+    }
     this.leverKnob.style.transform = '';
     this.base.classList.remove('is-active');
     this.events.onStick(0, 0);
@@ -223,6 +285,7 @@ export class Pad {
   dispose(): void {
     window.clearTimeout(this.warnTimer);
     window.clearTimeout(this.faceTimer);
+    window.clearTimeout(this.restTimer);
     window.removeEventListener('resize', this.layout);
     window.removeEventListener('blur', this.releaseAll);
     this.root.remove();
@@ -243,7 +306,29 @@ export class Pad {
     this.power.style.setProperty('--tier', status?.power?.color ?? 'transparent');
     this.pity.forEach((pip, index) => pip.classList.toggle('is-on', index < (status?.pity ?? 0)));
     // While A is held it shows the charging face; that is left alone until release.
-    if (!this.buttons.a.classList.contains('is-down')) this.letter.textContent = mode === 'ghost' ? '☄️' : 'A';
+    if (!this.buttons.a.classList.contains('is-charging')) this.letter.textContent = mode === 'ghost' ? '☄️' : 'A';
+
+    // B says what it would do: nothing in reach, a hand when something is, a throw when carrying.
+    // The lobby is where B is tried for the first time, so it explains itself there too.
+    const b = (screen === 'play' || screen === 'lobby') && mode === 'alive' ? (status?.b ?? 'idle') : 'idle';
+    this.buttons.b.dataset.does = b;
+    this.bFace.textContent = b === 'grab' ? '✋' : b === 'throw' ? '🤾' : 'B';
+
+    // The power button is only there while a power waits. The card explains that power, or the one running now.
+    const held = screen === 'play' && mode === 'alive' ? (status?.held ?? null) : null;
+    const shown = held ?? (screen === 'play' && (mode === 'alive' || mode === 'carried') ? (status?.power ?? null) : null);
+    this.use.hidden = held === null;
+    if (held) {
+      this.useIcon.textContent = held.icon;
+      this.use.style.setProperty('--tier', held.color);
+    }
+    this.card.hidden = shown === null;
+    this.card.classList.toggle('is-held', held !== null);
+    if (shown) {
+      this.cardName.textContent = `${shown.icon} ${shown.name}`;
+      this.cardHint.textContent = shown.hint;
+      this.card.style.setProperty('--tier', shown.color);
+    }
 
     this.petName.textContent = status?.pet ?? '';
     this.readyButton.textContent = status?.ready ? text.ready : text.notReady;
@@ -318,7 +403,7 @@ export class Pad {
     }
     // The whole right half is a hit area: a touch presses whichever button is nearer.
     const distance = (button: HTMLElement) => Math.hypot(u - (button.offsetLeft + button.offsetWidth / 2), v - (button.offsetTop + button.offsetHeight / 2));
-    const button: ButtonName = distance(this.buttons.a) <= distance(this.buttons.b) ? 'a' : 'b';
+    const button: ThumbButton = distance(this.buttons.a) <= distance(this.buttons.b) ? 'a' : 'b';
     this.presses.set(event.pointerId, button);
     this.setPressed(button, true);
   };
@@ -356,16 +441,29 @@ export class Pad {
     if (![...this.presses.values()].includes(button)) this.setPressed(button, false);
   };
 
-  private setPressed(button: ButtonName, down: boolean): void {
+  private setPressed(button: ThumbButton, down: boolean): void {
     this.buttons[button].classList.toggle('is-down', down);
     this.events.onButton(button, down);
     if (button !== 'a') return;
+    window.clearTimeout(this.restTimer);
+    const alive = this.root.dataset.mode === 'alive' && this.root.dataset.screen !== 'results';
+    const rest = this.restUntil - performance.now();
+    // While A rests after a dash the game ignores it. A thumb still down when the rest ends starts charging then.
+    if (down && alive && rest > 0) {
+      this.showCharge(false);
+      this.restTimer = window.setTimeout(() => this.showCharge(this.buttons.a.classList.contains('is-down')), rest);
+      return;
+    }
+    this.showCharge(down && alive);
+  }
+
+  /** The charge as the phone shows it: a gauge that fills and a face that gets more worried. */
+  private showCharge(charging: boolean): void {
     // Holding A too long detonates the pet. The phone warns on its own clock, without waiting for the game.
     window.clearTimeout(this.warnTimer);
     window.clearTimeout(this.faceTimer);
     this.root.classList.remove('is-warning');
-    const charging = down && this.root.dataset.mode === 'alive' && this.root.dataset.screen !== 'results';
-    // The button grows a face that gets more worried the longer the charge runs.
+    this.buttons.a.classList.toggle('is-charging', charging);
     this.letter.textContent = charging ? '😬' : this.root.dataset.mode === 'ghost' ? '☄️' : 'A';
     if (charging) {
       this.faceTimer = window.setTimeout(() => (this.letter.textContent = '😨'), WARN_AFTER_MS / 2);

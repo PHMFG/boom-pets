@@ -176,7 +176,8 @@ export async function startRelay(options: RelayOptions): Promise<Relay> {
         const log = parse(Buffer.concat(chunks));
         if (typeof log !== 'object' || log === null || Array.isArray(log)) return void response.writeHead(400).end();
         // The game screen knows the match; only the relay knows how each phone's connection went.
-        const body = JSON.stringify({ ...log, phones: room.takeConnections() });
+        const began = 'startedAt' in log && typeof log.startedAt === 'string' ? Date.parse(log.startedAt) : 0;
+        const body = JSON.stringify({ ...log, phones: room.takeConnections(began || 0) });
         const name = `${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
         void mkdir(directory, { recursive: true })
           .then(() => writeFile(`${directory}/${name}`, body))

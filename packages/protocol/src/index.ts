@@ -1,7 +1,7 @@
 // Messages and constants shared by the phone, the relay and the host.
 // No dependencies: the phone bundle imports this file. Validation lives in ./schemas.
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 export const MAX_SEATS = 6;
 /** Default relay port. Override with the BOOM_RELAY_PORT environment variable if another program uses it. */
 export const RELAY_PORT = 47821;
@@ -12,7 +12,8 @@ export const ROOM_CODE_LENGTH = 4;
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 export const NAME_MAX_LENGTH = 12;
 
-export const BUTTON_BITS = { a: 1, b: 2 } as const;
+/** A dashes, B grabs and throws, C uses the power the pet is holding. */
+export const BUTTON_BITS = { a: 1, b: 2, c: 4 } as const;
 export type ButtonName = keyof typeof BUTTON_BITS;
 
 /** The phone sends input when it changes, at most this often… */
@@ -44,7 +45,7 @@ export type PhoneHello = { t: 'hello'; role: 'phone'; v: number; room: string; n
 /** What kind of phone it is, read from its browser's name. Anything that is not a phone is `other`. */
 export type PhoneDevice = 'iphone' | 'android' | 'other';
 /** What the relay knows about one phone's connection. It adds these to every playtest log. */
-export type PhoneConnection = { seat: number; name: string; device: PhoneDevice; joinMs: number | null; rejoins: number; worstRejoinMs: number | null };
+export type PhoneConnection = { seat: number; name: string; device: PhoneDevice; joinMs: number | null; rejoins: number; worstRejoinMs: number | null; /** Its seat was given up before the log was saved. */ left?: true };
 /** Stick position (-1 to 1, two decimals) and the buttons currently held, as BUTTON_BITS. */
 export type PhoneInput = { t: 'input'; seq: number; x: number; y: number; held: number };
 /** Sent the instant a button changes, so a quick tap is never lost between input frames. */
@@ -60,6 +61,8 @@ export type PhoneMessage = PhoneInput | PhoneButton | PhonePing | PhonePet | Pho
 
 // ── Host to phone (forwarded by the relay) ───────────────────────────────────
 
+/** A power as a phone shows it: its picture, its name, one line on what it does, and its tier colour. */
+export type PowerCard = { icon: string; name: string; hint: string; color: string };
 /** What a phone is being used for right now. It decides what A does and how the pad looks. */
 export type PhoneMode = 'alive' | 'ghost' | 'carried' | 'lever' | 'jinx';
 /** Everything a phone shows. Sent only when something in it changes. */
@@ -71,13 +74,17 @@ export type PhoneStatus = {
   /** Display name of the player's pet. */
   pet: string;
   ready: boolean;
-  /** Icon and name of the active power, or null. */
-  power: { icon: string; name: string; color: string } | null;
+  /** The power running now, or null. */
+  power: PowerCard | null;
+  /** A power waiting on the power button, or null. */
+  held: PowerCard | null;
+  /** What B would do right now: nothing is in reach, something is, or something is being carried. */
+  b: 'idle' | 'grab' | 'throw';
   /** Rolls since the last SUPER, 0 to 6. */
   pity: number;
   bounty: boolean;
   score: number;
-  /** Ghost: milliseconds until the next meteor is ready. */
+  /** How long A is resting, in milliseconds: after a dash, or a ghost's meteor recharging. The pad restarts its ring when this rises. */
   cooldownMs: number;
   /** Results: final place and award. */
   place: number | null;

@@ -6,7 +6,7 @@ import { motion } from '../../shared/motion';
 import { strings } from '../../shared/strings.pt-BR';
 import { seats as seatTokens } from '../../shared/tokens';
 
-type Plate = { anchor: HTMLElement; tag: HTMLElement; name: HTMLElement; sleep: HTMLElement; holdUntil: number | null };
+type Plate = { anchor: HTMLElement; tag: HTMLElement; name: HTMLElement; sleep: HTMLElement; held: HTMLElement; hand: HTMLElement; holdUntil: number | null; heldIcon: string | null; reachedBy: number | null };
 
 export class Nameplates {
   private readonly layer: HTMLElement;
@@ -44,6 +44,24 @@ export class Nameplates {
     for (const [index, plate] of this.plates) plate.tag.classList.toggle('has-crown', index === seat);
   }
 
+  /** Shows the power waiting on a seat's button as a badge on its tag, so everyone can see who is holding what. */
+  setHeld(seat: number, icon: string | null, color: string): void {
+    const plate = this.plates.get(seat);
+    if (!plate || plate.heldIcon === icon) return;
+    plate.heldIcon = icon;
+    plate.held.textContent = icon ?? '';
+    plate.held.style.setProperty('--tier', color);
+  }
+
+  /** Marks a seat as within another player's reach: a hand in that player's colour over the tag. */
+  setReach(seat: number, grabber: number | null): void {
+    const plate = this.plates.get(seat);
+    if (!plate || plate.reachedBy === grabber) return;
+    plate.reachedBy = grabber;
+    plate.hand.textContent = grabber === null ? '' : '✋';
+    if (grabber !== null) plate.hand.style.setProperty('--grabber', seatTokens[grabber % seatTokens.length]!.color);
+  }
+
   /** Refreshes the countdown on seats whose phone dropped. */
   tick(now: number): void {
     for (const plate of this.plates.values()) {
@@ -71,10 +89,14 @@ export class Nameplates {
     const name = document.createElement('span');
     const sleep = document.createElement('span');
     sleep.className = 'nameplate-sleep';
-    tag.append(shape, name, sleep);
+    const held = document.createElement('span');
+    held.className = 'nameplate-held';
+    const hand = document.createElement('span');
+    hand.className = 'nameplate-hand';
+    tag.append(shape, name, sleep, held, hand);
     anchor.append(tag);
     this.layer.append(anchor);
-    const plate: Plate = { anchor, tag, name, sleep, holdUntil: null };
+    const plate: Plate = { anchor, tag, name, sleep, held, hand, holdUntil: null, heldIcon: null, reachedBy: null };
     this.plates.set(seat, plate);
     return plate;
   }

@@ -119,10 +119,19 @@ export class AudioEngine {
         return;
       case 'land':
         return this.sample(['land1', 'land2'], Math.min(0.6, event.speed / 30));
+      case 'tired':
+        return this.tone(180, 0.05, 'triangle', 0.06, 140);
+      case 'grabMiss':
+        return this.whoosh(0.1, 0.07);
       case 'grab':
+        if (event.kind === 'pet') this.sample(['hit1', 'hit2'], 0.35);
         return this.tone(300, 0.1, 'triangle', 0.15, 520);
       case 'throw':
-        return this.whoosh(0.22, 0.2);
+        return this.whoosh(0.22, event.kind === 'pet' ? 0.3 : 0.2);
+      case 'throwHit':
+        return this.sample(['hit1', 'hit2', 'hit3'], 0.8);
+      case 'powerReady':
+        return this.arpeggio([12, 19], 0.06, 'triangle', 0.1);
       case 'escape':
         return this.tone(500, 0.12, 'triangle', 0.15, 900);
       case 'fall':

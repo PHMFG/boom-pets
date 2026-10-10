@@ -66,6 +66,9 @@ export type Pet = {
   dashCharge: number;
   dashX: number;
   dashZ: number;
+  /** Seconds until A works again after a dash, and what that wait started at. */
+  dashCooldown: number;
+  dashCooldownTotal: number;
   /** 0 just after a hit or dash, back to 1 as stick control returns. */
   authority: number;
   /** Seconds left of reaching for a pet before the grab lands. */
@@ -77,12 +80,19 @@ export type Pet = {
   carriedTime: number;
   mash: number;
   grabImmune: number;
+  /** What B would take right now: the pet or barrel in reach, or null. */
+  grabTarget: { kind: 'pet' | 'barrel'; id: number } | null;
+  /** Seconds B is locked after a grab at thin air. */
+  grabLock: number;
   /** Flying after being thrown, until it lands. */
   thrown: boolean;
   lastHit: Credit | null;
+  /** The power running now. */
   power: PowerId | null;
   powerLeft: number;
   powerTotal: number;
+  /** A power collected and not yet used. The power button starts it. */
+  held: PowerId | null;
   /** A roll whose slot reels are still spinning. */
   slot: { tier: Tier; power: PowerId; left: number } | null;
   /** Lobby only: seconds until this pet drops back in. */
@@ -144,12 +154,18 @@ export type GameEvent =
   | { t: 'spawn'; pet: number; seat: number }
   | { t: 'dash'; pet: number; charge: number; x: number; z: number; dx: number; dz: number }
   | { t: 'dashHit'; pet: number; seat: number; x: number; y: number; z: number; charge: number; radius: number; victims: number[] }
+  | { t: 'dashEnd'; pet: number; seat: number; hit: boolean }
+  /** A was pressed while the pet was still catching its breath. */
+  | { t: 'tired'; pet: number }
   | { t: 'explosion'; x: number; y: number; z: number; radius: number; cause: Cause; chain: number; owner: number | null }
   | { t: 'barrelArmed'; barrel: number; delay: number }
   | { t: 'barrelSpawn'; barrel: number }
   | { t: 'reach'; pet: number; target: number }
   | { t: 'grab'; pet: number; kind: 'pet' | 'barrel'; target: number }
+  | { t: 'grabMiss'; pet: number }
   | { t: 'throw'; pet: number; kind: 'pet' | 'barrel'; target: number }
+  /** A thrown pet landed on a rival. */
+  | { t: 'throwHit'; pet: number; victim: number; x: number; z: number }
   | { t: 'escape'; pet: number }
   | { t: 'land'; pet: number; speed: number }
   | { t: 'fall'; pet: number; seat: number }
@@ -159,6 +175,8 @@ export type GameEvent =
   | { t: 'cubeSpawn'; x: number; z: number }
   | { t: 'cubeCollected'; pet: number; seat: number; x: number; z: number }
   | { t: 'roll'; pet: number; seat: number; tier: Tier; power: PowerId; pity: number; instant: boolean }
+  /** A power is now waiting on the pet's power button. */
+  | { t: 'powerReady'; pet: number; seat: number; power: PowerId }
   | { t: 'powerStart'; pet: number; seat: number; power: PowerId }
   | { t: 'powerEnd'; pet: number; seat: number; power: PowerId }
   | { t: 'honk'; pet: number }

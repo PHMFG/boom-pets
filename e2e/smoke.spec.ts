@@ -22,7 +22,7 @@ type Boom = {
     gacha: { seat: number; lever: number; jinx: number; pulled: boolean } | null;
     round: {
       superPending: unknown;
-      pets: { id: number; seat: number; decoy: boolean; x: number; z: number }[];
+      pets: { id: number; seat: number; decoy: boolean; x: number; z: number; held: string | null; power: string | null }[];
     };
   };
   skip(seconds: number): void;
@@ -30,6 +30,8 @@ type Boom = {
 declare global {
   interface Window {
     __BOOM__: Boom;
+    /** The phone's pad, exposed by the development build. */
+    __PAD__: { status: { mode: string }; setStatus(status: { mode: string }): void };
   }
 }
 
@@ -59,6 +61,20 @@ const GALAXY: Model = { name: 'Fabi', engine: 'chromium', device: devices['Galax
 const IGNORED = [/WebGL/i, /GPU stall/i, /navigator\.vibrate/i, /Download the React DevTools/i];
 
 type Phone = { model: Model; tab: Page; context: BrowserContext; joinMs: number };
+
+/** Which of these controls sit on top of one another on a phone's pad, as "a over b". */
+function overlapping(tab: Page, names: string[]): Promise<string[]> {
+  return tab.evaluate(selectors => {
+    const boxes = selectors.flatMap(name => [...document.querySelectorAll(name)].map(node => ({ name, box: node.getBoundingClientRect() })));
+    const found: string[] = [];
+    boxes.forEach((a, index) =>
+      boxes.slice(index + 1).forEach(b => {
+        if (a.box.left < b.box.right && b.box.left < a.box.right && a.box.top < b.box.bottom && b.box.top < a.box.bottom) found.push(`${a.name} over ${b.name}`);
+      }),
+    );
+    return found;
+  }, names);
+}
 
 class Session {
   readonly problems: string[] = [];
@@ -118,18 +134,7 @@ class Session {
 
     // Whatever the phone's shape, no control on the lobby pad may sit on top of another.
     await expect(tab.locator('.pad-pet')).not.toBeEmpty();
-    const overlaps = await tab.evaluate(() => {
-      const names = ['.pad-strip', '.pad-arrow', '.pad-pet', '.pad-lobby .pad-ready', '.pad-emote.is-toggle', '.pad-a', '.pad-b'];
-      const boxes = names.flatMap(name => [...document.querySelectorAll(name)].map(node => ({ name, box: node.getBoundingClientRect() })));
-      const found: string[] = [];
-      boxes.forEach((a, index) =>
-        boxes.slice(index + 1).forEach(b => {
-          if (a.box.left < b.box.right && b.box.left < a.box.right && a.box.top < b.box.bottom && b.box.top < a.box.bottom) found.push(`${a.name} over ${b.name}`);
-        }),
-      );
-      return found;
-    });
-    expect(overlaps, `${model.name}'s lobby pad has nothing overlapping`).toEqual([]);
+    expect(await overlapping(tab, ['.pad-strip', '.pad-arrow', '.pad-pet', '.pad-lobby .pad-ready', '.pad-emote.is-toggle', '.pad-a', '.pad-b']), `${model.name}'s lobby pad has nothing overlapping`).toEqual([]);
 
     const phone = { model, tab, context, joinMs };
     this.phones.push(phone);
@@ -211,6 +216,44 @@ test('four phones join, play a match with a SUPER gacha, and see their results',
   await session.readyUp();
   for (const tab of phones) await expect(tab.locator('.pad')).toHaveAttribute('data-screen', 'play');
   await expect(page.locator('.round-bar')).toBeVisible();
+
+  // ── A power waits on its own button, with a card that says what it does, and starts when that button is tapped ──
+  await page.evaluate(() => {
+    for (const pet of window.__BOOM__.game.round.pets) if (!pet.decoy) pet.held = 'rocket';
+  });
+  for (const [index, tab] of phones.entries()) {
+    await expect(tab.locator('.pad-use'), 'the power button appears').toBeVisible();
+    await expect(tab.locator('.pad-card')).toContainText('Botas Foguete');
+    await expect(tab.locator('.pad-card')).toContainText('Corre muito mais rápido');
+    expect(await overlapping(tab, ['.pad-strip', '.pad-card', '.pad-use', '.pad-emote.is-toggle', '.pad-a', '.pad-b']), `${session.phones[index]!.model.name}'s play pad has nothing overlapping`).toEqual([]);
+  }
+  await phones[0]!.locator('.pad-use').tap();
+  await expect.poll(() => page.evaluate(() => window.__BOOM__.game.round.pets.find(pet => pet.seat === 0 && !pet.decoy)?.power), { message: 'the power button reaches the game' }).toBe('rocket');
+  await expect(phones[0]!.locator('.pad-use')).toBeHidden();
+  await expect(page.locator('.seat-held'), 'the game screen shows who still holds a power').toHaveCount(3);
+
+  // ── Grabbed and let go: the stick stays under the thumb the whole time, so the pet steers again without a new touch ──
+  await touch(phones[2]!, 'pointerdown', 8, 0.25, 0.6);
+  await touch(phones[2]!, 'pointermove', 8, 0.4, 0.6);
+  const stick = await phones[2]!.evaluate(() => {
+    const pad = window.__PAD__;
+    const held = () => document.querySelector('.stick-base')!.classList.contains('is-active');
+    const now = pad.status;
+    pad.setStatus({ ...now, mode: 'carried' });
+    const whileCarried = held();
+    pad.setStatus({ ...now, mode: 'alive' });
+    return { whileCarried, afterRelease: held() };
+  });
+  expect(stick, 'the joystick survives a grab').toEqual({ whileCarried: true, afterRelease: true });
+  const from = await seatOf(page, 2);
+  await touch(phones[2]!, 'pointermove', 8, 0.42, 0.6);
+  await expect.poll(async () => Math.abs(((await seatOf(page, 2))?.x ?? 0) - (from?.x ?? 0)), { message: 'and still moves the pet' }).toBeGreaterThan(0.3);
+  await touch(phones[2]!, 'pointerup', 8, 0.42, 0.6);
+
+  // ── After a dash A rests, and the phone shows it ──
+  await touch(phones[1]!, 'pointerdown', 7, 0.88, 0.75);
+  await touch(phones[1]!, 'pointerup', 7, 0.88, 0.75);
+  await expect(phones[1]!.locator('.pad-a')).toHaveClass(/is-cooling/);
 
   // ── A SUPER gacha: the winner gets the lever, everyone else gets ZICA ──
   const winner = await page.evaluate(() => {

@@ -260,6 +260,12 @@ export class GameStage {
         return;
       }
       case 'dashHit': {
+        if (event.radius === 0) {
+          // A shove: a puff and a nudge. It must not look like a hit, or tapping would look worth it.
+          this.dust(event.x, event.z, 3);
+          for (const id of event.victims) this.pets.get(id)?.hit(0.15);
+          return;
+        }
         const power = 0.3 + event.charge * 0.7;
         this.decals.shock(event.x, event.z, event.radius, WHITE, 0.35);
         this.stars(event.x, event.y + 0.3, event.z, 6 + Math.round(event.charge * 10));
@@ -281,16 +287,56 @@ export class GameStage {
         if (barrel) this.decals.warning(barrel.x, barrel.z, tuning.barrel.blastRadius, Math.max(event.delay, 0.12), DANGER);
         return;
       }
+      case 'dashEnd':
+        // A dash that hit nothing leaves the pet winded for a moment.
+        if (!event.hit) this.pets.get(event.pet)?.emote('😓', 0.7);
+        return;
+      case 'tired':
+        this.pets.get(event.pet)?.bounce(0.35);
+        return;
       case 'reach':
         this.pets.get(event.pet)?.emote('✋', 0.5);
         return;
-      case 'grab':
-        this.pets.get(event.pet)?.bounce(0.8);
-        if (event.kind === 'pet') this.pets.get(event.target)?.emote('😨', 1);
+      case 'grabMiss': {
+        const view = this.pets.get(event.pet);
+        view?.emote('✋', 0.3);
+        view?.bounce(0.5);
         return;
+      }
+      case 'grab': {
+        const view = this.pets.get(event.pet);
+        view?.bounce(0.8);
+        if (event.kind !== 'pet' || !view) return;
+        // Catching a rival is a moment: both freeze for a beat and the word says it.
+        const caught = this.pets.get(event.target);
+        caught?.emote('😨', 1);
+        caught?.hitStop(0.1);
+        view.hitStop(0.1);
+        this.rig.shake(0.18);
+        this.stars(view.feet.x, view.feet.y + 1.4, view.feet.z, 8);
+        this.words.pop(strings.words3d.grabbed, view.feet.x, 3, view.feet.z - 0.6, { size: 0.7, color: seatColor(view.seat), seconds: 0.8 });
+        return;
+      }
       case 'throw': {
         const view = this.pets.get(event.pet);
-        if (view) this.dust(view.feet.x, view.feet.z, 4);
+        if (!view) return;
+        this.dust(view.feet.x, view.feet.z, event.kind === 'pet' ? 8 : 4);
+        if (event.kind !== 'pet') return;
+        view.bounce(1);
+        this.rig.shake(0.15);
+        this.words.pop(strings.words3d.thrown, view.feet.x, 3, view.feet.z - 0.6, { size: 0.7, color: seatColor(view.seat), seconds: 0.7 });
+        return;
+      }
+      case 'throwHit': {
+        this.decals.shock(event.x, event.z, 1.8, WHITE, 0.35);
+        this.stars(event.x, 0.9, event.z, 12);
+        this.rig.shake(0.3);
+        for (const id of [event.pet, event.victim]) {
+          const view = this.pets.get(id);
+          view?.hit(0.7);
+          view?.hitStop(0.08);
+        }
+        this.pets.get(event.victim)?.emote('😵', 0.9);
         return;
       }
       case 'escape': {
@@ -338,6 +384,14 @@ export class GameStage {
         };
         this.scene.add(reels.group);
         this.reels.set(event.pet, reels);
+        return;
+      }
+      case 'powerReady': {
+        const view = this.pets.get(event.pet);
+        if (!view) return;
+        // The power is in the pet's pocket now: a ring in its tier colour, and the name tag grows its badge.
+        view.bounce(0.9);
+        this.decals.shock(view.feet.x, view.feet.z, 1.5, new Color(TIER_COLOR[POWERS[event.power].tier]), 0.4);
         return;
       }
       case 'powerStart': {
@@ -780,9 +834,19 @@ export class GameStage {
       this.nameplates.place(seat, (this.point.x * 0.5 + 0.5) * this.size.width, (-this.point.y * 0.5 + 0.5) * this.size.height);
       placed.add(seat);
     };
+    // Who is within a player's reach right now. Bots do not get the hint; they do not need it.
+    const reached = new Map<number, number>();
     for (const pet of game.phase === 'matchEnd' ? [] : game.round.pets) {
       const view = this.pets.get(pet.id);
       if (view && !pet.decoy && view.feet.y > -2) project(pet.seat, view.feet.x, view.feet.y + view.height + 0.15, view.feet.z);
+      if (pet.decoy || pet.grabTarget?.kind !== 'pet' || game.seats.find(seat => seat.seat === pet.seat)?.bot !== null) continue;
+      const target = game.round.petById(pet.grabTarget.id);
+      if (target && !target.decoy) reached.set(target.seat, pet.seat);
+    }
+    for (const seat of game.seats) {
+      const held = game.phase === 'matchEnd' ? null : (game.round.petOfSeat(seat.seat)?.held ?? null);
+      this.nameplates.setHeld(seat.seat, held ? POWER_ICON[held] : null, held ? TIER_COLOR[POWERS[held].tier] : '');
+      this.nameplates.setReach(seat.seat, reached.get(seat.seat) ?? null);
     }
     for (const [seat, view] of this.ghosts) project(seat, view.group.position.x, view.headHeight, view.group.position.z);
     // A seat with nothing on screen (between a fall and coming back) has its tag parked out of sight.

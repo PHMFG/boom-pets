@@ -65,6 +65,23 @@ describe('room', () => {
     expect(room.takeConnections()[0]).toMatchObject({ joinMs: 8200, rejoins: 0, worstRejoinMs: null });
   });
 
+  it('still reports a phone that left during the match being logged, once, but not one that left before it', () => {
+    const room = makeRoom();
+    room.join('Ana', '', { device: 'iphone', sinceMs: 5000 });
+    room.join('Bia', '', { device: 'android', sinceMs: 6000 });
+    room.join('Caio', '', { device: 'android', sinceMs: 7000 });
+    // Caio's seat runs out before the match begins at 100 000; Bia's during it.
+    room.disconnect(2, 0);
+    room.expire(SEAT_HOLD_MS);
+    room.disconnect(1, 100_000);
+    room.expire(100_000 + SEAT_HOLD_MS);
+    expect(room.takeConnections(100_000)).toEqual([
+      { seat: 0, name: 'Ana', device: 'iphone', joinMs: 5000, rejoins: 0, worstRejoinMs: null },
+      { seat: 1, name: 'Bia', device: 'android', joinMs: 6000, rejoins: 0, worstRejoinMs: null, left: true },
+    ]);
+    expect(room.takeConnections(100_000)).toHaveLength(1);
+  });
+
   it('tells phones apart by their browser name', () => {
     expect(deviceOf('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')).toBe('iphone');
     expect(deviceOf('Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36')).toBe('android');

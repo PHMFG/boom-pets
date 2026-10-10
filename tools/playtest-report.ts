@@ -7,10 +7,22 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PhoneConnection } from '../packages/protocol/src/index.ts';
 
+type Moves = { taps: number; dashes: number; tired: number; grabs: number; grabMisses: number; throws: number; powers: number };
+
 type Log = {
   startedAt: string;
   rounds: number;
-  players: { seat: number; name: string; bot: boolean; idleShare: number | null; firstDashAt: number | null; latencyMedianMs: number | null; latency95Ms: number | null }[];
+  players: {
+    seat: number;
+    name: string;
+    bot: boolean;
+    idleShare: number | null;
+    firstDashAt: number | null;
+    latencyMedianMs: number | null;
+    latency95Ms: number | null;
+    /** How the buttons were used. Logs from before the first playtest's fixes have none. */
+    moves?: Moves;
+  }[];
   eliminationsByCause: Record<string, number>;
   rolls: { seat: number; tier: string; rank: string }[];
   roundWinners: number[][];
@@ -74,6 +86,30 @@ if (people.size > 0) {
     for (const [name, person] of people) {
       if (person.wins === person.matches && people.size > 1) warnings.push(`${name} won every match they played (${person.matches}).`);
     }
+  }
+  console.log('');
+}
+
+// How the buttons were used: the first playtest found players mashing A and grabs that never landed.
+const moves = new Map<string, Moves>();
+for (const log of logs) {
+  for (const player of log.players) {
+    if (player.bot || !player.moves) continue;
+    const sum = moves.get(player.name) ?? { taps: 0, dashes: 0, tired: 0, grabs: 0, grabMisses: 0, throws: 0, powers: 0 };
+    for (const key of Object.keys(sum) as (keyof Moves)[]) sum[key] += player.moves[key];
+    moves.set(player.name, sum);
+  }
+}
+if (moves.size > 0) {
+  console.log('Player          taps  charged  A while resting  grabs (missed)  throws  powers used');
+  for (const [name, made] of moves) {
+    console.log(
+      `${name.padEnd(15)} ${String(made.taps).padStart(4)}  ${String(made.dashes).padStart(7)}  ${String(made.tired).padStart(15)}  ${`${made.grabs} (${made.grabMisses})`.padStart(14)}  ${String(made.throws).padStart(6)}  ${String(made.powers).padStart(11)}`,
+    );
+    const attacks = made.taps + made.dashes;
+    if (attacks >= 10 && made.taps / attacks > 0.6) warnings.push(`${name} tapped A instead of charging ${percent(made.taps / attacks)} of the time (over 60%): taps still look worth it.`);
+    if (made.tired > attacks * 2 && made.tired >= 20) warnings.push(`${name} pressed A ${made.tired} times while it was resting: the rest after a dash is not being read.`);
+    if (made.grabs + made.grabMisses >= 6 && made.grabMisses > made.grabs * 2) warnings.push(`${name} missed ${made.grabMisses} of ${made.grabs + made.grabMisses} grabs: reach is still hard to judge.`);
   }
   console.log('');
 }

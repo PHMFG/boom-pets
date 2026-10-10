@@ -53,10 +53,19 @@ export function applyTokens(root: HTMLElement): void {
   set('radius', `${shape.radiusPx}px`);
   set('shadow', `${shape.shadowPx}px`);
   set('pop-in', `${motion.popIn.ms}ms ${motion.popIn.css}`);
+  set('pop-in-ms', `${motion.popIn.ms}ms`);
   set('ease-pop', motion.popIn.css);
   set('squish-out', `${motion.squishOut.ms}ms ${motion.squishOut.css}`);
   set('move', `${motion.move.ms}ms ${motion.move.css}`);
   set('punch', `${motion.punch.ms}ms`);
   set('stagger', `${motion.staggerMs}ms`);
   set('breathe', `${motion.breathe.ms}ms`);
+  set('nudge', `${motion.nudge.ms}ms`);
+  set('prompt', `${motion.prompt.ms}ms`);
+  set('alarm', `${motion.alarm.ms}ms`);
+  set('wobble', `${motion.wobble.ms}ms`);
+  set('buzz', `${motion.buzz.ms}ms`);
+  set('feed', `${motion.feed.ms}ms`);
+  set('title-tag-delay', `${motion.title.tagDelayMs}ms`);
+  set('title-fly', `${motion.title.flyMs}ms`);
 }
