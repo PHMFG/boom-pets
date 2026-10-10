@@ -563,6 +563,11 @@
   color: var(--tier-cursed-accent);
 }
 
+/* The picture sits on the lime of the pair, or purple on purple would lose it. */
+.power-note.is-cursed .power-note-icon {
+  background: var(--tier-cursed-accent);
+}
+
 /* ── Player strip ───────────────────────────────────────────────────────── */
 
 .seat-strip {

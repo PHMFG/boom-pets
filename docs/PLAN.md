@@ -318,16 +318,20 @@ Everything in the build order through S5 is implemented, plus the S6 items that 
 
 ### Definition of done, as checked
 
+Updated after the first session with people, on 9 October 2026: two five-round matches on an iPhone and an Android phone over home Wi-Fi, the first with four players seated. The figures come from that session's logs, as `pnpm report` prints them.
+
 | # | Item | Checked by | Still needs |
 | --- | --- | --- | --- |
-| 1 | Six phones join from the QR code in under 30 seconds each, no install | Browser test: six phones on the Safari and Chrome engines join by the link, each timed. Joined by hand from Mobile Safari in the iOS Simulator | Real phones scanning the real QR code |
-| 2 | A full 5-round match runs from lobby to results without a crash or desync | Browser test in real time, and the headless match that replays identically from a seed | — |
-| 3 | Input feels instant on home Wi-Fi (under 80 ms) | Not checkable without phones on Wi-Fi. The backtick overlay and the playtest log show each phone's latency | A reading from real phones |
-| 4 | Solo and duo matches are playable with bots | Browser tests for one and for two players | — |
-| 5 | A phone that drops can rejoin the same pet within 10 seconds | Browser test: reload in the lobby, and closed and reopened mid-match, each timed. A reload in the iOS Simulator's Safari came back to its seat without retyping the name | A real phone locked and unlocked |
-| 6 | One playtest with 4 or more people run and logged | The logging and `pnpm report` are checked with a four-phone browser session | The people |
+| 1 | Six phones join from the QR code in under 30 seconds each, no install | Real phones scanned the QR code and joined with nothing installed: 12.7 s on the iPhone and 14.6 s on the Android phone from opening the page to being seated, typing the name included. Four phones joined the first match. Browser test: six emulated phones join, each timed | Six real phones at once |
+| 2 | A full 5-round match runs from lobby to results without a crash or desync | Two five-round matches played to their results on real phones. Browser test in real time, and the headless match that replays identically from a seed | — |
+| 3 | Input feels instant on home Wi-Fi (under 80 ms) | Read on the real phones during play: median round trips of 7 to 14 ms, worst 95th percentile 95 ms | — |
+| 4 | Solo and duo matches are playable with bots | Browser tests for one and for two players. With people, a two-player match was played with bots switched off | A person playing one match alone with bots, if evidence from people is wanted |
+| 5 | A phone that drops can rejoin the same pet within 10 seconds | Both real phones dropped and came back during play: 0.1 s and 0.5 s, as the phones measured it. The log cannot say whether they were locked or reloaded. Browser test: reload in the lobby, and closed and reopened mid-match | — |
+| 6 | One playtest with 4 or more people run and logged | Run and logged with four players seated, three of whom played; one phone never sent a touch. The log of that match names only two phones, because the relay then forgot phones that left before the end. That is fixed | A session where four or more all play |
 
-Not done, because they need people: the two-person gate session, the playtest with 4 or more players, and checks on real iPhone and Android phones of the screens added after the connection test (pet picker, ghost, carried, lever, ZICA, results). The browser test covers those screens on the same engines the phones use, but that does not replace people in a room.
+The gate (two people play with no powers and laugh) was the second match: two players, five rounds, and the report from the table was that the game was liked. What that session found wrong, and what changed, is under "After the first playtest" below.
+
+Still open, and only people can close them: six real phones at once, and a session where four or more all play. `pnpm report` marks each item from the logs as they come in.
 
 ### The session that closes S6
 

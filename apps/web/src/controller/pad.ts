@@ -57,7 +57,6 @@ export class Pad {
   private readonly root: HTMLElement;
   private readonly events: PadEvents;
   private readonly shape: HTMLElement;
-  private readonly power: HTMLElement;
   private readonly pity: HTMLElement[];
   private readonly crown: HTMLElement;
   private readonly banner: HTMLElement;
@@ -106,7 +105,6 @@ export class Pad {
     this.shape = element('pad-shape', strip);
     element('pad-name', strip, name);
     this.crown = element('pad-crown', strip, '👑');
-    this.power = element('pad-power', strip);
     const pips = element('pad-pity', strip);
     this.pity = Array.from({ length: PITY_PIPS }, () => element('pad-pip', pips));
 
@@ -301,9 +299,6 @@ export class Pad {
     this.root.dataset.mode = mode;
 
     this.crown.hidden = !status?.bounty;
-    this.power.hidden = !status?.power;
-    this.power.textContent = status?.power ? `${status.power.icon} ${status.power.name}` : '';
-    this.power.style.setProperty('--tier', status?.power?.color ?? 'transparent');
     this.pity.forEach((pip, index) => pip.classList.toggle('is-on', index < (status?.pity ?? 0)));
     // While A is held it shows the charging face; that is left alone until release.
     if (!this.buttons.a.classList.contains('is-charging')) this.letter.textContent = mode === 'ghost' ? '☄️' : 'A';

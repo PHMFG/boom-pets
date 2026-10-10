@@ -6,6 +6,20 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 Nothing yet.
 
+## [0.2.1] - 2026-10-10
+
+Found by photographing every new screen on phone-sized browsers after 0.2.0, before anyone played it.
+
+### Fixed
+
+- On the phone, the card that explains a power sat on top of the name strip when the name or the explanation was long. The card now has its own row under the strip, and the strip no longer repeats the power's name. The browser test checks the layout with the longest name and explanation there are.
+- On the TV, the first-match hints were long enough to cover pets at the top of the platform. They are shorter.
+- The card for a curse showed its picture purple on purple. The picture now sits on the lime of the curse colours, and the card says "pegou uma zica", which fits any name.
+
+### Changed
+
+- `docs/PLAN.md` records what the first playtest measured against the definition of done, and what is still open.
+
 ## [0.2.0] - 2026-10-10
 
 The fixes from the first playtest with real phones. Why each rule changed is in `docs/GAMEPLAY.md`.

@@ -358,16 +358,6 @@ body {
   display: none;
 }
 
-.pad-power {
-  padding: 0.6vmin 2vmin;
-  border: 2px solid var(--ink);
-  border-radius: 99px;
-  background: var(--tier);
-  font-size: 4.4vmin;
-  white-space: nowrap;
-  animation: pop-in var(--pop-in) both;
-}
-
 .pad-pity {
   display: flex;
   gap: 0.8vmin;
@@ -581,10 +571,11 @@ body {
   pointer-events: none;
 }
 
-/* What the power does: the one waiting on the button, or the one running now. */
+/* What the power does: the one waiting on the button, or the one running now. It sits under the row
+   of the name strip, so no name and no power, however long, can push the two into each other. */
 .pad-card {
   position: absolute;
-  top: 4vmin;
+  top: 18vmin;
   left: 50%;
   display: flex;
   flex-direction: column;
@@ -619,7 +610,7 @@ body {
   line-height: 1.15;
 }
 
-/* The connection banner shares that spot and matters more. */
+/* A banner (the connection, or "mash!" while carried) matters more and takes the middle. */
 .pad-banner:not([hidden]) ~ .pad-card {
   display: none;
 }

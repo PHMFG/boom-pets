@@ -97,14 +97,14 @@ export const strings = {
   hud: {
     double: '×2',
     tips: {
-      dash: 'Segure para carregar, solte para disparar. Só apertar é um empurrãozinho',
-      grab: 'Chegue perto e agarre. Aperte de novo para arremessar',
-      power: 'Pegou um cubo? O poder espera no botão novo do celular',
+      dash: 'Segure e solte para disparar. Um toque só empurra',
+      grab: 'Chegue perto e agarre. De novo para arremessar',
+      power: 'Pegou um cubo? Use o poder no botão novo',
     },
     /** On the card that explains a power: who has it, and whether it is waiting or already running. */
     powerReady: 'tem',
     powerOn: 'ativou',
-    powerCursed: 'foi zicado:',
+    powerCursed: 'pegou uma zica:',
     roundTo: (name: string) => `Rodada de ${name}!`,
     roundTie: 'Empate!',
     resultsTitle: 'Fim de jogo!',
