@@ -4,7 +4,9 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **One points table for every game.** Where a player finishes pays 6, 4, 3, 2 and 1 (it was 5, 3, 1), and in the brawl a knockout, a ghost's swap back in and knocking out the leader add 1 each (they were 3, 2 and 2, with 1 more for a throw). Rounds are about to become different games, and no game should weigh more than another.
 
 ## [0.5.0] - 2026-10-10
 

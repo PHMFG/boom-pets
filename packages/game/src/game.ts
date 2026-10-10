@@ -273,8 +273,7 @@ export class Game {
         if (event.cause === 'fall') this.stat(event.seat, 'faller', 1);
         if (event.killer !== null) {
           this.roundKills.set(event.killer, (this.roundKills.get(event.killer) ?? 0) + 1);
-          // Carrying a rival to the edge and throwing it off is the hardest knockout, so it pays a little more.
-          this.addScore(event.killer, (match.killPoints + (event.cause === 'throw' ? match.throwBonus : 0)) * factor, 'kill', event.x, event.z);
+          this.addScore(event.killer, match.killPoints * factor, 'kill', event.x, event.z);
           if (event.seat === this.bounty) this.addScore(event.killer, match.bountyPoints * factor, 'bounty', event.x, event.z);
         }
         if (this.sinceSlow >= match.slowMoGap) this.slow(match.slowMo, match.slowMoTime);

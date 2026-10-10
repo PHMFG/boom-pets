@@ -88,16 +88,16 @@ describe('odds', () => {
 });
 
 describe('scoring', () => {
-  it('gives 5, 3 and 1 for the first three places and doubles in the final round', () => {
-    expect([...placementPoints([[2], [0], [1], [3]], 1)]).toEqual([[2, 5], [0, 3], [1, 1], [3, 0]]);
-    expect(placementPoints([[2], [0]], 2).get(2)).toBe(10);
+  it('gives 6, 4, 3, 2 and 1 for the first five places, nothing for sixth, and doubles in the final round', () => {
+    expect([...placementPoints([[2], [0], [1], [3], [5], [4]], 1)]).toEqual([[2, 6], [0, 4], [1, 3], [3, 2], [5, 1], [4, 0]]);
+    expect(placementPoints([[2], [0]], 2).get(2)).toBe(12);
   });
 
-  it('splits the points of tied survivors', () => {
+  it('splits the points of tied seats', () => {
     const points = placementPoints([[0, 1], [2]], 1);
-    expect(points.get(0)).toBe(4);
-    expect(points.get(1)).toBe(4);
-    expect(points.get(2)).toBe(1);
+    expect(points.get(0)).toBe(5);
+    expect(points.get(1)).toBe(5);
+    expect(points.get(2)).toBe(3);
   });
 
   it('names the leader and the last place only when scores differ', () => {
@@ -733,16 +733,16 @@ function makeDuelMatch(rounds: number) {
 }
 
 describe('match scoring', () => {
-  it('gives 3 for the knockout and 5 and 3 for first and second, and names the leader as the bounty', () => {
+  it('gives 1 for the knockout and 6 and 4 for first and second, and names the leader as the bounty', () => {
     const { game, seen, duel } = makeDuelMatch(2);
     duel(0, 1);
     expect(game.phase).toBe('roundEnd');
     expect([...game.scores]).toEqual([[0, match.killPoints + match.placePoints[0]!], [1, match.placePoints[1]!]]);
     expect(game.bounty).toBe(0);
     expect(seen.filter(event => event.t === 'score').map(event => (event.t === 'score' ? [event.seat, event.reason, event.points] : []))).toEqual([
-      [0, 'kill', 3],
-      [0, 'place', 5],
-      [1, 'place', 3],
+      [0, 'kill', match.killPoints],
+      [0, 'place', 6],
+      [1, 'place', 4],
     ]);
     game.round.free();
   });

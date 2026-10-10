@@ -192,12 +192,14 @@ export const match = {
   fillTo: 4,
   /** Seconds a knock is remembered for kill credit. */
   creditWindow: 3,
-  killPoints: 3,
-  /** Extra points for a knockout by throwing. */
-  throwBonus: 1,
-  placePoints: [5, 3, 1],
-  swapPoints: 2,
-  bountyPoints: 2,
+  /**
+   * Every game pays the same for where a player finished, so no game weighs more than another.
+   * In the brawl a knockout, a ghost's swap back in and knocking out the leader add a point each on top.
+   */
+  placePoints: [6, 4, 3, 2, 1],
+  killPoints: 1,
+  swapPoints: 1,
+  bountyPoints: 1,
   finalRoundFactor: 2,
   /** The player in last place gets a bigger blast. */
   underdogRadius: 1.2,
