@@ -68,6 +68,7 @@ export class Session {
   private feedId = 0;
   private banner: { seat: number; text: string } | null = null;
   private powerNote: (PowerNote & { until: number }) | null = null;
+  private matchesStarted = 0;
 
   /** `solo` runs without phones (bots only) and never touches the relay, for testing beside a real session. */
   constructor(stageHost: HTMLElement, nameplates: Nameplates, options: { autostart: boolean; solo: boolean }) {
@@ -92,6 +93,8 @@ export class Session {
       this.game = new Game(this.seed);
       this.stage.setGame(this.game);
       this.stage.setTitle(hud.get().title);
+      // It starts with the first key press, which is when the browser allows sound.
+      if (hud.get().title) this.audio.setSong('title');
       // For tests and the browser console.
       if (import.meta.env.DEV) Object.assign(window, { __BOOM__: { game: this.game, session: this, skip: (seconds: number) => this.skip(seconds) } });
       hud.set({ loading: false });
@@ -162,7 +165,8 @@ export class Session {
     this.seed = (this.seed * 48271) % 0x7fffffff || 1;
     game.startMatch({ rounds: options.rounds, bots: options.bots, petPool: PET_IDS, botName: index => `Robô ${index + 1}` });
     this.log.begin(game, this.seed);
-    this.audio.setSong('battle');
+    // The two battle themes take turns, one match each, from the top.
+    this.audio.setSong(this.matchesStarted++ % 2 === 0 ? 'battleA' : 'battleB', true);
     this.refreshNames();
   }
 
@@ -419,6 +423,8 @@ export class Session {
           localStorage.setItem(TUTORIAL_KEY, '1');
           this.tipUntil = performance.now() + TIP_MS * 3;
         }
+        // The last round counts double, and gets its own track from its countdown on.
+        if (event.phase === 'countdown' && game.isFinalRound && game.rounds > 1) this.audio.setSong('final', true);
         if (event.phase === 'matchEnd') {
           this.log.save(game);
           this.audio.setSong('lobby');

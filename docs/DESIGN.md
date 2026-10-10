@@ -153,7 +153,18 @@ A new effect goes on this ladder next to something of the same weight, and is no
 
 ## Sound
 
-- Impacts are samples; everything else is synthesised (`audio/AudioEngine.ts`).
+- Impacts are samples, the music is recorded tracks, and everything else is synthesised (`audio/AudioEngine.ts`).
+- The soundtrack follows where the players are:
+
+  | Where | Track (`apps/web/public/music/`) |
+  | --- | --- |
+  | Main menu | `title` |
+  | Lobby, and the results | `lobby`, which picks up where it left off |
+  | A match | `battle-a` and `battle-b`, taking turns one match each, from the top |
+  | The last round, which counts double | `rio-rumble`, from that round's countdown |
+
+- One track fades into the next; nothing cuts. Music sits under the effects, ducks for big moments (a gacha, an explosion) and goes muffled in slow motion.
+- If a track's file is missing, a synthesised tune stands in, so the game is never silent.
 - Sound follows size: a bigger charge whooshes longer and louder, a bigger blast booms longer, and each link of a chain reaction thumps higher.
 - Every event that matters is heard as well as seen. S mutes.
 

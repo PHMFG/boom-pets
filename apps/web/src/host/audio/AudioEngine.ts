@@ -1,6 +1,6 @@
-// Sound. Impacts are recorded samples; everything else (whooshes, booms, jingles, the music) is
-// synthesised, so the game needs no audio files beyond a handful of hits. Music and effects run on
-// separate buses: music ducks under big moments and goes muffled in slow motion.
+// Sound. Impacts are recorded samples and the music is recorded tracks; everything else (whooshes,
+// booms, jingles) is synthesised. Music and effects run on separate buses: music ducks under big
+// moments and goes muffled in slow motion. If a track's file is missing, a synthesised tune stands in.
 import type { Game, GameEvent } from '@boom/game';
 import { tuning } from '@boom/game';
 
@@ -9,12 +9,32 @@ type Sample = (typeof SAMPLES)[number];
 type Wave = 'sine' | 'square' | 'sawtooth' | 'triangle';
 
 const NOTE = (semitonesFromA4: number) => 440 * 2 ** (semitonesFromA4 / 12);
-/** Two eight-step bass lines and leads, in semitones from A4. Null is a rest. */
+/** The stand-in tunes: two eight-step bass lines and leads, in semitones from A4. Null is a rest. */
 const SONGS = {
   lobby: { tempo: 104, bass: [-24, null, -17, null, -21, null, -17, -19], lead: [3, null, 7, 10, null, 7, 3, null, 2, null, 5, 8, null, 5, 2, null] },
   battle: { tempo: 148, bass: [-24, -24, -12, -24, -21, -21, -9, -21, -26, -26, -14, -26, -19, -19, -7, -19], lead: [0, 3, 7, 12, 10, 7, 3, 7, -2, 2, 5, 10, 8, 5, 2, 5] },
 } as const;
-export type Song = keyof typeof SONGS | null;
+
+/**
+ * The soundtrack: one recorded track per moment of the game, in `public/music`. `synth` is the
+ * stand-in tune that plays if the file cannot be loaded.
+ */
+const TRACKS = {
+  title: { file: 'title', synth: 'lobby' },
+  lobby: { file: 'lobby', synth: 'lobby' },
+  battleA: { file: 'battle-a', synth: 'battle' },
+  battleB: { file: 'battle-b', synth: 'battle' },
+  /** The last round of a match, which counts double. */
+  final: { file: 'rio-rumble', synth: 'battle' },
+} as const satisfies Record<string, { file: string; synth: keyof typeof SONGS }>;
+type TrackId = keyof typeof TRACKS;
+export type Song = TrackId | null;
+type Track = { element: HTMLAudioElement; gain: GainNode; broken: boolean };
+
+/** Seconds one track takes to fade into the next. */
+const MUSIC_FADE = 0.7;
+/** How loud a recorded track sits on the music bus. The bus itself is kept low so effects stay on top. */
+const TRACK_LEVEL = 2;
 
 export class AudioEngine {
   muted = false;
@@ -25,6 +45,9 @@ export class AudioEngine {
   private musicFilter!: BiquadFilterNode;
   private readonly buffers = new Map<Sample, AudioBuffer>();
   private song: Song = null;
+  private readonly tracks = new Map<TrackId, Track>();
+  /** The stand-in tune playing because the wanted track has no file. */
+  private synth: keyof typeof SONGS | null = null;
   private step = 0;
   private nextNoteAt = 0;
   private scheduler = 0;
@@ -67,6 +90,22 @@ export class AudioEngine {
         .then(buffer => this.buffers.set(name, buffer))
         .catch(() => undefined);
     }
+    for (const id of Object.keys(TRACKS) as TrackId[]) {
+      const element = new Audio(`/music/${TRACKS[id].file}.mp3`);
+      element.loop = true;
+      element.preload = 'auto';
+      const gain = context.createGain();
+      gain.gain.value = 0;
+      context.createMediaElementSource(element).connect(gain).connect(this.music);
+      const track: Track = { element, gain, broken: false };
+      element.addEventListener('error', () => {
+        track.broken = true;
+        if (this.song === id) this.playSong(false);
+      });
+      this.tracks.set(id, track);
+    }
+    // A song may have been asked for before the first key press allowed any sound.
+    this.playSong(false);
     this.voice = speechSynthesis.getVoices().find(voice => voice.lang.startsWith('pt')) ?? null;
     speechSynthesis.addEventListener('voiceschanged', () => (this.voice = speechSynthesis.getVoices().find(voice => voice.lang.startsWith('pt')) ?? this.voice));
     this.scheduler = window.setInterval(() => this.schedule(), 60);
@@ -78,11 +117,36 @@ export class AudioEngine {
     if (muted) speechSynthesis.cancel();
   }
 
-  setSong(song: Song): void {
-    if (song === this.song) return;
+  /** Fades to another track. A track picks up where it was left, unless `restart` sends it back to its beginning. */
+  setSong(song: Song, restart = false): void {
+    if (song === this.song && !restart) return;
     this.song = song;
-    this.step = 0;
-    this.nextNoteAt = (this.context?.currentTime ?? 0) + 0.1;
+    this.playSong(restart);
+  }
+
+  private playSong(restart: boolean): void {
+    const context = this.context;
+    if (!context) return;
+    for (const [id, track] of this.tracks) {
+      const wanted = id === this.song && !track.broken;
+      track.gain.gain.cancelScheduledValues(context.currentTime);
+      track.gain.gain.setTargetAtTime(wanted ? TRACK_LEVEL : 0, context.currentTime, MUSIC_FADE / 3);
+      if (wanted) {
+        if (restart) track.element.currentTime = 0;
+        // Refused only before the first key press; unlocking calls this again.
+        void track.element.play().catch(() => undefined);
+      } else if (!track.element.paused) {
+        // Paused once it has faded out, so it resumes from the same bar next time.
+        window.setTimeout(() => this.song !== id && track.element.pause(), MUSIC_FADE * 1000);
+      }
+    }
+    const current = this.song ? this.tracks.get(this.song) : undefined;
+    const synth = this.song && current?.broken ? TRACKS[this.song].synth : null;
+    if (synth !== this.synth) {
+      this.synth = synth;
+      this.step = 0;
+      this.nextNoteAt = context.currentTime + 0.1;
+    }
   }
 
   /** Per frame: muffles the music in slow motion and plays one rising whine for the strongest charge on the platform. */
@@ -301,8 +365,8 @@ export class AudioEngine {
   /** Queues the music's next notes a little ahead of time, so it stays on the beat however the frames fall. */
   private schedule(): void {
     const context = this.context;
-    if (!context || !this.song || context.state !== 'running') return;
-    const song = SONGS[this.song];
+    if (!context || !this.synth || context.state !== 'running') return;
+    const song = SONGS[this.synth];
     const beat = 60 / song.tempo / 2;
     while (this.nextNoteAt < context.currentTime + 0.2) {
       const bass = song.bass[this.step % song.bass.length];
@@ -313,7 +377,7 @@ export class AudioEngine {
       const count = this.step % 8;
       if (count % 4 === 0) this.tone(130, 0.14, 'sine', 1.2, 42, this.music, this.nextNoteAt);
       if (count % 2 === 1) this.noise(0.04, 0.3, 9000, 7000, 'highpass', this.music, this.nextNoteAt);
-      if (this.song === 'battle' && count === 4) this.noise(0.13, 0.55, 2400, 1100, 'bandpass', this.music, this.nextNoteAt);
+      if (this.synth === 'battle' && count === 4) this.noise(0.13, 0.55, 2400, 1100, 'bandpass', this.music, this.nextNoteAt);
       this.nextNoteAt += beat;
       this.step++;
     }
@@ -321,6 +385,7 @@ export class AudioEngine {
 
   dispose(): void {
     clearInterval(this.scheduler);
+    for (const track of this.tracks.values()) track.element.pause();
     speechSynthesis.cancel();
     void this.context?.close();
   }

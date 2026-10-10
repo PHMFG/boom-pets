@@ -52,4 +52,6 @@ Computer
 
 ## Credits
 
+Music: the five tracks in `apps/web/public/music`, added by the project's owner.
+
 Pet models, impact sounds and skyboxes by [Kenney](https://kenney.nl) (CC0). Fonts: Lilita One and Nunito (SIL Open Font License).

@@ -43,7 +43,7 @@ Host (`apps/web/src/host/`)
 - `stages/Props.ts` (barrels, cube, meteors, ghosts, slot reels, capsule machine, pop-up words, podium), `stages/TileField.ts`.
 - `pets/PetView.ts`: one pet. The model plays its clips; code-driven motion goes on wrapper groups above it.
 - `render/`: `Renderer.ts` (post-processing), `CameraRig.ts`, `materials.ts` (toon and outline), `assets.ts`, `Text3D.ts`, `emoji.ts`.
-- `fx/Particles.ts`, `fx/Decals.ts`, `audio/AudioEngine.ts` (samples for impacts, everything else synthesised).
+- `fx/Particles.ts`, `fx/Decals.ts`, `audio/AudioEngine.ts` (samples for impacts, recorded tracks for music, everything else synthesised). `app/Session.ts` chooses the track.
 - `hud/GameScreen.tsx` and `game.css`: the main menu on the title screen, and the flat HUD for every phase. `Nameplates.ts` is written to the DOM each frame.
 - `studio/`: test bench at `/?studio` for pets, clips and the 3D font.
 
@@ -52,6 +52,8 @@ Phone (`apps/web/src/controller/`): `main.ts` (join), `net.ts` (connection), `pa
 Relay (`apps/relay/src/`): `relay.ts` passes messages, keeps the roster (`room.ts`) and saves playtest logs, adding what only it knows about each phone (iPhone or Android, how long it took to join, how often it dropped and how fast it came back); `network.ts` finds the Wi-Fi address.
 
 Shared: `apps/web/src/shared/` (tokens, motion, strings, pets, power icons, SVG glyphs) and `packages/protocol/src/` (`index.ts` messages, `schemas.ts` validation for the relay).
+
+Music: five tracks in `apps/web/public/music/` (`title`, `lobby`, `battle-a`, `battle-b`, `rio-rumble`). Which plays when is in `docs/DESIGN.md` under Sound. To change a track, replace its file and keep the name.
 
 Documents: `docs/DESIGN.md` and `docs/GAMEPLAY.md` (the style, above), `docs/PLAN.md` (the original plan and what was built), `CHANGELOG.md` (what changed in each version, and why).
 
