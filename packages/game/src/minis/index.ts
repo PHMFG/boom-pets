@@ -4,13 +4,15 @@ import type { MiniRules } from './field';
 import { GrowRules } from './grow';
 import { LavaRules } from './lava';
 import { PaintRules } from './paint';
+import { RaceRules } from './race';
 
-export type AnyRules = PaintRules | LavaRules | GrowRules;
+export type AnyRules = PaintRules | LavaRules | GrowRules | RaceRules;
 
 const MAKERS: Partial<Record<MiniMode, () => AnyRules>> = {
   paint: () => new PaintRules(),
   lava: () => new LavaRules(),
   grow: () => new GrowRules(),
+  race: () => new RaceRules(),
 };
 
 /** A fresh set of rules for one round of a game. */

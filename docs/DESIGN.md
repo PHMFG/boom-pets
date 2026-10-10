@@ -154,10 +154,11 @@ It is held without being looked at, so it must work by feel and explain itself i
   | --- | --- | --- | --- |
   | Bate-Bate | White checker | Lavender clouds far below | Day; night when it is the last round |
   | Come e Cresce | White and pale red gingham | A wooden table, a giant plate and fork, whole fruit beyond the far edge. Food is chunky and bright, each kind its own shape; the pepper wears the curse colours | Day |
+  | Corrida Maluca | Pale mint and lemon blocks, with a chequered stretch before the line | Clouds far below, a green arch at the start and a gold one at the end, a gold flag wherever a fallen pet comes back, orange bars sweeping on grey posts | Morning |
   | O Chão é Lava | Pale stone. The rocks to stand on are dark and drawn a little wider than they are: on a pale floor they must be the first thing anyone sees | A sea of lava, brighter than white so it glows, with dark boulders standing in it and two cones at the back | Night |
   | Pinta o Chão | White paper; a painted tile is its player's colour, lightened | A desk, masking tape round the paper, giant pencils, a pot of paint for each player colour | Morning |
 
-- **Camera.** Tilted 52° down through a narrow lens. In a round it frames the living pets and nothing more (a ghost's cursor and a falling cube pull it a little), so it is as close as the fight allows and moves in and out with it: the platform's empty corners are not worth the pixels. The fit is exact: the farthest pet's name tag stays below the round counter and the nearest pet's ring above the players' cards (the HUD reports what it covers as insets). It looks a moment ahead along each pet's path, pulls back at once when someone is about to leave the picture and closes in gently, and never comes so close that a fight in the middle has no edge in view. It shakes with impacts in proportion to them and punches in on big moments. The numbers are at the top of `render/CameraRig.ts`.
+- **Camera.** Tilted 52° down through a narrow lens. In a round it frames the living pets and nothing more (a ghost's cursor and a falling cube pull it a little), so it is as close as the fight allows and moves in and out with it: the platform's empty corners are not worth the pixels. The fit is exact: the farthest pet's name tag stays below the round counter and the nearest pet's ring above the players' cards (the HUD reports what it covers as insets). A map may ask for more to be kept in view (the race keeps the next few metres of track ahead of every pet). It looks a moment ahead along each pet's path, pulls back at once when someone is about to leave the picture and closes in gently, and never comes so close that a fight in the middle has no edge in view. It shakes with impacts in proportion to them and punches in on big moments. The numbers are at the top of `render/CameraRig.ts`.
 
 ### How big should an effect be?
 
@@ -169,6 +170,9 @@ It is held without being looked at, so it must work by feel and explain itself i
 | A thrown pet landing on someone | Both squash | Ring, stars | Medium shake |
 | An explosion | Thrown, tumbling | Bright sphere, smoke, sparks, debris, scorch | Shake, colour fringe, extra glow |
 | A SUPER arriving | Its owner changes on the spot; everyone else looks scared | A wide warning on the floor, then a strike and its blast | Close on the owner for the gacha, then shake |
+| A jump, and coming back after a fall | Leaves the floor; arrives in a puff with a hop | Dust at the take-off | Nothing |
+| Swept by a bar | Thrown aside | Stars | A small shake |
+| First over the line | Nothing | Confetti in its colour, the word CHEGOU! | A shake |
 | Something eaten | Munches, and grows when it has eaten enough | A few crumbs in the eater's colour; a purple puff for a pepper | Nothing |
 | A bite that lands | Thrown back | Stars, a puff, the word NHAC! in the biter's colour | Small shake |
 | The lava's alarm, and the lava | Nothing; those left out burst into sparks | The sea climbs through the alarm, then jumps over the floor. The words SOBE! and LAVA! | Small shake, then a bigger one with a little glow |

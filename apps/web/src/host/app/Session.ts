@@ -424,6 +424,15 @@ export class Session {
       case 'bounty':
         this.nameplates.setCrown(event.seat);
         break;
+      case 'finish':
+        this.socket?.send(event.seat, { t: 'haptic', pattern: 'win' });
+        this.pushFeed(this.who(event.seat), '🏁', null, strings.hud.place(event.place));
+        break;
+      case 'swept': {
+        const swept = game.round.petById(event.pet)?.seat;
+        if (swept !== undefined) this.socket?.send(swept, { t: 'haptic', pattern: 'hit' });
+        break;
+      }
       case 'bite': {
         const bitten = game.round.petById(event.victim)?.seat;
         this.socket?.send(event.seat, { t: 'haptic', pattern: 'tap' });

@@ -74,6 +74,14 @@ export class TileField {
     this.mesh.instanceColor!.needsUpdate = true;
   }
 
+  /** Takes a tile away at once, with no fall: for the parts of the grid a map never had. */
+  hide(index: number): void {
+    const tile = this.tiles[index];
+    if (!tile) return;
+    tile.mode = 'gone';
+    this.seen[index] = TILE.gone;
+  }
+
   /** Brings one tile back up from below. */
   rise(index: number): void {
     const tile = this.tiles[index];

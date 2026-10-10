@@ -170,6 +170,35 @@ export const supers = {
   showerSafe: 2.5,
 } as const;
 
+/** Corrida Maluca. */
+export const race = {
+  cap: 60,
+  columns: 24,
+  rows: 15,
+  /** Seconds the round goes on after the first pet crosses the line. */
+  grace: 8,
+  /** Upward speed of a jump: about 0.9 m high and 3 m long at a run, enough for a gap of two tiles and not for the three between lanes. */
+  jumpSpeed: 7.5,
+  jumpRest: 0.2,
+  /** Where across the map (in x) the three obstacles of each straight are centred. A flag stands between the second and the third. */
+  slotsX: [-6, 0, 6],
+  /** Tiles of track an obstacle takes up, and how many a gap takes away. Even numbers: an obstacle is centred on a line between tiles. */
+  stretch: 4,
+  gapLength: 2,
+  /** Tiles that blink: seconds solid, seconds shaking, and the whole cycle. */
+  blinkSolid: 1.7,
+  blinkWarn: 0.7,
+  blinkCycle: 3.6,
+  /** A sweeping bar: radians a second, how far it reaches from its post, how near its middle line a pet is hit, and how hard. */
+  sweepSpeed: 2.1,
+  sweepReach: 1.7,
+  sweepThick: 0.4,
+  sweepForce: 8,
+  sweepLift: 4,
+  /** The most progress one step on the floor can add. A landing on another lane is farther than this, so it is not counted. */
+  maxStride: 4,
+} as const;
+
 /** Come e Cresce. */
 export const grow = {
   cap: 40,

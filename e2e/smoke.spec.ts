@@ -473,7 +473,7 @@ test('a full five-round match runs from the title to the results in real time wi
 const shot = (target: Page, name: string) => (process.env.BOOM_SHOTS ? target.screenshot({ path: `test-results/shots/${name}.png` }).then(() => undefined) : Promise.resolve());
 
 /** The simple games, in the order this session plays them. A game is added here when it is added to the match. */
-const GAMES = ['paint', 'lava', 'grow'] as const;
+const GAMES = ['paint', 'lava', 'grow', 'race'] as const;
 
 test('two phones play a round of every game: each pad shows that game\'s buttons, and the match ends with a winner', async ({ page, baseURL }) => {
   const session = new Session(page, baseURL!);

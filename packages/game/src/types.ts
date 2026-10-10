@@ -224,6 +224,9 @@ export type GameEvent =
   /** Pinta o Chão: a bucket of paint is coming down, and one was kicked over. */
   | { t: 'bucket'; id: number; x: number; z: number; delay: number }
   | { t: 'splash'; seat: number; x: number; z: number; radius: number }
+  /** Corrida Maluca: a pet crossed the line, in that place; a pet was knocked off its feet by a sweeping bar. */
+  | { t: 'finish'; pet: number; seat: number; place: number }
+  | { t: 'swept'; pet: number }
   /** Come e Cresce: a pet ate something, and a pet bit a smaller one, which lost that many points. */
   | { t: 'eat'; pet: number; seat: number; kind: 'apple' | 'donut' | 'melon' | 'pepper'; x: number; z: number }
   | { t: 'bite'; pet: number; seat: number; victim: number; lost: number }

@@ -46,6 +46,8 @@ export interface MapView {
   readonly bounds: Bounds;
   /** Shows one thing the simulation says just happened, if it is this map's to show. */
   handle(event: GameEvent, round: AnyRound): void;
+  /** More for the camera to keep in view than the pets themselves: what a player needs to see coming. */
+  focus?(round: AnyRound, points: { x: number; z: number }[]): void;
   /** Once a frame. `round` is null when nothing of the round is drawn (the podium's stage). */
   frame(round: AnyRound | null, dt: number, time: number, alpha: number): void;
   dispose(): void;

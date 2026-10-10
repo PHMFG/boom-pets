@@ -1,6 +1,6 @@
 // Draws the game. It reads the simulation every frame and turns its events into motion, particles,
 // camera moves and pop-up words. It never changes the simulation.
-import type { Game, GameEvent, GameMode, Pet } from '@boom/game';
+import type { AnyRound, Game, GameEvent, GameMode, Pet } from '@boom/game';
 import { POWERS, tuning } from '@boom/game';
 import type { SeatInfo } from '@boom/protocol';
 import {
@@ -33,6 +33,7 @@ import { BrawlMap } from './maps/BrawlMap';
 import { GrowMap } from './maps/GrowMap';
 import { LavaMap } from './maps/LavaMap';
 import { PaintMap } from './maps/PaintMap';
+import { RaceMap } from './maps/RaceMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
 const HALF = tuning.arena.size / 2;
@@ -252,11 +253,21 @@ export class GameStage {
       case 'roundWinner':
         this.winners = new Set(event.seats);
         return;
+      case 'respawn':
+        // Back on the floor: it arrives in a puff, the way a pet that changes does.
+        this.poof(event.x, 1.2, event.z);
+        this.pets.get(event.pet)?.bounce(0.8);
+        return;
+      case 'jump': {
+        const view = this.pets.get(event.pet);
+        if (view) this.dust(view.feet.x, view.feet.z, 5);
+        return;
+      }
       case 'reveal':
         // The next game's world replaces whatever was on stage, behind its card.
         this.winners.clear();
         this.words.clear();
-        this.showMap(this.makeMap(event.mode, event.final));
+        this.showMap(this.makeMap(event.mode, event.final, game.round));
         if (event.final) this.popWord(strings.words3d.doubleRound, 0, 5.6, -2, 1.6, colors.gold);
         return;
       case 'finale': {
@@ -672,12 +683,14 @@ export class GameStage {
     } else if (phase === 'lobby') {
       this.words.clear();
       this.winners.clear();
-      this.showMap(this.makeMap('brawl', false));
+      this.showMap(this.makeMap('brawl', false, null));
     }
   }
 
   /** The world of a game. `final` is the last round's look, for a map that has one. */
-  private makeMap(mode: GameMode, final: boolean): MapView {
+  private makeMap(mode: GameMode, final: boolean, round: AnyRound | null): MapView {
+    // A map whose shape is drawn by the round (the race's track) is built from it.
+    if (mode === 'race' && round?.gameMode === 'race') return new RaceMap(this.kit, round);
     switch (mode) {
       case 'paint':
         return new PaintMap(this.kit);
@@ -808,6 +821,7 @@ export class GameStage {
       points.push({ x: Math.min(maxX + GHOST_PULL, Math.max(minX - GHOST_PULL, ghost.x)), z: Math.min(maxZ + GHOST_PULL, Math.max(minZ - GHOST_PULL, ghost.z)) });
     }
     if (game.round.gameMode === 'brawl' && game.round.cube) points.push(game.round.cube);
+    this.map.focus?.(game.round, points);
     return points;
   }
 

@@ -3,7 +3,8 @@
 // take over a seat in the middle of one.
 import type { Rng } from '../rng';
 import type { AnyRound } from '../rounds';
-import type { Pet } from '../types';
+import { TILE, type Pet } from '../types';
+import { pointAt, progressOf } from './race';
 
 export type MiniPlan = { x: number; z: number; tapA?: boolean };
 
@@ -81,6 +82,67 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
         }
       }
       return best ? toward(me, best.x, best.z) : STILL;
+    }
+    case 'race': {
+      const rules = round.rules;
+      if (rules.finishers.some(entry => entry.seat === seat)) return STILL;
+      const along = progressOf(me.x, me.z);
+      // Aim a short way down the middle of the track: short enough not to cut a corner over the drop.
+      const here = pointAt(along);
+      const ahead = pointAt(along + 1.2);
+      // Slower where care is needed, as a person would be: into a turn (a late thumb overshoots it), onto a beam
+      // while not yet lined up with it, and behind someone already on the way.
+      const turning = pointAt(along + 2.2).dx * here.dx + pointAt(along + 2.2).dz * here.dz < 0.5;
+      const off = Math.abs((me.x - here.x) * here.dz - (me.z - here.z) * here.dx);
+      const beam = [1.2, 2.2].some(distance => {
+        const spot = pointAt(along + distance);
+        return !round.isFloor(spot.x + spot.dz, spot.z - spot.dx) && round.isFloor(spot.x, spot.z);
+      });
+      const queued = round.pets.some(other => {
+        if (other === me) return false;
+        const forward = (other.x - me.x) * here.dx + (other.z - me.z) * here.dz;
+        const aside = Math.abs((other.x - me.x) * here.dz - (other.z - me.z) * here.dx);
+        return forward > 0.2 && forward < 1.3 && aside < 0.8;
+      });
+      const pace = queued && beam ? 0.3 : turning ? 0.55 : beam && off > 0.2 ? 0.5 : 1;
+      const run = toward(me, ahead.x, ahead.z, pace);
+      if (!me.grounded) return run;
+      // A press lands a quarter second after it is decided, so everything is judged for where the pet will be then.
+      const lag = 0.27;
+      const speed = Math.hypot(me.vx, me.vz);
+
+      // A bar coming round: jump as it arrives. The middle of it cannot be jumped, only its arms.
+      for (const sweeper of rules.sweepers) {
+        const reach = Math.hypot(me.x - sweeper.x, me.z - sweeper.z);
+        if (reach > 2.1 || reach < 0.5) continue;
+        const mine = Math.atan2(me.x - sweeper.x, me.z - sweeper.z);
+        // How far the nearer arm still has to turn to reach the pet. The two arms are half a turn apart.
+        let gap = ((mine - sweeper.angle) * Math.sign(sweeper.speed)) % Math.PI;
+        if (gap < 0) gap += Math.PI;
+        const wait = gap / Math.abs(sweeper.speed);
+        if (wait > lag && wait < lag + 0.22 && rng.chance(0.85)) return { ...run, tapA: true };
+      }
+
+      // What the floor does over the next few metres of track. A tile that is shaking counts as already gone.
+      const solid = (distance: number) => {
+        const spot = pointAt(along + distance);
+        const index = round.index(spot.x, spot.z);
+        return index >= 0 && round.tiles[index] === TILE.solid;
+      };
+      // Already on a tile that is going: no stopping now.
+      if (!solid(0)) return run;
+      let edge = -1;
+      let far = -1;
+      for (let distance = 0.25; distance <= 6.5 && far < 0; distance += 0.25) {
+        if (edge < 0 && !solid(distance)) edge = distance;
+        else if (edge >= 0 && solid(distance)) far = distance;
+      }
+      if (edge < 0 || edge > 3) return run;
+      // A hole too wide to jump is a stretch that blinked away: wait for it, a step back from the edge.
+      if (far < 0 || far - edge > 2.4) return edge < 1.2 ? STILL : { x: run.x * 0.5, z: run.z * 0.5 };
+      // A gap: keep running, and press so the jump starts just before the lip. Sometimes a little early or late.
+      const lip = edge - speed * lag;
+      return { ...run, tapA: lip < 0.75 + rng.range(-0.25, 0.2) };
     }
     default:
       return STILL;

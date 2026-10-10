@@ -31,6 +31,7 @@ export const strings = {
     lavaWarn: 'SOBE!',
     lava: 'LAVA!',
     bite: 'NHAC!',
+    finish: 'CHEGOU!',
   },
 
   /** Shown in the HUD, on phones and (in capitals) as 3D words when a power starts. */

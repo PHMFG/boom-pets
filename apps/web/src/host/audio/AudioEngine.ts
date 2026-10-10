@@ -334,6 +334,10 @@ export class AudioEngine {
         return this.sample(['hit1', 'hit2', 'hit3'], 0.7);
       case 'jump':
         return this.tone(420, 0.14, 'triangle', 0.1, 760);
+      case 'finish':
+        return this.arpeggio(event.place === 1 ? [0, 4, 7, 12, 16, 19, 24] : [0, 7, 12], 0.08, 'square', 0.16);
+      case 'swept':
+        return this.sample(['hit1', 'hit2', 'hit3'], 0.7);
       case 'respawn':
         return this.tone(880, 0.12, 'triangle', 0.09, 520);
       case 'bucket':
