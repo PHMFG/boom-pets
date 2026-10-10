@@ -23,8 +23,14 @@ const network = {
   },
 };
 
+/** Stamps the version into both pages, where a page already open can read it back to learn it has gone stale. */
+const versionStamp = {
+  name: 'boom-version-stamp',
+  transformIndexHtml: () => [{ tag: 'meta', attrs: { name: 'boom-version', content: version }, injectTo: 'head' as const }],
+};
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), versionStamp],
   define: { __BOOM_VERSION__: JSON.stringify(version) },
   appType: 'mpa',
   server: network,

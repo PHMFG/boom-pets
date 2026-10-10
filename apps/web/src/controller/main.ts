@@ -2,7 +2,7 @@
 import '@fontsource/lilita-one/latin-400.css';
 import { NAME_MAX_LENGTH, ROOM_CODE_LENGTH } from '@boom/protocol';
 import { strings } from '../shared/strings.pt-BR';
-import { VERSION } from '../shared/version';
+import { reloadIfStale, VERSION } from '../shared/version';
 import { applyTokens } from '../shared/tokens';
 import './controller.css';
 import { PhoneLink, savedToken, type LinkState } from './net';
@@ -13,6 +13,8 @@ const RELOADED_KEY = 'boom.reloaded';
 const text = strings.controller;
 
 applyTokens(document.documentElement);
+// A phone that kept an old copy of this page reloads itself once, before the player types anything.
+void reloadIfStale();
 const app = document.getElementById('app')!;
 const roomFromLink = (new URLSearchParams(location.search).get('r') ?? '').toUpperCase();
 

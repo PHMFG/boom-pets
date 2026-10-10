@@ -430,7 +430,8 @@ export class Session {
           this.audio.announce('finalRound');
         }
         if (event.phase === 'matchEnd') {
-          this.log.save(game);
+          // A solo run is a test beside a real session: its bot matches do not belong among the playtests.
+          if (this.socket) this.log.save(game);
           this.audio.setSong('lobby');
         }
         this.refreshNames();

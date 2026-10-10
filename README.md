@@ -13,7 +13,7 @@ pnpm play
 
 `pnpm play` builds the game and runs the built copy. Open http://localhost:5173 on this computer, choose Jogar, and scan the QR code with each phone. Phones and computer must be on the same Wi-Fi.
 
-The title screen and the phone's join page both show the version (`versão 0.4.1`). If a browser shows an older number than `package.json`, it is showing a stale page: reload it, and if that is not enough, build again with `pnpm play`.
+The title screen and the phone's join page both show the version (for example `versão 0.4.2`). A page that is older than what the server serves reloads itself once; if a browser still shows an older number than `package.json` after that, force a reload with Cmd+Shift+R.
 
 To work on the game, use `pnpm dev` instead: it serves the source and reloads the pages whenever a file is saved, which is what you want while developing and not while playing.
 

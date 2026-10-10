@@ -65,7 +65,7 @@ Other: `tools/` (scripts below), `assets-raw/` (unzipped Kenney packs, not commi
 
 - `pnpm dev`: start the relay and the web server from source, for developing. Open http://localhost:5173 on this computer; phones join from the QR code. Pages reload when a file is saved.
 - `pnpm play`: build the game and run the built copy on the same ports, for playing. Nothing reloads under the players. `pnpm start` runs the copy already built. Only one of `dev` and `start` can hold the ports at a time.
-- The version in the root `package.json` is shown on the title screen and on the phone's join page. It is read when the server starts or the game is built.
+- The version in the root `package.json` is shown on the title screen and on the phone's join page, and stamped into each page's HTML. It is read when the server starts or the game is built. A page that finds the server serving a different version from the one it is running reloads itself once (`shared/version.ts`); the game screen does this only on the title screen or in the lobby, never over a match.
 - `pnpm fake 4`: connect 4 simulated phones that ready up and play. Add `--seconds=30` to stop on its own.
 - `pnpm test`, `pnpm typecheck`, `pnpm build` (the build also checks the phone bundle: 150 KB budget, no Three.js).
 - `pnpm test:e2e`: the browser tests in `e2e/`, about 8 minutes. They start their own copy of the game on other ports and never touch a session on the usual ones. Phones run on WebKit with iPhone settings and on Chromium with Android settings. They cover: a four-phone session with a gacha and a rematch; six phones joining with timing (and no two controls of the lobby pad overlapping on any of the six phone shapes), a seventh turned away, and a dropped phone getting its pet back in the lobby and mid-match; solo and duo with bots; and a full five-round match in real time. `pnpm test:e2e -g "four phones"` runs one of them.
@@ -85,7 +85,7 @@ Enter starts a match (or a rematch); Esc returns to the lobby from the results. 
 ## Network
 
 - The web server listens on the Wi-Fi (port 5173) and proxies `/ws` and `/api` to the relay, which listens on `127.0.0.1:47821` only. Set `BOOM_RELAY_PORT` if that port is taken.
-- Only a page opened at `localhost` may be the game screen. The first one keeps the room; a second waits its turn. For testing beside a real session, open `http://localhost:5173/?solo&autostart`.
+- Only a page opened at `localhost` may be the game screen. The first one keeps the room; a second waits its turn. For testing beside a real session, open `http://localhost:5173/?solo&autostart`: a solo run never touches the relay and saves no playtest log.
 - The roster (seat, name, token) lives in the relay, so reloading the game screen keeps the phones seated. Restarting the relay makes a new room code.
 - While `pnpm dev` runs, saving a file acts on whoever is playing: most edits reload the game screen (a match in progress is lost), and an edit to the relay or to `packages/protocol` restarts the relay, which unseats every phone. Do not edit while people are playing. To try a change beside a running session, start a second copy on other ports: `BOOM_WEB_PORT=5193 BOOM_RELAY_PORT=47841 BOOM_PLAYTEST_DIR=test-results/dev-playtests pnpm dev`.
 

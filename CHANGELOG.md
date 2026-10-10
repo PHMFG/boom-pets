@@ -6,6 +6,13 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 Nothing yet.
 
+## [0.4.2] - 2026-10-10
+
+### Fixed
+
+- **A browser showing an old copy of the game now fixes itself.** Each page checks which version the server is serving, and if it is not the one the page is running, it reloads, once. If the browser still shows the old copy after that, the game screen says so and how to force a reload. The game screen only does this on the title screen or in the lobby, never over a match.
+- A solo run (`?solo`) no longer saves a playtest log. It is the mode for testing beside a real session, and four bot-only matches from tests had ended up among the real playtests; they are now in `playtests/dev-runs/`.
+
 ## [0.4.1] - 2026-10-10
 
 ### Added

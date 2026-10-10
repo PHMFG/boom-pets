@@ -86,7 +86,13 @@ export const strings = {
     failed: 'Não consegui carregar os modelos.',
   },
 
-  title: { loading: 'Carregando…', credits: 'Bichos, sons e céus: Kenney.nl (CC0)', version: (version: string) => `versão ${version}` },
+  title: {
+    loading: 'Carregando…',
+    credits: 'Bichos, sons e céus: Kenney.nl (CC0)',
+    version: (version: string) => `versão ${version}`,
+    /** The browser kept an old copy even after reloading by itself. */
+    stale: 'Este navegador está mostrando uma versão antiga. Recarregue com Cmd+Shift+R (ou Ctrl+Shift+R).',
+  },
 
   /** The main menu on the title screen, and the panel that explains the game. */
   menu: {
