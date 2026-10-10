@@ -23,6 +23,7 @@ Each ends in a checklist. Before calling a change finished, go through the check
 - The phone controller is vanilla TypeScript and DOM. It must not import React, Three.js, Zod or `@boom/game` at runtime (types are fine).
 - No full-screen flashes, and nothing blinks faster than 3 times a second.
 - A danger is always drawn on the floor before it lands (`Decals.warning`).
+- Every player must be able to find their own pet at a glance. The floor has its own two colours (`floor`, `floorDark`), every pet's outline and ring carries an ink edge, and the camera frames the pets, not the platform. `docs/DESIGN.md`, "Finding your pet", says why and what to check.
 - Three buttons: A dashes, B grabs and throws, and the power button (`c` in the protocol) uses a held power. If mashing any of them becomes the best way to play, that is a bug.
 - When a message between phone and game changes in a way an old phone page could not follow, raise `PROTOCOL_VERSION`.
 
@@ -42,7 +43,7 @@ Host (`apps/web/src/host/`)
 - `stages/GameStage.ts`: draws the simulation and turns its events into motion, particles, camera moves and words.
 - `stages/Props.ts` (barrels, cube, meteors, ghosts, slot reels, capsule machine, pop-up words, podium), `stages/TileField.ts`.
 - `pets/PetView.ts`: one pet. The model plays its clips; code-driven motion goes on wrapper groups above it.
-- `render/`: `Renderer.ts` (post-processing), `CameraRig.ts`, `materials.ts` (toon and outline), `assets.ts`, `Text3D.ts`, `emoji.ts`.
+- `render/`: `Renderer.ts` (post-processing), `CameraRig.ts` (how close the camera stays, and how fast it moves), `materials.ts` (toon and outline), `assets.ts` (pet models and their double outline), `Text3D.ts`, `emoji.ts`. What the camera frames is `focusPoints` in `stages/GameStage.ts`.
 - `fx/Particles.ts`, `fx/Decals.ts`, `audio/AudioEngine.ts` (samples for impacts, recorded tracks for music, everything else synthesised). `app/Session.ts` chooses the track.
 - `hud/GameScreen.tsx` and `game.css`: the main menu on the title screen, and the flat HUD for every phase. `Nameplates.ts` is written to the DOM each frame.
 - `studio/`: test bench at `/?studio` for pets, clips and the 3D font.
@@ -72,7 +73,7 @@ Other: `tools/` (scripts below), `assets-raw/` (unzipped Kenney packs, not commi
 - `pnpm test`, `pnpm typecheck`, `pnpm build` (the build also checks the phone bundle: 150 KB budget, no Three.js).
 - `pnpm test:e2e`: the browser tests in `e2e/`, about 8 minutes. They start their own copy of the game on other ports and never touch a session on the usual ones. Phones run on WebKit with iPhone settings and on Chromium with Android settings. They cover: a four-phone session with a gacha and a rematch; six phones joining with timing (and no two controls of the lobby pad overlapping on any of the six phone shapes), a seventh turned away, and a dropped phone getting its pet back in the lobby and mid-match; solo and duo with bots; and a full five-round match in real time. `pnpm test:e2e -g "four phones"` runs one of them.
 - `pnpm report`: reads every match log in `playtests/`, prints the playtest report and saves it there as `REPORT.md`. `pnpm report --build=0.4.3` judges another build than the newest; `pnpm report some/folder` reads another folder. See "Playtest logs and the report" below.
-- `pnpm balance 30`: play 30 bot-only matches without a screen and print pacing numbers. Run it after changing `tuning.ts`, `round.ts` or `bots.ts`. The ranges to stay inside are in `docs/GAMEPLAY.md`.
+- `pnpm balance 30`: play 30 bot-only matches without a screen and print pacing numbers, and how many knockouts each power makes per run. Run it after changing `tuning.ts`, `round.ts` or `bots.ts`. The ranges to stay inside are in `docs/GAMEPLAY.md`.
 - `pnpm font`: rebuild the 3D font after changing `words3d` or the power names. It fails if a character has no glyph.
 - `pnpm assets`, `pnpm sounds`: copy models and skyboxes, and convert impact sounds, from `assets-raw` into `apps/web/public`.
 - `pnpm voice`: record the announcer's lines (`strings.announcer`) into `apps/web/public/voice` with this Mac's Portuguese voice. Run it after changing a line. It needs macOS and ffmpeg; the recordings are committed, so nobody else has to run it.
@@ -95,9 +96,9 @@ Enter starts a match (or a rematch); Esc returns to the lobby from the results. 
 
 Every match played through the relay leaves two files in `playtests/`, named by the time it ended: a `.json` with everything counted, and a `.md` with the same match written out for a person (result, how each player used the buttons, who knocked out whom, each round, cubes and powers, phones). `pnpm report` reads all the `.json` files and writes `REPORT.md` beside them. `playtests/dev-runs/` holds logs from development that must not count. None of this is committed: the logs carry players' nicknames.
 
-What a log counts, per player: taps and charged dashes, their average charge, how many hit, presses of A while it rested, overcharges; grabs landed and missed, throws, throws that landed on a rival, times grabbed and times it got free; powers rolled, waiting, used, and how long they waited; knockouts and deaths by cause; points by where they came from; rounds won, seconds alive, idle share, first dash, latency. Per match: each round's length, first knockout and whether the clock ended it; every knockout with who did it; rolls by tier and rank; each power rolled and run; each SUPER gacha; the build's version.
+What a log counts, per player: taps and charged dashes, their average charge, how many hit, presses of A while it rested, overcharges; grabs landed and missed, throws, throws that landed on a rival, times grabbed and times it got free; powers rolled, waiting, used, and how long they waited; knockouts and deaths by cause; points by where they came from; rounds won, seconds alive, idle share, first dash, latency. Per match: each round's length, first knockout and whether the clock ended it; every knockout with who did it; rolls by tier and rank; each power rolled and run, and the knockouts it made; each SUPER gacha; the build's version.
 
-The report has, in order: the builds side by side; the balance of one build (what each move pays in knockouts per 100 uses, how pets were knocked out, the buttons, rounds, cubes and luck, scores); each player over every build; the warning signs; the definition of done. A warning is a number crossing a limit in `LIMITS` at the top of `packages/stats/src/report.ts`. Rules change between builds, so balance is always read one build at a time.
+The report has, in order: the builds side by side; the balance of one build (what each move pays in knockouts per 100 uses, how pets were knocked out, the buttons, rounds, cubes and luck with what each power and each SUPER made, scores); each player over every build; the warning signs; the definition of done. A warning is a number crossing a limit in `LIMITS` at the top of `packages/stats/src/report.ts`. Rules change between builds, so balance is always read one build at a time.
 
 How to work with it:
 

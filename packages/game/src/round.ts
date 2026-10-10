@@ -3,7 +3,7 @@
 import type { SampledInput } from './input';
 import { Physics, type Body } from './physics';
 import type { Rng } from './rng';
-import { arena, barrel as barrelTune, cube as cubeTune, dash, grab, match, meteor as meteorTune, pet as petTune, STEP } from './tuning';
+import { arena, barrel as barrelTune, cube as cubeTune, dash, grab, match, meteor as meteorTune, pet as petTune, STEP, supers } from './tuning';
 import {
   POWERS,
   TILE,
@@ -26,11 +26,11 @@ const CREDIT_STEPS = Math.round(match.creditWindow / STEP);
 /** How far the ghost cursor may leave the platform. */
 const CURSOR_LIMIT = HALF + 1;
 
-const POWER_SCALE: Partial<Record<PowerId, number>> = { giant: 2, pebble: 0.5, kaiju: 3.2 };
-const POWER_MASS: Partial<Record<PowerId, number>> = { giant: 3, pebble: 0.4, kaiju: 10 };
+const POWER_SCALE: Partial<Record<PowerId, number>> = { giant: 2, pebble: 0.5, kaiju: supers.kaijuScale };
+const POWER_MASS: Partial<Record<PowerId, number>> = { giant: 3, pebble: 0.4, kaiju: supers.kaijuMass };
 /** Share of a knockback each power lets through. Zero means immune. */
 const POWER_KNOCK: Partial<Record<PowerId, number>> = { jelly: 0, kaiju: 0, giant: 0.4, pebble: 2.2 };
-const POWER_SPEED: Partial<Record<PowerId, number>> = { rocket: 1.6, kaiju: 0.8 };
+const POWER_SPEED: Partial<Record<PowerId, number>> = { rocket: 1.6, kaiju: supers.kaijuSpeed };
 
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -58,6 +58,8 @@ type Inner = {
   thrower: number | null;
   /** Countdown to the next periodic effect of the active power. */
   pulse: number;
+  /** How many of those effects the active power has had so far. */
+  pulses: number;
 };
 
 export class Round {
@@ -195,7 +197,9 @@ export class Round {
     this.endPower(pet);
     pet.power = power;
     pet.powerTotal = pet.powerLeft = POWERS[power].duration;
-    this.inner.get(pet.id)!.pulse = 0;
+    const inner = this.inner.get(pet.id)!;
+    inner.pulse = 0;
+    inner.pulses = 0;
     this.rescale(pet, POWER_SCALE[power] ?? 1, POWER_MASS[power] ?? 1);
     if (power === 'decoys') {
       for (let index = 0; index < 3; index++) {
@@ -205,6 +209,8 @@ export class Round {
       }
     }
     this.hooks.emit({ t: 'powerStart', pet: pet.id, seat: pet.seat, power });
+    // A SUPER lands like one: a strike where its owner stands, warned on the floor, that throws back everyone else in reach.
+    if (POWERS[power].tier === 'super') this.callMeteor(pet.x, pet.z, supers.arrivalDelay, supers.arrivalRadius, supers.arrivalForce, 0, pet.seat, false);
   }
 
   /** A number that changes if anything about the round does: two runs with the same seed and inputs must match. */
@@ -239,7 +245,7 @@ export class Round {
     this.pets.push(pet);
     this.inner.set(id, {
       body: this.physics.addCapsule(x, y, z, petTune.radius, petTune.halfHeight, 1),
-      dashSpeed: 0, dashBoost: 1, heading: this.rng.range(0, Math.PI * 2), thrownFor: 0, thrower: null, pulse: 0,
+      dashSpeed: 0, dashBoost: 1, heading: this.rng.range(0, Math.PI * 2), thrownFor: 0, thrower: null, pulse: 0, pulses: 0,
     });
     this.hooks.emit({ t: 'spawn', pet: id, seat: setup.seat });
     return pet;
@@ -252,7 +258,7 @@ export class Round {
     this.barrels.push({ id, x: spot.x, y, z: spot.z, px: spot.x, py: y, pz: spot.z, fuse: null, chain: 0, owner: null, carriedBy: null, thrown: false, grounded: false });
     this.inner.set(id, {
       body: this.physics.addCylinder(spot.x, y, spot.z, barrelTune.radius, barrelTune.halfHeight, 1.2),
-      dashSpeed: 0, dashBoost: 1, heading: 0, thrownFor: 0, thrower: null, pulse: 0,
+      dashSpeed: 0, dashBoost: 1, heading: 0, thrownFor: 0, thrower: null, pulse: 0, pulses: 0,
     });
     this.hooks.emit({ t: 'barrelSpawn', barrel: id });
   }
@@ -471,8 +477,9 @@ export class Round {
   private dashImpact(attacker: Pet, victim: Pet): void {
     const inner = this.inner.get(attacker.id)!;
     const charge = attacker.dashCharge;
-    const force = lerp(dash.minSpeed, dash.maxSpeed, charge) * inner.dashBoost;
-    const radius = lerp(dash.minRadius, dash.maxRadius, charge) * inner.dashBoost * this.hooks.blastBonus(attacker.seat);
+    const big = attacker.power === 'kaiju' ? supers.kaijuDash : 1;
+    const force = lerp(dash.minSpeed, dash.maxSpeed, charge) * inner.dashBoost * big;
+    const radius = lerp(dash.minRadius, dash.maxRadius, charge) * inner.dashBoost * big * this.hooks.blastBonus(attacker.seat);
     const x = (attacker.x + victim.x) / 2;
     const z = (attacker.z + victim.z) / 2;
     const credit: Credit = { seat: attacker.seat, step: this.steps, cause: 'dash' };
@@ -550,7 +557,7 @@ export class Round {
 
   private explode(
     x: number, y: number, z: number, radius: number, force: number, lift: number, credit: Credit, chain: number,
-    options: { exclude?: Pet; spareSeat?: number; breakTiles?: boolean } = {},
+    options: { exclude?: Pet; spareSeat?: number; hole?: number } = {},
   ): void {
     this.hooks.emit({ t: 'explosion', x, y, z, radius, cause: credit.cause, chain, owner: credit.seat >= 0 ? credit.seat : null });
     for (const pet of [...this.pets]) {
@@ -567,7 +574,8 @@ export class Round {
       this.arm(barrel, barrelTune.chainDelay, credit.seat >= 0 ? credit.seat : null, chain + 1);
     }
     const lateRound = this.mode === 'match' && this.playing && this.time >= match.roundCap - arena.explosionsBreakTilesInLast;
-    if (options.breakTiles || lateRound) this.breakTiles(x, z, radius * 0.55);
+    if (options.hole) this.breakTiles(x, z, options.hole);
+    else if (lateRound) this.breakTiles(x, z, radius * 0.55);
   }
 
   private arm(barrel: Barrel, delay: number, owner: number | null, chain: number): void {
@@ -1109,19 +1117,32 @@ export class Round {
         this.hooks.emit({ t: 'honk', pet: pet.id });
       } else if (pet.power === 'kaiju' && pet.grounded && Math.hypot(pet.vx, pet.vz) > 1.5) {
         // Every step of a kaiju shakes the floor around it.
-        inner.pulse = 0.38;
-        this.explode(pet.x, 0, pet.z, 2.1, 9, 4, { seat: pet.seat, step: this.steps, cause: 'power' }, 0, { spareSeat: pet.seat });
+        inner.pulse = supers.kaijuStepEvery;
+        this.explode(pet.x, 0, pet.z, supers.kaijuStepRadius, supers.kaijuStepForce, supers.kaijuStepLift, { seat: pet.seat, step: this.steps, cause: 'power' }, 0, { spareSeat: pet.seat });
       } else if (pet.power === 'meteorShower') {
-        inner.pulse = 0.3;
-        for (let attempt = 0; attempt < 8; attempt++) {
-          const x = this.rng.range(-HALF, HALF);
-          const z = this.rng.range(-HALF, HALF);
-          // Everywhere except near the pet that called it.
-          if (!this.isFloor(x, z) || Math.hypot(x - pet.x, z - pet.z) < 3.5) continue;
-          this.callMeteor(x, z, 0.8, 1.8, pet.seat, false);
-          break;
-        }
+        inner.pulse = supers.showerEvery;
+        this.showerMeteor(pet, inner.pulses++);
       }
+    }
+  }
+
+  /** One meteor of a Meteor Shower. Most are aimed at a rival, each in turn, a little ahead of where it is running. */
+  private showerMeteor(pet: Pet, shot: number): void {
+    const far = (x: number, z: number) => Math.hypot(x - pet.x, z - pet.z) >= supers.showerSafe;
+    const rivals = this.pets.filter(other => other.alive && !other.decoy && !other.falling && other.seat !== pet.seat);
+    if (rivals.length > 0 && shot % 3 < supers.showerAimed) {
+      const target = rivals[(Math.floor(shot / 3) * supers.showerAimed + (shot % 3)) % rivals.length]!;
+      const lead = supers.showerDelay * supers.showerLead;
+      const x = target.x + target.vx * lead;
+      const z = target.z + target.vz * lead;
+      // A rival standing right beside the caller is out of the shower's reach.
+      if (far(x, z)) return this.callMeteor(x, z, supers.showerDelay, supers.showerRadius, supers.showerForce, supers.showerHole, pet.seat, false);
+    }
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const x = this.rng.range(-HALF, HALF);
+      const z = this.rng.range(-HALF, HALF);
+      if (!this.isFloor(x, z) || !far(x, z)) continue;
+      return this.callMeteor(x, z, supers.showerDelay, supers.showerRadius, supers.showerForce, supers.showerHole, pet.seat, false);
     }
   }
 
@@ -1172,9 +1193,9 @@ export class Round {
 
   // ── Meteors and ghosts ─────────────────────────────────────────────────────
 
-  private callMeteor(x: number, z: number, delay: number, radius: number, owner: number, fromGhost: boolean): void {
+  private callMeteor(x: number, z: number, delay: number, radius: number, force: number, hole: number, owner: number, fromGhost: boolean): void {
     const id = this.nextId++;
-    this.meteors.push({ id, x, z, left: delay, total: delay, radius, owner, fromGhost });
+    this.meteors.push({ id, x, z, left: delay, total: delay, radius, force, hole, owner, fromGhost });
     this.hooks.emit({ t: 'meteorCall', id, x, z, delay, radius, owner });
   }
 
@@ -1186,7 +1207,7 @@ export class Round {
       this.meteors.splice(index, 1);
       // A ghost's meteor is a "meteor" knock, which is what earns the revenge swap. The power's meteors are not.
       const credit: Credit = { seat: meteor.owner, step: this.steps, cause: meteor.fromGhost ? 'meteor' : 'power' };
-      this.explode(meteor.x, 0.3, meteor.z, meteor.radius, meteorTune.force, 6, credit, 0, meteor.fromGhost ? {} : { spareSeat: meteor.owner });
+      this.explode(meteor.x, 0.3, meteor.z, meteor.radius, meteor.force, 6, credit, 0, meteor.fromGhost ? {} : { spareSeat: meteor.owner, hole: meteor.hole });
     }
   }
 
@@ -1199,7 +1220,7 @@ export class Round {
       ghost.cooldown = Math.max(0, ghost.cooldown - STEP);
       if (ghost.cooldown > 0 || !input.edges.some(edge => edge.button === 'a' && edge.down)) continue;
       ghost.cooldown = ghost.cooldownTotal = meteorTune.cooldown;
-      this.callMeteor(ghost.x, ghost.z, meteorTune.delay, meteorTune.radius, ghost.seat, true);
+      this.callMeteor(ghost.x, ghost.z, meteorTune.delay, meteorTune.radius, meteorTune.force, 0, ghost.seat, true);
     }
   }
 }

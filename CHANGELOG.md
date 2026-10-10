@@ -6,6 +6,25 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 Nothing yet.
 
+## [0.5.0] - 2026-10-10
+
+Two complaints from the players of the second playtest: it was too easy to lose your own pet, and getting a SUPER did not pay.
+
+### Changed
+
+- **You can find your pet.** The platform is now a clean white instead of cream, which was the colour family most pets are made of, and the clouds under it are tinted toward the sky so the platform's edge shows. Every pet's outline has an ink line around its seat colour, the ring under it is wider with an ink edge, and the name tag over it is filled with the player's colour and points down at the pet. Pets are drawn 16% bigger.
+- **The camera stays close and moves with the fight.** It frames the pets instead of the platform, looks a moment ahead of a pet that is flying, pulls back at once when someone is about to leave the picture and closes in gently. In a four-bot match pets are about a third taller on screen than before (95 to 124 pixels at 1080p), and more when the fight is in one place. The fit is exact, so the farthest pet's name tag stays below the round counter and the nearest pet's ring above the players' cards. It also frames the pets during the countdown, so each player sees where theirs lands.
+- **A SUPER is the event of its round.** One that is not cursed lands with a strike on its owner's spot: the floor warns for 0.8 s, then everyone else within 4 m is thrown back. Until now a SUPER started with nothing.
+- **Kaiju** is as fast as a pet on foot (it was slower, and caught nobody: both Kaijus rolled in real matches knocked out no one), its steps reach farther and push harder, its charged dash is half as big again, and it lasts 9 s instead of 7.
+- **Meteor Shower** aims two of every three meteors at a rival, each rival in turn, a little ahead of where it is running. Every meteor leaves a hole in the floor. It lasts 8 s instead of 6. Standing right beside the pet that called it is the safe place.
+- **The ring under a pet keeps its player's colour, always.** It used to turn grey while A rested and orange before an overcharge, which hid whose pet it was. What A is doing is now shown by an arc around the ring: white, filling while A is held, orange and throbbing at the overcharge warning, and grey, draining while A rests. No arc means A is ready.
+- A long line on the card that explains a power now wraps instead of covering the round counter.
+
+### Added
+
+- The match log, the readable summary and `pnpm report` now count the knockouts each power makes, and the report warns when a SUPER makes fewer than 0.4 or more than 2 per run. `pnpm balance` prints the same for bots: about 0.6 per Kaiju and 0.3 per Meteor Shower, where both were close to nothing.
+- Bots walk a Kaiju at the nearest rival, as a person would.
+
 ## [0.4.3] - 2026-10-10
 
 ### Fixed

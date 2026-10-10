@@ -273,12 +273,25 @@
   padding: calc(3 * var(--u)) calc(13 * var(--u)) calc(3 * var(--u)) calc(7 * var(--u));
   border: calc(4 * var(--u)) solid var(--ink);
   border-radius: calc(18 * var(--u));
-  background: var(--cream);
+  /* The whole tag is the player's colour: from across the room it is a flag over the pet, not a label to read. */
+  background: var(--seat);
   box-shadow: 0 calc(5 * var(--u)) 0 var(--ink);
   font: 400 calc(28 * var(--u)) / 1.1 var(--font-display);
   white-space: nowrap;
-  translate: -50% 0;
+  translate: -50% calc(-14 * var(--u));
   animation: pop-in var(--pop-in) both;
+}
+
+/* The tag points down at its pet. */
+.nameplate::after {
+  content: '';
+  position: absolute;
+  top: calc(100% + 4 * var(--u));
+  left: 50%;
+  border: calc(10 * var(--u)) solid transparent;
+  border-top-color: var(--ink);
+  border-bottom-width: 0;
+  translate: -50% 0;
 }
 
 .nameplate.is-leaving {
@@ -649,6 +662,8 @@
   display: flex;
   align-items: center;
   gap: calc(20 * var(--u));
+  /* Never wider than the gap to the round pips at top centre: a long explanation wraps instead. */
+  max-width: calc(700 * var(--u));
   padding: calc(12 * var(--u)) calc(34 * var(--u)) calc(14 * var(--u)) calc(14 * var(--u));
   rotate: -1deg;
   transform-origin: top left;
@@ -673,6 +688,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: calc(4 * var(--u));
+  min-width: 0;
 }
 
 .power-note-who {
@@ -688,6 +704,8 @@
 
 .power-note-hint {
   font: 800 calc(26 * var(--u)) / 1.1 var(--font-text);
+  white-space: normal;
+  text-wrap: balance;
 }
 
 /* A curse is bad news: the card says so with the curse colours. */

@@ -4,7 +4,7 @@ import type { SeatInfo } from '@boom/protocol';
 import { seatShapeSvg } from '../../shared/glyphs';
 import { motion } from '../../shared/motion';
 import { strings } from '../../shared/strings.pt-BR';
-import { seats as seatTokens } from '../../shared/tokens';
+import { colors, seats as seatTokens } from '../../shared/tokens';
 
 type Plate = { anchor: HTMLElement; tag: HTMLElement; name: HTMLElement; sleep: HTMLElement; held: HTMLElement; hand: HTMLElement; holdUntil: number | null; heldIcon: string | null; reachedBy: number | null };
 
@@ -85,7 +85,7 @@ export class Nameplates {
     tag.style.setProperty('--seat', token.color);
     const shape = document.createElement('span');
     shape.className = 'nameplate-shape';
-    shape.innerHTML = seatShapeSvg(token.shape, token.color);
+    shape.innerHTML = seatShapeSvg(token.shape, colors.white);
     const name = document.createElement('span');
     const sleep = document.createElement('span');
     sleep.className = 'nameplate-sleep';

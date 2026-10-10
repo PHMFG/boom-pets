@@ -40,6 +40,7 @@ export function GameScreen() {
   const joinCard = useRef<HTMLElement>(null);
   const strip = useRef<HTMLDivElement>(null);
   const resultsPanel = useRef<HTMLElement>(null);
+  const roundBar = useRef<HTMLDivElement>(null);
   const session = useRef<Session | null>(null);
 
   const loading = useStore(hud, state => state.loading);
@@ -118,7 +119,9 @@ export function GameScreen() {
     const panel = title ? null : inLobby ? joinCard.current : phase === 'matchEnd' ? resultsPanel.current : null;
     const left = panel ? panel.offsetLeft + panel.offsetWidth : 0;
     const bottom = !title && strip.current ? strip.current.offsetHeight + 24 : 0;
-    session.current?.setInsets(left, bottom);
+    // The round counter sits over the far edge of the platform: a pet's name tag must not end up behind it.
+    const top = !title && roundBar.current ? roundBar.current.offsetTop + roundBar.current.offsetHeight : 0;
+    session.current?.setInsets(left, bottom, top);
   }, [inLobby, phase, title]);
 
   useEffect(() => {
@@ -293,7 +296,7 @@ export function GameScreen() {
 
       <Presence show={!title && inMatch}>
         {() => (
-          <div className="round-bar sticker">
+          <div className="round-bar sticker" ref={roundBar}>
             <div className="round-pips">
               {Array.from({ length: rounds }, (_, index) => (
                 <span key={index} className={`round-pip${index + 1 < round ? ' is-done' : ''}${index + 1 === round ? ' is-now' : ''}`}>

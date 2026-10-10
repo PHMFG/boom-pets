@@ -206,6 +206,9 @@ export class BotBrain {
 
     const target = nearest(rivals);
 
+    // A kaiju's steps are its weapon, so whatever its style, it walks straight at the nearest rival.
+    if (me.power === 'kaiju' && target) return { ...REST, ...toward(target.pet.x, target.pet.z) };
+
     // 3. Throwers fetch a barrel and lob it at the nearest rival.
     if (this.style === 'thrower') {
       if (me.carrying) {

@@ -6,14 +6,22 @@ import { tuning } from '@boom/game';
 import { Color, Group, Mesh, MeshBasicMaterial, RingGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import type { PetClip, PetId } from '../../shared/pets';
 import { colors } from '../../shared/tokens';
-import { createPet, isPetId, type PetInstance } from '../render/assets';
+import { createPet, INK_LINE, isPetId, OUTLINE, type PetInstance } from '../render/assets';
 import { bubbleTexture } from '../render/emoji';
 
-/** Model units to metres: a pet is about 0.8 m wide. */
-const MODEL_SCALE = 0.62;
+/** Model units to metres. A pet is drawn a little wider than the body the simulation pushes around, so it reads from across a room. */
+const MODEL_SCALE = 0.72;
+/** How far above its feet a pet's head ends, for a pet of normal size. */
+const HEAD = 2.38;
 const STAND = tuning.pet.radius + tuning.pet.halfHeight;
 const CROSSFADE = 0.12;
-const ring = new RingGeometry(0.6, 0.8, 40).rotateX(-Math.PI / 2);
+const ring = new RingGeometry(0.66, 0.94, 40).rotateX(-Math.PI / 2);
+/** The ink edge of the ring: a wider ring lying just under it. */
+const ringEdge = new RingGeometry(0.59, 1.01, 40).rotateX(-Math.PI / 2);
+const ringInk = new MeshBasicMaterial({ color: colors.ink, toneMapped: false });
+/** The gauge is an arc around the ring, drawn from the side nearest the camera. How much of it shows is set on its geometry, so each pet has its own. */
+const GAUGE_SEGMENTS = 48;
+const gaugeArc = (inner: number, outer: number) => new RingGeometry(inner, outer, GAUGE_SEGMENTS, 1, -Math.PI / 2, Math.PI * 2).rotateX(-Math.PI / 2);
 
 const damp = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
@@ -75,7 +83,12 @@ export class PetView {
   private readonly squash = new Group();
   private readonly jitter = new Group();
   private readonly ringMaterial: MeshBasicMaterial;
-  private readonly ring: Mesh;
+  private readonly ring = new Group();
+  private readonly gauge = new Group();
+  private readonly gaugeFill = gaugeArc(1.07, 1.23);
+  private readonly gaugeEdge = gaugeArc(1.02, 1.28);
+  private readonly gaugeMaterial = new MeshBasicMaterial({ color: colors.white, toneMapped: false });
+  private readonly gaugeSize = new Spring(0, 260, 18);
   private readonly bubble: Sprite;
   private clip: PetClip | null = null;
   private readonly size = new Spring(0, 170, 13);
@@ -114,7 +127,12 @@ export class PetView {
 
     // Unlit: the ring is exactly the colour of the player's phone screen.
     this.ringMaterial = new MeshBasicMaterial({ color: seatColor, toneMapped: false });
-    this.ring = new Mesh(ring, this.ringMaterial);
+    const edge = new Mesh(ringEdge, ringInk);
+    edge.position.y = -0.012;
+    const gaugeEdge = new Mesh(this.gaugeEdge, ringInk);
+    gaugeEdge.position.y = -0.012;
+    this.gauge.add(gaugeEdge, new Mesh(this.gaugeFill, this.gaugeMaterial));
+    this.ring.add(edge, new Mesh(ring, this.ringMaterial), this.gauge);
     this.bubble = new Sprite(new SpriteMaterial({ depthTest: false, transparent: true }));
     this.bubble.renderOrder = 5;
     this.bubble.visible = false;
@@ -244,19 +262,34 @@ export class PetView {
     this.warm.set(warning ? colors.danger : colors.gold).multiplyScalar(charging ? 0.25 + 0.5 * charge : 0);
     this.asset.body.emissive.setScalar(this.flash * 1.6).add(this.warm).add(this.aura);
     (this.asset.outline.uniforms.color!.value as Color).set(warning ? colors.danger : this.seatColor);
+    // The outline is part of the model, so it would grow with a giant into a slab. It is kept nearer the width everyone else's has.
+    const thin = 1 / Math.sqrt(Math.max(1, overall));
+    this.asset.outline.uniforms.thickness!.value = OUTLINE * thin;
+    this.asset.ink.uniforms.thickness!.value = (OUTLINE + INK_LINE) * thin;
 
     this.root.position.copy(this.feet);
-    this.height = 2.05 * pet.scale * (1 + 0.25 * charge) + this.hop;
+    this.height = HEAD * pet.scale * (1 + 0.25 * charge) + this.hop;
 
     // The seat ring stays flat on the floor under the pet, and hides when there is no floor there.
     const onFloor = context.isFloor(this.feet.x, this.feet.z) && this.feet.y > -0.4;
     this.ring.visible = onFloor && !carried;
-    this.ring.position.y = 0.035 - this.feet.y;
-    // The ring swells with the charge and turns to the danger colour at the warning, so the floor shows the risk too.
-    // After a dash it shrinks and goes grey, and grows back as the pet gets its breath: full size means A is ready.
+    this.ring.position.y = 0.045 - this.feet.y;
+    // The ring is how a player finds their pet, so it never changes colour or size. What A is doing is told by the
+    // gauge around it: a white arc that fills while A is held (danger colour and throbbing past the warning), and a
+    // grey arc that drains while A rests after a dash, like the one on the phone's A. No arc means A is ready.
+    // White, because gold is one player's colour.
     const resting = pet.dashCooldownTotal > 0 ? pet.dashCooldown / pet.dashCooldownTotal : 0;
-    this.ring.scale.setScalar(Math.max(0.001, this.size.value) * (1 + 0.55 * charge) * (1 - 0.4 * resting));
-    this.ringMaterial.color.set(warning ? colors.danger : resting > 0 ? colors.steel : this.seatColor);
+    this.ring.scale.setScalar(Math.max(0.001, this.size.value));
+    const fill = charging ? charge : resting;
+    const shown = Math.max(0, this.gaugeSize.step(fill > 0 ? 1 : 0, dt));
+    this.gauge.visible = shown > 0.02;
+    this.gauge.scale.setScalar(shown * throb);
+    if (fill > 0) {
+      this.gaugeMaterial.color.set(warning ? colors.danger : charging ? colors.white : colors.steel);
+      const drawn = Math.max(1, Math.ceil(GAUGE_SEGMENTS * Math.min(1, fill))) * 6;
+      this.gaugeFill.setDrawRange(0, drawn);
+      this.gaugeEdge.setDrawRange(0, drawn);
+    }
 
     this.updateBubble(pet, dt);
     this.footDust(pet, speed, context);
@@ -271,6 +304,9 @@ export class PetView {
     this.root.removeFromParent();
     this.asset.dispose();
     this.ringMaterial.dispose();
+    this.gaugeMaterial.dispose();
+    this.gaugeFill.dispose();
+    this.gaugeEdge.dispose();
     this.bubble.material.dispose();
   }
 

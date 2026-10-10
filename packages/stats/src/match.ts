@@ -129,7 +129,7 @@ export function summariseMatch(raw: unknown): string {
   for (const roll of log.rolls) tiers.set(roll.tier, (tiers.get(roll.tier) ?? 0) + 1);
   out.push(`${log.rolls.length} rolls` + (tiers.size > 0 ? `: ${[...tiers].map(([tier, times]) => `${tier} ${times}`).join(', ')}` : '') + '.');
   if (Object.keys(log.powers).length > 0) {
-    out.push('', table(['Power', 'Rolled', 'Ran'], Object.entries(log.powers).sort((a, b) => b[1].rolled - a[1].rolled).map(([power, uses]) => [power, uses.rolled, uses.used])));
+    out.push('', table(['Power', 'Rolled', 'Ran', 'Knockouts'], Object.entries(log.powers).sort((a, b) => b[1].rolled - a[1].rolled).map(([power, uses]) => [power, uses.rolled, uses.used, log.format >= 3 ? uses.knockouts : ''])));
   }
   for (const gacha of log.gachas) out.push('', `SUPER gacha in round ${gacha.round} for ${name(gacha.seat)}: ${gacha.jinx}% curse chance from ZICA, ${gacha.cursed ? 'and it was cursed' : 'and it held'}.`);
 

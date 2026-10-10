@@ -242,7 +242,7 @@ test('four phones join, play a match with a SUPER gacha, and see their results',
     // The longest name and explanation any power has must fit as well as this one does.
     await tab.evaluate(() => {
       document.querySelector('.pad-card-name')!.textContent = '☄️ Chuva de Meteoros';
-      document.querySelector('.pad-card-hint')!.textContent = 'Chove meteoro em todo mundo, menos em você';
+      document.querySelector('.pad-card-hint')!.textContent = 'Vira um monstro que joga todo mundo longe';
       document.querySelector('.pad-name')!.textContent = 'Maximiliano';
     });
     expect(await overlapping(tab, ['.pad-strip', '.pad-card', '.pad-use', '.pad-emote.is-toggle', '.pad-a', '.pad-b']), `${session.phones[index]!.model.name}'s play pad has nothing overlapping`).toEqual([]);

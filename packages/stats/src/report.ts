@@ -42,6 +42,8 @@ export const LIMITS = {
   winnerLead: 2,
   /** Share of SUPER rolls that may go to whoever is leading. */
   leaderSupers: 0.4,
+  /** Knockouts a SUPER should make each time it runs: under the low end it is not worth getting, over the high end it decides the round alone. */
+  superKnockouts: { low: 0.4, high: 2 },
   roundSeconds: { low: 12, high: 60 },
   /** Share of rounds that may run out the clock. */
   clockShare: 0.3,
@@ -53,6 +55,8 @@ export const LIMITS = {
 type Person = { name: string; matches: number; wins: number; stats: PlayerStats[]; detail: ReadLog['detail'][] };
 const mean = (values: number[]): number | null => (values.length === 0 ? null : total(values) / values.length);
 const sum = (players: PlayerStats[], pick: (player: PlayerStats) => number): number => total(players.map(pick));
+/** The powers a SUPER roll can give. This package does not read the game's own list, so a new SUPER is added here too. */
+const SUPER_POWERS = ['kaiju', 'meteorShower'];
 const kos = (by: Partial<Record<CauseName, number>>, cause?: CauseName): number => (cause ? (by[cause] ?? 0) : total(Object.values(by)));
 const percent = (value: number | null): string => (value === null ? '—' : `${Math.round(value * 100)}%`);
 const ratio = (part: number, whole: number): number | null => (whole > 0 ? part / whole : null);
@@ -259,9 +263,30 @@ export function analyse(raws: unknown[], options: { build?: string; folder?: str
     out.push('', '### Cubes, powers and luck', '');
     out.push(`${rolls.length} rolls: ${['common', 'rare', 'cursed', 'super'].map(tier => `${tier} ${rolls.filter(roll => roll.tier === tier).length}`).join(', ')}. SUPER rolls to the leader ${leaderSupers}, to last place ${supers.filter(roll => roll.rank === 'last').length}.`);
     if (m.detailed.length > 0) out.push(`Powers that waited on the button: ${m.powersReady}, of which ${m.powersUsed} were used (${share(m.powersUsed, m.powersReady)})${wait === null ? '' : `, after waiting ${seconds(wait)} on average`}.`);
-    const powers = new Map<string, { rolled: number; used: number }>();
-    for (const log of focus) for (const [power, uses] of Object.entries(log.powers)) powers.set(power, { rolled: (powers.get(power)?.rolled ?? 0) + uses.rolled, used: (powers.get(power)?.used ?? 0) + uses.used });
-    if (powers.size > 0) out.push('', table(['Power', 'Rolled', 'Ran'], [...powers].sort((a, b) => b[1].rolled - a[1].rolled).map(([power, uses]) => [power, uses.rolled, uses.used])));
+    // Knockouts by each power are counted from log format 3 on; older logs leave that column blank.
+    const counted = focus.filter(log => log.format >= 3);
+    const powers = new Map<string, { rolled: number; used: number; ran: number; knockouts: number }>();
+    for (const log of focus) {
+      for (const [power, uses] of Object.entries(log.powers)) {
+        const sofar = powers.get(power) ?? { rolled: 0, used: 0, ran: 0, knockouts: 0 };
+        const judged = counted.includes(log);
+        powers.set(power, { rolled: sofar.rolled + uses.rolled, used: sofar.used + uses.used, ran: sofar.ran + (judged ? uses.used : 0), knockouts: sofar.knockouts + (judged ? uses.knockouts : 0) });
+      }
+    }
+    if (powers.size > 0) {
+      out.push(
+        '',
+        table(
+          ['Power', 'Rolled', 'Ran', 'Knockouts', 'Per run'],
+          [...powers].sort((a, b) => b[1].rolled - a[1].rolled).map(([power, uses]) => [power, uses.rolled, uses.used, counted.length > 0 ? uses.knockouts : '', uses.ran > 0 ? (uses.knockouts / uses.ran).toFixed(2) : '—']),
+        ),
+      );
+    }
+    const superRuns = total(SUPER_POWERS.map(power => powers.get(power)?.ran ?? 0));
+    const superKnockouts = total(SUPER_POWERS.map(power => powers.get(power)?.knockouts ?? 0));
+    if (superRuns > 0) out.push('', `A SUPER ran ${superRuns} ${superRuns === 1 ? 'time' : 'times'} and made ${superKnockouts} ${superKnockouts === 1 ? 'knockout' : 'knockouts'} (${(superKnockouts / superRuns).toFixed(2)} per run).`);
+    if (superRuns >= 4 && superKnockouts / superRuns < LIMITS.superKnockouts.low) warnings.push(`A SUPER made ${(superKnockouts / superRuns).toFixed(2)} knockouts per run (under ${LIMITS.superKnockouts.low}): the rarest roll in the game is not worth getting.`);
+    if (superRuns >= 4 && superKnockouts / superRuns > LIMITS.superKnockouts.high) warnings.push(`A SUPER made ${(superKnockouts / superRuns).toFixed(2)} knockouts per run (over ${LIMITS.superKnockouts.high}): one lucky roll decides the round by itself.`);
     if (m.powersReady >= 5 && m.powersUsed / m.powersReady < LIMITS.powersUsed) warnings.push(`Only ${share(m.powersUsed, m.powersReady)} of waiting powers were used (under ${percent(LIMITS.powersUsed)}): the power button is being missed.`);
     if (wait !== null && wait > LIMITS.powerWait) warnings.push(`A power waited ${seconds(wait)} on average before being used (over ${LIMITS.powerWait} s): players do not notice it, or do not know when to use it.`);
     if (supers.length >= 5 && leaderSupers / supers.length > LIMITS.leaderSupers) warnings.push(`The leader got ${share(leaderSupers, supers.length)} of the SUPER rolls: luck is helping whoever is already ahead.`);

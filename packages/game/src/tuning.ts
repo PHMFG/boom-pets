@@ -138,6 +138,38 @@ export const cube = {
   pity: 6,
 } as const;
 
+/** The SUPER powers. A SUPER is rare, so it has to be the event of its round. */
+export const supers = {
+  /** A SUPER that held arrives with a strike on its owner's spot, which spares the owner: seconds the floor warns, and how far the blast reaches. */
+  arrivalDelay: 0.8,
+  arrivalRadius: 4,
+  arrivalForce: 16,
+  /** Kaiju: size, weight and walking speed as multiples of a normal pet. It keeps pace with a pet on foot. */
+  kaijuScale: 3.2,
+  kaijuMass: 10,
+  kaijuSpeed: 1,
+  /** Every step of a walking kaiju is a blast around its feet: seconds between steps, reach, push and lift. */
+  kaijuStepEvery: 0.34,
+  kaijuStepRadius: 2.6,
+  kaijuStepForce: 12,
+  kaijuStepLift: 5,
+  /** How much harder and wider a kaiju's charged dash hits. A tap is still only a shove. */
+  kaijuDash: 1.5,
+  /** Meteor Shower: seconds between meteors, how long each one warns, and how far its blast reaches. */
+  showerEvery: 0.22,
+  showerDelay: 0.8,
+  showerRadius: 2.3,
+  showerForce: 14,
+  /** Each meteor of the shower also knocks out the tiles this close to where it lands: a pet that does not move falls through. */
+  showerHole: 0.8,
+  /** Of every three meteors, this many are aimed at a rival, each rival in turn. The rest fall anywhere. */
+  showerAimed: 2,
+  /** How far ahead of a running rival an aimed meteor lands, as a share of the ground the rival would cover before it hits. Turning is the way out. */
+  showerLead: 0.8,
+  /** No meteor of the shower lands this close to the pet that called it, so standing next to that pet is the way out. */
+  showerSafe: 2.5,
+} as const;
+
 export const gacha = {
   /** Game speed while the sequence plays. */
   dilation: 0.1,

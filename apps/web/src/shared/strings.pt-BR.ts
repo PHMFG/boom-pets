@@ -60,7 +60,7 @@ export const strings = {
     rocket: 'Corre muito mais rápido', megaDash: 'Uma investida gigante, na hora', jelly: 'Quem bater em você volta voando',
     giant: 'Fica enorme e difícil de empurrar', decoys: 'Três clones que explodem ao toque',
     reversed: 'Seus controles ficam ao contrário', pebble: 'Fica pequeno e voa com qualquer tapa', honk: 'Buzina sem parar. Só isso.',
-    kaiju: 'Vira um monstro: cada passo é um tremor', meteorShower: 'Chove meteoro em todo mundo, menos em você',
+    kaiju: 'Vira um monstro que joga todo mundo longe', meteorShower: 'Chove meteoro nos rivais e o chão fura',
     pinata: 'Quem acertar você ganha um poder',
   },
 

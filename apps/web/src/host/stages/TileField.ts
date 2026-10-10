@@ -13,7 +13,7 @@ type Tile = { mode: 'solid' | 'rising' | 'warning' | 'falling' | 'gone'; clock: 
 export class TileField {
   readonly mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), toonMaterial(), SIZE * SIZE);
   private readonly tiles: Tile[] = Array.from({ length: SIZE * SIZE }, () => ({ mode: 'solid', clock: 0, delay: 0, y: 0, speed: 0, angle: 0, spin: 0 }));
-  private readonly shades = [new Color(colors.cream), new Color(colors.creamDark)];
+  private readonly shades = [new Color(colors.floor), new Color(colors.floorDark)];
   private readonly danger = new Color(colors.danger);
   private readonly tint = new Color();
   private readonly matrix = new Matrix4();

@@ -58,6 +58,10 @@ Nothing knocks a pet out without a warning the player could have read: a barrel 
 - **Good powers wait** on the power button until the player wants them. **Curses start at once.** That is what makes a cube a gamble.
 - Every power is explained the moment someone gets it: its picture, its name, one line. On the TV for the room, on the phone for its owner.
 - A SUPER is rare and belongs to the room: everyone else mashes ZICA to curse it.
+- **Because it is rare, a SUPER has to be the event of its round.** One that holds lands with a strike on its owner's spot, warned on the floor, that throws back everyone else in reach. Then:
+  - **Kaiju**: a monster as fast as a pet on foot, immune to knocks, whose every step blasts the pets near its feet and whose charged dash is half as big again. It beats anyone it can corner. What beats it: staying away from it and from the edges for nine seconds, a Rocket, or a curse at the gacha.
+  - **Meteor Shower**: eight seconds of meteors, two in three aimed at a rival (each in turn, a little ahead of where it is running), each leaving a hole in the floor. It beats standing still, charging and being carried. What beats it: turning, or standing right beside the pet that called it, where no meteor lands.
+  - SUPERs, taken together, should make about one knockout each time one runs: between 0.4 and 2. Under that it is not worth getting, over that one lucky roll decides the round. `pnpm balance` prints the number for bots and `pnpm report` for people.
 - The safety nets are part of the design, not patches: a SUPER is guaranteed after six rolls without one, the player in last place gets a bigger blast, the leader carries a bounty, the final round counts double. Whoever is ahead should feel hunted.
 
 ### 8. Nobody sits out
@@ -79,7 +83,7 @@ Changes come from watching people play, and are checked by measuring.
 1. Name the problem as it was seen at the table ("players mash A and it works").
 2. Find which pillar it breaks.
 3. Change the rule or the number. Prefer one new cost or one clearer signal over a new mechanic.
-4. Run `pnpm balance 30`. With bots only, a round should last about 25 to 35 seconds, the first knockout should come around 10 seconds in, and no single cause should be more than 60% of knockouts.
+4. Run `pnpm balance 30`. With bots only, a round should last about 25 to 35 seconds, the first knockout should come around 10 seconds in, no single cause should be more than 60% of knockouts, and a SUPER should make between 0.4 and 2 knockouts per run (run 100 or more matches to judge that one: a SUPER is rare).
 5. Play it, then read `pnpm report` after the next session with people. It sets the builds side by side and, for the newest, says what each move pays, how pets were knocked out, how the buttons were used, how rounds and scores went, and what the cubes gave, with a warning wherever a number crosses its limit. How to read it is in `AGENTS.md`.
 6. Write the change and its reason in `CHANGELOG.md`.
 
@@ -108,6 +112,13 @@ Also from that session: a grabbed player's joystick was dropped, so they had to 
 This breaks pillar 3 (mashing B is the best way to play) and pillar 4 (in practice nothing beats a grab).
 
 One cause was found afterwards, by the tests written for the new match logs: every dash that hit was ended a second time as a miss, so a hit rested A for as long as a miss did. Dashing was worth less than designed in builds 0.2.0 to 0.4.2, which is part of why throwing took over. Build 0.4.3 fixes it; with bots, dashes went from a third of knockouts to nearly half and throws from 29% to 8%. Judge the throw against the dash again on a session played on 0.4.3 or later before changing either. The network side held: joins of 0.4 to 10 s, median latency of 7 to 14 ms, and every drop back within half a second.
+
+**After the second playtest (10 October 2026, same session).** Two complaints from the players, beside what the logs showed:
+
+| Said at the table | Why | What changed (build 0.5.0) |
+| --- | --- | --- |
+| It is very easy to lose your own pet | Pale pets on a pale floor, an outline in the seat colour only, and a camera that showed the whole platform: with six spread out, a pet was about 56 pixels tall on a 1080p screen | This is a matter of how the game is shown, so the rule and the fixes are in `docs/DESIGN.md` under "Finding your pet": a clean white floor, an ink line around every outline and ring, a ring that keeps its player's colour whatever the pet is doing, name tags in the player's colour, pets drawn bigger, and a camera that stays as close as the fight allows |
+| The SUPER is not rewarding | Both SUPERs rolled in the five real matches were Kaiju, and neither knocked anyone out: it was slower than the pets it chased, for seven seconds. The Meteor Shower fell at random and was easy to walk around | A SUPER lands with a strike. Kaiju keeps pace, hits harder and wider, and lasts nine seconds. The shower is aimed, lasts eight seconds and punches holes in the floor. With bots a Kaiju now makes about 0.6 knockouts per run and a shower about 0.3 (plus the falls into its holes, which count as falls), 0.45 for the two together, where all powers together used to make 14 knockouts in 60 matches. Bots do not dodge and do not hunt, so the number that matters is the one from people. The match log now counts the knockouts each power makes |
 
 ## Checklist for anything that changes how the game plays
 

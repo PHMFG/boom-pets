@@ -1,12 +1,23 @@
-// The game camera: tilted 52 degrees down through a narrow lens. It keeps every point of interest
-// in frame, shakes with impacts, punches in on big moments and can be pointed at one spot for a beat.
+// The game camera: tilted 52 degrees down through a narrow lens. It stays as close as it can while keeping
+// every point of interest in frame, so it moves in and out with the fight. It shakes with impacts, punches
+// in on big moments and can be pointed at one spot for a beat.
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
 const PITCH = MathUtils.degToRad(52);
-const MIN_DISTANCE = 17;
+/** The closest it comes. Any closer and a fight in the middle would have no edge of the platform in the picture, and the edge is what the fight is about. */
+const MIN_DISTANCE = 16;
+/**
+ * What is kept in view around the outermost points: metres of floor to each side and toward the camera,
+ * and, at the far side (the top of the picture), the height of a pet with its name tag over it.
+ */
+const MARGIN = { side: 1.7, near: 1.9, head: 4 };
+/** It pulls back at once when someone is about to leave the picture and closes in gently, so it never pumps. */
+const ZOOM_OUT = 5;
+const ZOOM_IN = 1.4;
+const FOLLOW = 3.2;
 const damp = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 
-export type Insets = { left: number; bottom: number };
+export type Insets = { left: number; bottom: number; top: number };
 
 export class CameraRig {
   readonly camera = new PerspectiveCamera(32, 1, 0.5, 400);
@@ -21,7 +32,7 @@ export class CameraRig {
   private punch = 0;
   private punchSpeed = 0;
   private size = { width: 1, height: 1 };
-  private insets: Insets = { left: 0, bottom: 0 };
+  private insets: Insets = { left: 0, bottom: 0, top: 0 };
   private hold: { x: number; z: number; distance: number; left: number; spin: number } | null = null;
   private time = 0;
 
@@ -29,10 +40,8 @@ export class CameraRig {
     this.size = { width, height };
     this.insets = insets;
     this.camera.aspect = width / height;
-    // Shift the picture into the area the HUD leaves free.
-    const freeWidth = Math.max(width - insets.left, 240);
-    const freeHeight = Math.max(height - insets.bottom, 240);
-    this.camera.setViewOffset(width, height, -(width - freeWidth) / 2, (height - freeHeight) / 2, width, height);
+    // Shift the picture into the area the HUD leaves free: what the camera looks at lands in the middle of it.
+    this.camera.setViewOffset(width, height, -insets.left / 2, (insets.bottom - insets.top) / 2, width, height);
   }
 
   /** Adds shake. 0.2 is a bump, 0.5 a barrel, 1 the biggest blast. */
@@ -76,22 +85,31 @@ export class CameraRig {
       this.yaw += this.hold.spin * dt;
       if (this.hold.left <= 0) this.hold = null;
     } else {
-      // Pulled a little toward the middle of the platform so the edges stay in view.
-      this.goal.set(((minX + maxX) / 2) * 0.85, 0.6, ((minZ + maxZ) / 2) * 0.85);
-      const halfWidth = (maxX - minX) / 2 + 2.2;
-      const halfDepth = (maxZ - minZ) / 2 + 1.8;
+      // The closest distance at which everything fits, worked out exactly. A point `z` metres nearer than what the
+      // camera looks at and `y` metres up is `distance - y sin - z cos` from the lens, and must project inside the
+      // free area. The far edge is fitted at head height and the near edge on the floor; where the camera looks
+      // between them is chosen so both fit at the same distance.
+      const sin = Math.sin(PITCH);
+      const cos = Math.cos(PITCH);
       const slope = Math.tan(MathUtils.degToRad(this.camera.fov / 2));
       const freeWidth = Math.max(this.size.width - this.insets.left, 240);
-      const freeHeight = Math.max(this.size.height - this.insets.bottom, 240);
-      const forWidth = halfWidth / (slope * (freeWidth / this.size.height));
-      const forHeight = (halfDepth * Math.sin(PITCH) + 1) / (slope * (freeHeight / this.size.height));
-      this.goalDistance = Math.max(MIN_DISTANCE, Math.max(forWidth, forHeight) + halfDepth * Math.cos(PITCH));
+      const freeHeight = Math.max(this.size.height - this.insets.bottom - this.insets.top, 240);
+      const perHeight = this.size.height / (slope * freeHeight);
+      const perWidth = this.size.height / (slope * freeWidth);
+      const near = maxZ + MARGIN.near;
+      const farTop = perHeight * (MARGIN.head * cos - minZ * sin) + MARGIN.head * sin + minZ * cos;
+      const lookZ = (near * (perHeight * sin + cos) - farTop) / (2 * perHeight * sin);
+      const halfWidth = (maxX - minX) / 2 + MARGIN.side;
+      const forHeight = (near - lookZ) * (perHeight * sin + cos);
+      const forWidth = halfWidth * perWidth + (near - lookZ) * cos;
+      this.goal.set((minX + maxX) / 2, 0, lookZ);
+      this.goalDistance = Math.max(MIN_DISTANCE, forHeight, forWidth);
       // Unwind any circling by the shortest way round.
       this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3, dt);
     }
 
-    this.center.lerp(this.goal, damp(2.6, dt));
-    this.distance += (this.goalDistance - this.distance) * damp(2.2, dt);
+    this.center.lerp(this.goal, damp(FOLLOW, dt));
+    this.distance += (this.goalDistance - this.distance) * damp(this.goalDistance > this.distance ? ZOOM_OUT : ZOOM_IN, dt);
     this.punchSpeed += (-this.punch * 90 - this.punchSpeed * 11) * dt;
     this.punch += this.punchSpeed * dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.7);

@@ -20,7 +20,7 @@ function match(change: (players: PlayerStats[], log: MatchLog) => void = () => u
     eliminations: [],
     eliminationsByCause: { dash: 12, throw: 4, fall: 4 },
     rolls: [{ round: 1, seat: 0, tier: 'common', power: 'rocket', rank: 'middle' }],
-    powers: { rocket: { rolled: 4, used: 4 } },
+    powers: { rocket: { rolled: 4, used: 4, knockouts: 0 } },
     gachas: [],
     roundWinners: [[0], [1], [2], [3], [0]],
     standings: players.map(player => ({ seat: player.seat, score: player.score, place: player.place, award: null })),
@@ -88,6 +88,19 @@ describe('the report', () => {
     expect(warnings.some(warning => warning.includes('"throw" is 85% of knockouts'))).toBe(true);
     expect(warnings.some(warning => warning.includes('of throws ended in a knockout'))).toBe(true);
     expect(warnings.some(warning => warning.includes('of grabs missed'))).toBe(true);
+  });
+
+  it('says so when a SUPER is not worth getting, and when it decides rounds by itself', () => {
+    const weak = analyse([match((_, log) => void (log.powers.kaiju = { rolled: 5, used: 5, knockouts: 1 }))]);
+    expect(weak.text).toContain('A SUPER ran 5 times and made 1 knockout (0.20 per run).');
+    expect(weak.warnings.some(warning => warning.includes('not worth getting'))).toBe(true);
+    const fair = analyse([match((_, log) => void (log.powers.meteorShower = { rolled: 5, used: 5, knockouts: 4 }))]);
+    expect(fair.warnings.some(warning => warning.includes('A SUPER made'))).toBe(false);
+    const wild = analyse([match((_, log) => void (log.powers.kaiju = { rolled: 4, used: 4, knockouts: 11 }))]);
+    expect(wild.warnings.some(warning => warning.includes('decides the round by itself'))).toBe(true);
+    // A log from before knockouts were counted per power says nothing either way.
+    const old = analyse([match((_, log) => { log.format = 2; log.powers.kaiju = { rolled: 5, used: 5 } as never; })]);
+    expect(old.warnings.some(warning => warning.includes('A SUPER made'))).toBe(false);
   });
 
   it('says so when A is mashed, nobody charges, powers go unused and one player runs away with it', () => {

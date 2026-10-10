@@ -37,13 +37,17 @@ import { TileField } from './TileField';
 
 const HALF = tuning.arena.size / 2;
 const CORNERS = [{ x: -HALF, z: -HALF }, { x: HALF, z: -HALF }, { x: -HALF, z: HALF }, { x: HALF, z: HALF }];
+/** Seconds ahead the camera looks along a pet's path, so a pet sent flying is still in the picture where it lands. */
+const LOOK_AHEAD = 0.2;
+/** How far beyond the living pets a ghost's cursor may pull the camera. Farther out, it is the ghost that has to come back. */
+const GHOST_PULL = 3;
 const WHITE = new Color(colors.white);
 const HOT = new Color(colors.gold).multiplyScalar(2.6);
 const FLASH = new Color(colors.white).multiplyScalar(3);
 const SMOKE = [new Color(colors.cream), new Color(colors.smoke), new Color(colors.danger), new Color(colors.gold)];
 const INK = new Color(colors.ink);
 const DANGER = new Color(colors.danger);
-const DUST = new Color(colors.creamDark);
+const DUST = new Color(colors.floorDark);
 /** Light levels. Kept low enough that the cream floor does not burn out to white. */
 const DAY = { hemisphere: 1.15, sun: 1.55 };
 const NIGHT = { hemisphere: 0.95, sun: 1.3 };
@@ -82,7 +86,7 @@ export class GameStage {
   private winners = new Set<number>();
   private asleep = new Set<number>();
   private skies: { day: Texture | null; night: Texture | null } = { day: null, night: null };
-  private insets = { left: 0, bottom: 0 };
+  private insets = { left: 0, bottom: 0, top: 0 };
   private size = { width: 1, height: 1 };
   private time = 0;
   private lastWord = -10;
@@ -142,9 +146,9 @@ export class GameStage {
     this.scene.add(this.roomWord.group);
   }
 
-  /** Pixels covered by HUD on the left and bottom. The action is framed in what remains. */
-  setInsets(left: number, bottom: number): void {
-    this.insets = { left, bottom };
+  /** Pixels covered by HUD on the left, bottom and top. The action is framed in what remains. */
+  setInsets(left: number, bottom: number, top: number): void {
+    this.insets = { left, bottom, top };
     this.fit();
   }
 
@@ -815,15 +819,33 @@ export class GameStage {
     }
   }
 
-  /** What the camera should keep in view right now. */
+  /**
+   * What the camera should keep in view right now. In a round that is the pets and nothing more, so the
+   * picture is as close as the fight allows: the platform's empty corners are not worth the pixels.
+   */
   private focusPoints(game: Game): { x: number; z: number }[] {
-    if (game.phase !== 'play') return CORNERS;
+    if (game.phase !== 'play' && game.phase !== 'countdown') return CORNERS;
     const points: { x: number; z: number }[] = [];
-    for (const view of this.pets.values()) if (view.feet.y > -3) points.push({ x: view.feet.x, z: view.feet.z });
-    for (const ghost of game.round.ghosts) points.push({ x: ghost.x * 0.6, z: ghost.z * 0.6 });
+    const onPlatform = (value: number) => Math.min(HALF + 1, Math.max(-HALF - 1, value));
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (const pet of game.round.pets) {
+      const view = this.pets.get(pet.id);
+      if (!view || view.feet.y < -3) continue;
+      const { x, z } = view.feet;
+      points.push({ x, z }, { x: onPlatform(x + pet.vx * LOOK_AHEAD), z: onPlatform(z + pet.vz * LOOK_AHEAD) });
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+    }
+    if (points.length === 0) return CORNERS;
+    for (const ghost of game.round.ghosts) {
+      points.push({ x: Math.min(maxX + GHOST_PULL, Math.max(minX - GHOST_PULL, ghost.x)), z: Math.min(maxZ + GHOST_PULL, Math.max(minZ - GHOST_PULL, ghost.z)) });
+    }
     if (game.round.cube) points.push(game.round.cube);
-    // Never tighter than the middle of the platform, so a lone survivor is not filmed in close-up.
-    points.push({ x: -2.5, z: -2.5 }, { x: 2.5, z: 2.5 });
     return points;
   }
 
@@ -865,7 +887,7 @@ export class GameStage {
   private clouds(): Group {
     const group = new Group();
     const geometry = new IcosahedronGeometry(1, 1);
-    const material = toonMaterial({ color: colors.white });
+    const material = toonMaterial({ color: colors.cloud });
     for (let index = 0; index < 16; index++) {
       const cloud = new Mesh(geometry, material);
       const angle = (index / 16) * Math.PI * 2;

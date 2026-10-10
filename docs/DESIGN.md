@@ -8,11 +8,12 @@ Read this before changing anything a player sees or hears: the TV, the phone, th
 
 Everything looks like a chunky plastic toy or a sticker stuck on top of the game: thick dark outlines, flat bright colours, hard shadows with no blur, round corners. Nothing is thin, grey, glossy or subtle. If a new element would look at home in a banking app, it is wrong here.
 
-Three things follow from that and never bend:
+Four things follow from that and never bend:
 
 1. **Nothing appears, moves or leaves without animation.** Things pop in with an overshoot and squish out. Particles shrink to nothing; they never fade.
 2. **A player is a colour and a shape, together, everywhere.** Never colour alone.
 3. **The size of an effect matches the size of what happened.** A weak action must look weak. (The first playtest had players mashing A partly because a tap looked like a hit.)
+4. **Every player can find their own pet at a glance.** Six people share one screen and each watches one pet. (After the second playtest players said they kept losing theirs: pale pets on a pale floor, thin outlines, and a camera that sat far back.) See "Finding your pet" below.
 
 ## Where every value lives
 
@@ -33,6 +34,8 @@ If a value you need is not there, add it there with a comment saying what it is 
 | --- | --- |
 | `ink` | Every outline, every hard shadow, body text |
 | `cream` | The paper every sticker is cut from |
+| `floor`, `floorDark` | The platform's tiles, and nothing else. A clean, cool white on purpose: see "Finding your pet" |
+| `cloud` | The clouds below the platform, tinted toward the sky so the white platform's edge reads against them |
 | `white` | Highlights, and the inside of a button that is not lit |
 | `gold` | "Press this", rewards, SUPER, the leader's crown |
 | `danger` | Anything about to hurt: overcharge, a throw, warnings on the floor |
@@ -44,6 +47,22 @@ If a value you need is not there, add it there with a comment saying what it is 
 ### Players: colour plus shape
 
 Seats are red circle, blue triangle, yellow square, green star, purple diamond, pink cross. Wherever a player is shown, both are shown: the ring under the pet, the name tag, the card in the bottom strip, a line in the feed, and the whole background of that player's phone (colour, with the shape as a faint pattern). `seatShapeSvg` in `shared/glyphs.ts` draws the shape.
+
+### Finding your pet
+
+A pet on the platform wears its player's colour three times, each with an ink edge so it holds against any background:
+
+- **The outline** is a thick band in the seat colour with an ink line around it, like the edge of a sticker (`render/assets.ts`). The ink line is what separates a pale pet from a pale thing behind it.
+- **The ring** on the floor under it, wide, in the seat colour with an ink edge. It stays that colour whatever the pet is doing; anything else to say goes on the gauge around it.
+- **The name tag** over it is filled with the seat colour and points down at the pet. From a sofa it is a flag, not a label.
+
+And the stage is built so those read:
+
+- **The floor is the plainest surface on screen**: a clean, cool white (`floor`, `floorDark`), with no colour of its own to compete with a pet's or a seat's. Every pet and all six seat colours stand out on it, and a white pet is held by its ink line and its ring. The old floor was cream, which is the colour family most pets are made of. A darker green-blue floor was tried and turned down: white reads better. The clouds below are tinted toward the sky (`cloud`), so the platform's edge is the brightest line in the picture.
+- **Pets are drawn a little bigger than the body the simulation pushes around** (`MODEL_SCALE` in `pets/PetView.ts`), so they read from across a room.
+- **The camera stays as close as the fight allows** (see Camera below).
+
+A new pet, floor, effect or seat colour is checked against this: a pale pet, a charcoal pet and all six seat colours, in a six-player round with everyone spread out.
 
 ### Type
 
@@ -92,7 +111,7 @@ It is read from a sofa, by people who are mostly looking at their own pet.
 | Top right | The feed: who knocked out whom, and how |
 | Middle | The banner for who took the round |
 | Bottom | One card per player: shape, portrait, name, score, luck pips, the power running (with its time left) and the power waiting |
-| Over each pet | Its name tag, with a badge for a power it is holding and a hand when a player could grab it |
+| Over each pet | Its name tag in the player's colour, pointing down at the pet, with a badge for a power it is holding and a hand when a player could grab it |
 
 - One explanation at a time in the top-left slot. A power card outranks a hint.
 - In the main menu the chosen button lifts, grows, straightens and turns gold, and a bot in the brawl looks up when the choice moves. A menu is driven by the arrow keys and Enter first, the mouse second: the screen is across the room.
@@ -115,14 +134,15 @@ It is held without being looked at, so it must work by feel and explain itself i
 
 ## The 3D world
 
-- **Shading.** Flat toon shading in three steps, plus a thick outline drawn as an inflated back-facing copy (`render/materials.ts`). A pet's outline is its seat colour. No realistic lighting, no textures beyond the models' own colour map.
+- **Shading.** Flat toon shading in three steps, plus a thick outline drawn as an inflated back-facing copy (`render/materials.ts`). A pet's outline is a band in its seat colour with an ink line around it, and stays about the same width when a power makes the pet huge. No realistic lighting, no textures beyond the models' own colour map.
 - **Pets.** The model plays its own clips. Everything else (squash, stretch, lean, shake, hit spin) is code on wrapper groups above it, driven by springs so it overshoots (`pets/PetView.ts`).
-- **The ring under a pet** is that player's exact phone colour. It swells with the charge, turns to the danger colour at the warning, and shrinks grey while A rests.
+- **The ring under a pet** is that player's exact phone colour, with an ink edge, and it never changes colour or size: it is how a player finds their pet, so it carries no other message.
+- **The gauge around the ring** says what A is doing. A white arc fills while A is held, is a full circle at full charge, and turns to the danger colour and throbs at the overcharge warning. A grey arc drains while A rests after a dash, like the one on the phone's A. No arc means A is ready. (White, not gold: gold is too close to the yellow seat.)
 - **Particles** (`fx/Particles.ts`) are cubes, sparks, round puffs and glows. They pop in, live and shrink. Nothing fades.
 - **The floor speaks first** (`fx/Decals.ts`). A danger is always drawn on the floor before it lands: barrels, falling tiles, meteors, the cube. Shock rings on the floor show how far a blast reached.
 - **Words in 3D** (`render/Text3D.ts`) are for the few big moments: one or two capitals and an exclamation mark. New words go in `strings.words3d`, then `pnpm font`.
 - **Feelings are emoji in a bubble** over the pet. What a pet feels is shown this way, not in the HUD.
-- **Camera.** Tilted 52° down through a narrow lens, keeping every living pet in frame. It shakes with impacts in proportion to them and punches in on big moments.
+- **Camera.** Tilted 52° down through a narrow lens. In a round it frames the living pets and nothing more (a ghost's cursor and a falling cube pull it a little), so it is as close as the fight allows and moves in and out with it: the platform's empty corners are not worth the pixels. The fit is exact: the farthest pet's name tag stays below the round counter and the nearest pet's ring above the players' cards (the HUD reports what it covers as insets). It looks a moment ahead along each pet's path, pulls back at once when someone is about to leave the picture and closes in gently, and never comes so close that a fight in the middle has no edge in view. It shakes with impacts in proportion to them and punches in on big moments. The numbers are at the top of `render/CameraRig.ts`.
 
 ### How big should an effect be?
 
@@ -133,6 +153,7 @@ It is held without being looked at, so it must work by feel and explain itself i
 | A grab | Both hold the pose 100 ms, the caught pet looks scared | Stars, the word PEGOU! | Small shake |
 | A thrown pet landing on someone | Both squash | Ring, stars | Medium shake |
 | An explosion | Thrown, tumbling | Bright sphere, smoke, sparks, debris, scorch | Shake, colour fringe, extra glow |
+| A SUPER arriving | Its owner changes on the spot; everyone else looks scared | A wide warning on the floor, then a strike and its blast | Close on the owner for the gacha, then shake |
 | A knockout | Shatters into cubes in its colours | Confetti, points fly to the scorer | Slow motion for the deciding ones |
 
 A new effect goes on this ladder next to something of the same weight, and is no louder than it.
@@ -180,3 +201,4 @@ A new effect goes on this ladder next to something of the same weight, and is no
 7. No full-screen flash, and nothing pulses faster than `alarm`.
 8. On the phone: it works without looking, a held thumb is not dropped, the control says what it will do, and nothing overlaps on any phone shape in the browser tests.
 9. It was opened and looked at, on the TV and on a phone-sized screen. Passing tests do not show that it looks right.
+10. Every pet can still be found at a glance: checked with a pale pet, a charcoal pet and all six seat colours, in a six-player round with everyone spread out, and nothing in the HUD covers a pet's name tag. Nothing recolours a pet's ring or name tag.

@@ -2,10 +2,12 @@
 import { AnimationMixer, Color, Mesh, type AnimationAction, type AnimationClip, type MeshToonMaterial, type Object3D, type ShaderMaterial, type Texture } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { PET_CLIPS, PET_IDS, petModelUrl, type PetClip, type PetId } from '../../shared/pets';
+import { colors } from '../../shared/tokens';
 import { outlineMaterial, prepareOutline, toonMaterial } from './materials';
 
-/** Outline thickness in model units. */
-const OUTLINE = 0.07;
+/** Outline thickness in model units: a band in the seat colour, and an ink line around that, like a sticker's edge. */
+export const OUTLINE = 0.1;
+export const INK_LINE = 0.055;
 
 const loader = new GLTFLoader();
 const sources = new Map<PetId, GLTF>();
@@ -77,7 +79,9 @@ export type PetInstance = {
   mixer: AnimationMixer;
   actions: Map<PetClip, AnimationAction>;
   body: MeshToonMaterial;
+  /** The band in the seat colour, and the ink line around it. */
   outline: ShaderMaterial;
+  ink: ShaderMaterial;
   dispose(): void;
 };
 
@@ -89,6 +93,8 @@ export function createPet(id: PetId, outlineColor: string): PetInstance {
   const model = gltf.scene.clone(true);
   const body = toonMaterial({ map: colormap });
   const outline = outlineMaterial(outlineColor, OUTLINE);
+  // The ink line is what separates a pet from whatever is behind it, whatever colour either is.
+  const ink = outlineMaterial(colors.ink, OUTLINE + INK_LINE);
   const meshes: Mesh[] = [];
   model.traverse(node => {
     if (node instanceof Mesh) meshes.push(node);
@@ -97,9 +103,11 @@ export function createPet(id: PetId, outlineColor: string): PetInstance {
     mesh.material = body;
     mesh.castShadow = true;
     // The outline is a child sharing the geometry, so it follows every animated part by itself.
-    const shell = new Mesh(mesh.geometry, outline);
-    shell.name = 'outline';
-    mesh.add(shell);
+    for (const material of [outline, ink]) {
+      const shell = new Mesh(mesh.geometry, material);
+      shell.name = 'outline';
+      mesh.add(shell);
+    }
   }
 
   const mixer = new AnimationMixer(model);
@@ -118,6 +126,7 @@ export function createPet(id: PetId, outlineColor: string): PetInstance {
     actions,
     body,
     outline,
+    ink,
     // Geometry and the colour texture belong to the shared source; only this copy's materials and animation state are released.
     dispose() {
       mixer.stopAllAction();
@@ -125,6 +134,7 @@ export function createPet(id: PetId, outlineColor: string): PetInstance {
       model.removeFromParent();
       body.dispose();
       outline.dispose();
+      ink.dispose();
     },
   };
 }

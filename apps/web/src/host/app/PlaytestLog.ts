@@ -30,6 +30,8 @@ export class PlaytestLog {
   private rolls: MatchLog['rolls'] = [];
   private powers: MatchLog['powers'] = {};
   private gachas: MatchLog['gachas'] = [];
+  /** The power each seat started last: a knockout "by power" is that power's doing. */
+  private readonly lastPower = new Map<number, string>();
   private roundStats: RoundStats[] = [];
   private winners: number[][] = [];
   private current: RoundCount = { firstKnockoutAt: null, knockouts: 0, winners: [] };
@@ -48,6 +50,7 @@ export class PlaytestLog {
     this.rolls = [];
     this.powers = {};
     this.gachas = [];
+    this.lastPower.clear();
     this.roundStats = [];
     this.winners = [];
     this.playing = false;
@@ -151,6 +154,8 @@ export class PlaytestLog {
         }
         const killer = event.killer === null ? undefined : this.seats.get(event.killer);
         if (killer) killer.stats.knockouts[cause] = (killer.stats.knockouts[cause] ?? 0) + 1;
+        const power = cause === 'power' && event.killer !== null ? this.lastPower.get(event.killer) : undefined;
+        if (power) this.power(power).knockouts++;
         break;
       }
       case 'revengeSwap': {
@@ -171,8 +176,7 @@ export class PlaytestLog {
       }
       case 'roll': {
         this.rolls.push({ round, seat: event.seat, tier: event.tier, power: event.power, rank: rankOf(game.scores, event.seat) });
-        const use = (this.powers[event.power] ??= { rolled: 0, used: 0 });
-        use.rolled++;
+        this.power(event.power).rolled++;
         const seat = this.seats.get(event.seat);
         if (!seat) break;
         seat.stats.powers.rolled++;
@@ -188,7 +192,8 @@ export class PlaytestLog {
         break;
       }
       case 'powerStart': {
-        (this.powers[event.power] ??= { rolled: 0, used: 0 }).used++;
+        this.power(event.power).used++;
+        this.lastPower.set(event.seat, event.power);
         const seat = this.seats.get(event.seat);
         const tier = POWERS[event.power].tier;
         // Only a power the player chose to start counts as "used": curses and SUPERs start by themselves.
@@ -262,6 +267,10 @@ export class PlaytestLog {
   /** Sends the finished match to the relay, which writes it into the playtests folder. */
   save(game: Game): void {
     void fetch('/api/playtest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(this.build(game)) }).catch(() => undefined);
+  }
+
+  private power(id: string): MatchLog['powers'][string] {
+    return (this.powers[id] ??= { rolled: 0, used: 0, knockouts: 0 });
   }
 
   private endRound(game: Game): void {

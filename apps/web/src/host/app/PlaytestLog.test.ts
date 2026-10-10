@@ -1,5 +1,5 @@
 import { Game, initPhysics, type SampledInput } from '@boom/game';
-import { readLog, summariseMatch } from '@boom/stats';
+import { LOG_FORMAT, readLog, summariseMatch } from '@boom/stats';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { PlaytestLog } from './PlaytestLog';
 
@@ -27,7 +27,7 @@ function playAndLog(seed: number, rounds: number) {
 describe('the match log', () => {
   it('adds up: every knockout, point and second is accounted for', () => {
     const log = playAndLog(7, 3);
-    expect(log).toMatchObject({ format: 2, version: 'test', rounds: 3, seed: 7 });
+    expect(log).toMatchObject({ format: LOG_FORMAT, version: 'test', rounds: 3, seed: 7 });
     expect(log.players).toHaveLength(4);
     expect(log.roundStats.map(round => round.round)).toEqual([1, 2, 3]);
 
@@ -55,6 +55,8 @@ describe('the match log', () => {
     expect(sum(log.players.map(player => player.roundsWon))).toBeGreaterThanOrEqual(3);
     expect(sum(log.players.map(player => player.powers.rolled))).toBe(log.rolls.length);
     expect(sum(Object.values(log.powers).map(power => power.rolled))).toBe(log.rolls.length);
+    // Every knockout a power is credited with is one of the knockouts "by power".
+    expect(sum(Object.values(log.powers).map(power => power.knockouts))).toBeLessThanOrEqual(log.eliminationsByCause.power ?? 0);
     for (const round of log.roundStats) {
       expect(round.seconds).toBeGreaterThan(0);
       if (round.firstKnockoutAt !== null) expect(round.firstKnockoutAt).toBeLessThanOrEqual(round.seconds);

@@ -3,7 +3,7 @@
 import type { PhoneConnection } from '@boom/protocol';
 
 /** Goes up when a field is added or changes meaning. `readLog` still reads every older log. */
-export const LOG_FORMAT = 2;
+export const LOG_FORMAT = 3;
 
 /** How a pet can be knocked out, in the order reports list them. */
 export const CAUSES = ['dash', 'throw', 'barrel', 'meteor', 'power', 'fall', 'overcharge'] as const;
@@ -58,8 +58,8 @@ export type MatchLog = {
   eliminations: { round: number; at: number; seat: number; cause: string; killer: number | null }[];
   eliminationsByCause: Record<string, number>;
   rolls: { round: number; seat: number; tier: string; power: string; rank: string }[];
-  /** For each power: how often it was rolled, and how often it actually ran. */
-  powers: Record<string, { rolled: number; used: number }>;
+  /** For each power: how often it was rolled, how often it actually ran, and how many rivals it knocked out (counted from format 3 on). */
+  powers: Record<string, { rolled: number; used: number; knockouts: number }>;
   gachas: { round: number; seat: number; jinx: number; cursed: boolean }[];
   roundWinners: number[][];
   standings: { seat: number; score: number; place: number; award?: string | null }[];
@@ -130,7 +130,7 @@ export function readLog(raw: unknown): ReadLog {
     eliminations,
     eliminationsByCause: log.eliminationsByCause ?? {},
     rolls: log.rolls ?? [],
-    powers: log.powers ?? {},
+    powers: Object.fromEntries(Object.entries(log.powers ?? {}).map(([power, uses]) => [power, { ...uses, knockouts: uses.knockouts ?? 0 }])),
     gachas: log.gachas ?? [],
     roundWinners: log.roundWinners ?? [],
     standings,

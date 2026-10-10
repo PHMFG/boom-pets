@@ -13,8 +13,8 @@ export const POWERS = {
   reversed: { tier: 'cursed', duration: 5 },
   pebble: { tier: 'cursed', duration: 6 },
   honk: { tier: 'cursed', duration: 6 },
-  kaiju: { tier: 'super', duration: 7 },
-  meteorShower: { tier: 'super', duration: 6 },
+  kaiju: { tier: 'super', duration: 9 },
+  meteorShower: { tier: 'super', duration: 8 },
   pinata: { tier: 'superCurse', duration: 8 },
 } as const satisfies Record<string, { tier: Tier; duration: number }>;
 export type PowerId = keyof typeof POWERS;
@@ -117,7 +117,19 @@ export type Barrel = {
 };
 
 export type Cube = { id: number; x: number; y: number; z: number; landed: boolean };
-export type Meteor = { id: number; x: number; z: number; left: number; total: number; radius: number; owner: number; fromGhost: boolean };
+export type Meteor = {
+  id: number;
+  x: number;
+  z: number;
+  left: number;
+  total: number;
+  radius: number;
+  force: number;
+  /** Tiles this close to the centre fall when it lands; 0 for none. */
+  hole: number;
+  owner: number;
+  fromGhost: boolean;
+};
 export type Ghost = { seat: number; x: number; z: number; cooldown: number; cooldownTotal: number };
 
 /** Tile states, one per tile in a size-by-size grid (index = column * size + row). */

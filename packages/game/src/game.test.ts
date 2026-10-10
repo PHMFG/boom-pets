@@ -6,7 +6,7 @@ import { initPhysics } from './physics';
 import { createRng } from './rng';
 import { Round, type RoundHooks } from './round';
 import { assignAwards, emptyStats, placementPoints, rankOf, standings } from './scoring';
-import { arena, cube, dash, grab, match, STEP } from './tuning';
+import { arena, cube, dash, grab, match, STEP, supers } from './tuning';
 import { POWERS, TILE, type GameEvent, type SeatSetup } from './types';
 
 const PETS = ['fox', 'cat', 'dog', 'pig', 'cow', 'bee'];
@@ -453,6 +453,75 @@ describe('powers', () => {
     expect(round.petOfSeat(0)).toBe(pet);
     run(Math.round(POWERS.decoys.duration / STEP) + 2);
     expect(round.pets.filter(other => other.decoy)).toHaveLength(0);
+  });
+
+  it('lands a SUPER with a strike that is warned on the floor, throws a rival in reach and spares its owner', () => {
+    const { round, run, of, approach } = makeRound(2);
+    const owner = round.petOfSeat(0)!;
+    const rival = round.petOfSeat(1)!;
+    approach(1, 0, 3);
+    round.applyPower(owner.id, 'meteorShower');
+    // The strike is announced the moment the SUPER starts, and nothing has moved yet.
+    expect(of('meteorCall')[0]).toMatchObject({ owner: 0, radius: supers.arrivalRadius, delay: supers.arrivalDelay });
+    expect(of('meteorCall')[0]!.x).toBeCloseTo(owner.x, 3);
+    expect(rival.authority).toBe(1);
+    const before = { x: owner.x, z: owner.z };
+    run(Math.round(supers.arrivalDelay / STEP) + 2);
+    expect(of('explosion').some(event => event.cause === 'power' && event.radius === supers.arrivalRadius)).toBe(true);
+    expect(rival.lastHit).toMatchObject({ seat: 0, cause: 'power' });
+    expect(Math.hypot(rival.vx, rival.vz)).toBeGreaterThan(4);
+    expect(Math.hypot(owner.x - before.x, owner.z - before.z)).toBeLessThan(0.05);
+  });
+
+  it('gives a cursed SUPER no strike', () => {
+    const { round, of } = makeRound(2);
+    round.applyPower(round.petOfSeat(0)!.id, 'pinata');
+    expect(of('meteorCall')).toHaveLength(0);
+  });
+
+  it('aims most of a Meteor Shower at rivals, each in turn, and none of it beside the pet that called it', () => {
+    const { round, run, of } = makeRound(3);
+    const owner = round.petOfSeat(0)!;
+    round.applyPower(owner.id, 'meteorShower');
+    // The first call is the arrival strike on the owner's own spot.
+    let seen = 1;
+    const aimedAt = [0, 0, 0];
+    let total = 0;
+    for (let step = 0; step < Math.round(3 / STEP); step++) {
+      run(1);
+      for (const call of of('meteorCall').slice(seen)) {
+        seen++;
+        total++;
+        expect(call).toMatchObject({ owner: 0, radius: supers.showerRadius, delay: supers.showerDelay });
+        expect(Math.hypot(call.x - owner.x, call.z - owner.z)).toBeGreaterThanOrEqual(supers.showerSafe - 0.5);
+        // An aimed meteor lands ahead of its target by most of the ground the target would cover before it hits.
+        const lead = supers.showerDelay * supers.showerLead;
+        for (const rival of round.pets) {
+          if (rival.seat !== 0 && Math.hypot(call.x - (rival.x + rival.vx * lead), call.z - (rival.z + rival.vz * lead)) < 1) aimedAt[rival.seat]!++;
+        }
+      }
+    }
+    expect(total).toBeGreaterThan(8);
+    expect(aimedAt[1]! + aimedAt[2]!).toBeGreaterThanOrEqual(Math.floor((total * supers.showerAimed) / 3) - 1);
+    expect(Math.abs(aimedAt[1]! - aimedAt[2]!)).toBeLessThanOrEqual(2);
+  });
+
+  it('makes a kaiju as fast as a pet on foot, with steps that throw back a rival near its feet', () => {
+    const { round, run, set, approach } = makeRound(2);
+    const kaiju = round.petOfSeat(0)!;
+    const rival = round.petOfSeat(1)!;
+    approach(1, 0, 6);
+    round.applyPower(kaiju.id, 'kaiju');
+    expect(kaiju.scale).toBe(supers.kaijuScale);
+    // Let the arrival strike pass, with the rival out of its reach, then walk at the rival.
+    run(Math.round(supers.arrivalDelay / STEP) + 30);
+    rival.lastHit = null;
+    const distance = Math.hypot(rival.x - kaiju.x, rival.z - kaiju.z);
+    set(0, { x: (rival.x - kaiju.x) / distance, y: -(rival.z - kaiju.z) / distance });
+    run(40);
+    expect(Math.hypot(kaiju.vx, kaiju.vz)).toBeGreaterThan(5.5);
+    run(80);
+    expect(rival.lastHit).toMatchObject({ seat: 0, cause: 'power' });
   });
 
   it('fires a held Mega Dash from the power button as a full dash at once, even while A is resting', () => {

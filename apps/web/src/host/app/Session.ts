@@ -186,8 +186,8 @@ export class Session {
     this.socket?.send(seat, { t: 'haptic', pattern: 'hit' });
   }
 
-  setInsets(left: number, bottom: number): void {
-    this.stage.setInsets(left, bottom);
+  setInsets(left: number, bottom: number, top: number): void {
+    this.stage.setInsets(left, bottom, top);
   }
 
   portrait(model: string): string {

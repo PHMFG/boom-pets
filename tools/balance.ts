@@ -16,11 +16,15 @@ let capped = 0;
 let supers = 0;
 let curses = 0;
 let swaps = 0;
+/** For each power: how often it ran, and how many knockouts it made. */
+const powers: Record<string, { ran: number; knockouts: number }> = {};
 
 for (let seed = 1; seed <= matches; seed++) {
   const game = new Game(seed * 977);
   game.startMatch({ rounds: 5, bots: true, petPool: pets, botName: index => `Bot ${index + 1}` });
   let sawKnockout = false;
+  /** The power each seat started last: a knockout "by power" is that power's doing. */
+  const lastPower = new Map<number, string>();
   for (let tick = 0; tick < 60 * 600 && game.phase !== 'matchEnd'; tick++) {
     game.tick(() => idle);
     for (const event of game.events) {
@@ -28,6 +32,11 @@ for (let seed = 1; seed <= matches; seed++) {
         causes[event.cause] = (causes[event.cause] ?? 0) + 1;
         if (!sawKnockout) firstKnockout.push(game.round.time);
         sawKnockout = true;
+        const power = event.cause === 'power' && event.killer !== null ? lastPower.get(event.killer) : undefined;
+        if (power) powers[power]!.knockouts++;
+      } else if (event.t === 'powerStart') {
+        (powers[event.power] ??= { ran: 0, knockouts: 0 }).ran++;
+        lastPower.set(event.seat, event.power);
       } else if (event.t === 'roll') tiers[event.tier] = (tiers[event.tier] ?? 0) + 1;
       else if (event.t === 'gachaReveal') event.cursed ? curses++ : supers++;
       else if (event.t === 'revengeSwap') swaps++;
@@ -49,3 +58,10 @@ console.log(`Round length: average ${average(roundSeconds)} s, shortest ${sorted
 console.log(`First knockout: average ${average(firstKnockout)} s into the round`);
 console.log('Knockouts by cause:', causes);
 console.log('Rolls by tier:', tiers, `| SUPER ${supers}, SUPER ZICA ${curses}, revenge swaps ${swaps}`);
+console.log(
+  'Knockouts per run of a power:',
+  Object.entries(powers)
+    .filter(([, power]) => power.knockouts > 0 || power.ran > 0)
+    .map(([name, power]) => `${name} ${(power.knockouts / Math.max(1, power.ran)).toFixed(2)} (${power.knockouts} in ${power.ran})`)
+    .join(', '),
+);

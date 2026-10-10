@@ -6,6 +6,11 @@ export const colors = {
   cream: '#FFF4DC',
   creamDark: '#EBDDBF',
   white: '#FFFFFF',
+  /** The platform's two tile colours: a clean, cool white, the plainest surface on screen, so every pet and seat colour stands out on it. */
+  floor: '#FAFBFD',
+  floorDark: '#E4E9F2',
+  /** The clouds below the platform: tinted toward the sky, so the white floor's edge reads against them. */
+  cloud: '#C9CDF6',
   /** Smoke and anything else that should read as neutral grey. */
   smoke: '#B9B2C6',
   steel: '#8B8794',
