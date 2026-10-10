@@ -8,6 +8,7 @@ import { strings } from '../../shared/strings.pt-BR';
 import { VERSION } from '../../shared/version';
 import { colors, seats as seatTokens } from '../../shared/tokens';
 import { Session } from '../app/Session';
+import { Finale, Loading, ModeIntro } from './Interludes';
 import { Nameplates } from './Nameplates';
 import { Presence } from './Presence';
 import { hud, useStore, type FeedWho, type PlayerCard } from './store';
@@ -41,6 +42,7 @@ export function GameScreen() {
   const strip = useRef<HTMLDivElement>(null);
   const resultsPanel = useRef<HTMLElement>(null);
   const roundBar = useRef<HTMLDivElement>(null);
+  const finaleBox = useRef<HTMLDivElement>(null);
   const session = useRef<Session | null>(null);
 
   const loading = useStore(hud, state => state.loading);
@@ -50,6 +52,14 @@ export function GameScreen() {
   const rounds = useStore(hud, state => state.rounds);
   const timeLeft = useStore(hud, state => state.timeLeft);
   const roundCap = useStore(hud, state => state.roundCap);
+  const intro = useStore(hud, state => state.intro);
+  const finale = useStore(hud, state => state.finale);
+  const loadProgress = useStore(hud, state => state.loadProgress);
+  // What these screens last showed, so they still show it while they squish out.
+  const shownIntro = useRef(intro);
+  const shownFinale = useRef(finale);
+  if (intro) shownIntro.current = intro;
+  if (finale) shownFinale.current = finale;
   const players = useStore(hud, state => state.players);
   const results = useStore(hud, state => state.results);
   const options = useStore(hud, state => state.options);
@@ -77,7 +87,7 @@ export function GameScreen() {
     if (!stageHost.current || !plateLayer.current) return;
     const nameplates = new Nameplates(plateLayer.current);
     const query = new URLSearchParams(location.search);
-    const created = new Session(stageHost.current, nameplates, { autostart: query.has('autostart'), solo: query.has('solo') });
+    const created = new Session(stageHost.current, nameplates, { autostart: query.has('autostart'), solo: query.has('solo'), modes: query.get('modes')?.split(',') });
     created.onStats = setFps;
     session.current = created;
 
@@ -121,9 +131,11 @@ export function GameScreen() {
     const left = panel ? panel.offsetLeft + panel.offsetWidth : 0;
     const bottom = !title && strip.current ? strip.current.offsetHeight + 24 : 0;
     // The round counter sits over the far edge of the platform: a pet's name tag must not end up behind it.
-    const top = !title && roundBar.current ? roundBar.current.offsetTop + roundBar.current.offsetHeight : 0;
+    // So does the winner's banner: the podium is framed in what it leaves free.
+    const over = phase === 'finale' ? finaleBox.current : roundBar.current;
+    const top = !title && over ? over.offsetTop + over.offsetHeight : 0;
     session.current?.setInsets(left, bottom, top);
-  }, [inLobby, phase, title]);
+  }, [inLobby, phase, title, finale]);
 
   useEffect(() => {
     if (seats.length > 0 || !inLobby) return setWaitedLong(false);
@@ -200,7 +212,7 @@ export function GameScreen() {
             </h1>
             {/* The panel that explains the game takes the room of the mode tag and the credits while it is up. */}
             <Presence show={!help}>{() => <p className="title-mode sticker">{strings.mode}</p>}</Presence>
-            {loading && <p className="title-press">{strings.title.loading}</p>}
+            {loading && <Loading progress={loadProgress} />}
             <Presence show={!loading && !help}>
               {() => (
                 <nav className="menu">
@@ -294,6 +306,15 @@ export function GameScreen() {
       </Presence>
       <Presence show={lobbyUp && !problem && waitedLong}>{() => <p className="lobby-hint sticker">{text.hintNoOne}</p>}</Presence>
       <Presence show={lobbyUp && !problem && seats.length > 0}>{() => <p className="lobby-tip">{text.tryIt}</p>}</Presence>
+
+      <Presence show={!title && phase === 'intro' && intro !== null}>{() => <ModeIntro mode={shownIntro.current?.mode ?? null} final={shownIntro.current?.final ?? false} />}</Presence>
+      <Presence show={!title && phase === 'finale' && finale !== null}>
+        {() => (
+          <div className="finale" ref={finaleBox}>
+            <Finale winners={shownFinale.current?.winners ?? []} />
+          </div>
+        )}
+      </Presence>
 
       <Presence show={!title && inMatch}>
         {() => (

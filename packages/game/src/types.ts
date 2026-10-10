@@ -26,7 +26,11 @@ export type Cause = 'fall' | 'dash' | 'barrel' | 'throw' | 'meteor' | 'overcharg
 export const GAME_MODES = ['brawl', 'lava', 'grow', 'race', 'color', 'potato', 'paint', 'frita'] as const;
 export type GameMode = (typeof GAME_MODES)[number];
 export type MiniMode = Exclude<GameMode, 'brawl'>;
-export type Phase = 'lobby' | 'countdown' | 'play' | 'roundEnd' | 'matchEnd';
+/**
+ * Where a match is. Each round is `intro` (the next game is drawn and explained), `countdown`, `play`, `roundEnd`;
+ * after the last one, `finale` reveals the places from third up, then `matchEnd` waits for a rematch.
+ */
+export type Phase = 'lobby' | 'intro' | 'countdown' | 'play' | 'roundEnd' | 'finale' | 'matchEnd';
 export type BotStyle = 'coward' | 'kamikaze' | 'thrower';
 
 export type SeatSetup = {
@@ -200,6 +204,10 @@ export type Standing = { seat: number; score: number; place: number; award: Awar
 export type GameEvent =
   | { t: 'phase'; phase: Phase; round: number }
   | { t: 'countdown'; n: number }
+  /** The next round's game has been drawn and its round built. `first` is true the first time this game comes up. */
+  | { t: 'reveal'; mode: GameMode; round: number; final: boolean; first: boolean }
+  /** The finale shows one place: third, then second, then the winner. Seats sharing a place are shown together. */
+  | { t: 'finale'; place: 1 | 2 | 3; seats: number[] }
   | { t: 'spawn'; pet: number; seat: number }
   | { t: 'dash'; pet: number; charge: number; x: number; z: number; dx: number; dz: number }
   | { t: 'dashHit'; pet: number; seat: number; x: number; y: number; z: number; charge: number; radius: number; victims: number[] }

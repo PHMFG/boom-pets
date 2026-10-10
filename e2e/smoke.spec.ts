@@ -11,6 +11,7 @@ import { chromium, devices, expect, test, webkit, type Browser, type BrowserCont
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { strings } from '../apps/web/src/shared/strings.pt-BR';
 
 type Boom = {
   game: {
@@ -143,7 +144,7 @@ class Session {
 
   async readyUp(): Promise<void> {
     for (const phone of this.phones) await phone.tab.locator('.pad-lobby .pad-ready').tap();
-    await expect.poll(() => this.page.evaluate(() => window.__BOOM__.game.phase), { timeout: 20_000 }).toBe('play');
+    await expect.poll(() => this.page.evaluate(() => window.__BOOM__.game.phase), { timeout: 30_000 }).toBe('play');
   }
 
   async close(): Promise<void> {
@@ -196,7 +197,7 @@ test('four phones join, play a match with a SUPER gacha, and see their results',
   await expect(page.locator('.how')).toBeHidden();
   await expect(page.locator('.menu-item')).toHaveCount(3);
   // The first key press allowed sound: every announcer line is recorded and loaded, and the menu's own track is playing.
-  await expect.poll(() => page.evaluate(() => (window.__BOOM__ as unknown as { session: { audio: { lines: Map<string, unknown> } } }).session.audio.lines.size), { message: 'the announcer has all his lines' }).toBe(12);
+  await expect.poll(() => page.evaluate(() => (window.__BOOM__ as unknown as { session: { audio: { lines: Map<string, unknown> } } }).session.audio.lines.size), { message: 'the announcer has all his lines' }).toBe(Object.keys(strings.announcer).length);
   await expect.poll(() => page.evaluate(() => !(window.__BOOM__ as unknown as { session: { audio: { tracks: Map<string, { element: HTMLAudioElement }> } } }).session.audio.tracks.get('title')!.element.paused), { message: 'the title track plays on the menu' }).toBe(true);
   await expect.poll(() => page.evaluate(() => window.__BOOM__.game.seats.filter(seat => seat.bot).length), { message: 'bots brawl behind the title' }).toBe(4);
   await session.openLobby();
@@ -331,7 +332,7 @@ test('four phones join, play a match with a SUPER gacha, and see their results',
 
   // ── A rematch from the phones ──
   for (const tab of phones) await tab.locator('.pad-results .pad-ready').tap();
-  await expect.poll(() => page.evaluate(() => window.__BOOM__.game.phase), { timeout: 15_000 }).toMatch(/countdown|play/);
+  await expect.poll(() => page.evaluate(() => window.__BOOM__.game.phase), { timeout: 15_000 }).toMatch(/intro|countdown|play/);
 
   expect(session.problems, 'no page errors or console errors anywhere').toEqual([]);
   await session.close();

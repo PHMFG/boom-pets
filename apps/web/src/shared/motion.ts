@@ -24,6 +24,8 @@ export const motion = {
   wobble: { ms: 180 },
   /** The pulse on a phone's border that stands in for vibration. */
   buzz: { ms: 320 },
+  /** How a roulette reel slows to a stop. Its length is the simulation's (`tuning.match.introRoulette`). */
+  spin: { css: 'cubic-bezier(0.12, 0.7, 0.2, 1)' },
   /** How long a line of the event feed stays. */
   feed: { ms: 3600 },
   /** A line that waits for the player ("press any key", "ENTER to start"): one slow swell, back and forth. */

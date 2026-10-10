@@ -680,15 +680,19 @@ function playBotMatch(seed: number) {
   const game = new Game(seed);
   const trail: number[] = [];
   const seen = new Set<string>();
+  const finale: Extract<GameEvent, { t: 'finale' }>[] = [];
   game.startMatch({ rounds: 2, bots: true, petPool: PETS, botName: index => `Bot ${index + 1}` });
   let ticks = 0;
-  const limit = 2 * (match.countdown + match.roundCap + match.roundEnd + 5) * 60;
+  const limit = (2 * (match.introRoulette + match.introCardFirst + match.countdown + match.roundCap + match.roundEnd) + match.finale + 5) * 60;
   while (game.phase !== 'matchEnd' && ticks < limit) {
     game.tick(() => idle);
-    game.events.forEach(event => seen.add(event.t));
+    for (const event of game.events) {
+      seen.add(event.t);
+      if (event.t === 'finale') finale.push(event);
+    }
     if (ticks++ % 300 === 0) trail.push(game.round.hash());
   }
-  const result = { phase: game.phase, ticks, trail, scores: [...game.scores], standings: game.standings, seen };
+  const result = { phase: game.phase, ticks, trail, scores: [...game.scores], standings: game.standings, seen, finale };
   game.round.free();
   return result;
 }
@@ -700,6 +704,8 @@ function makeDuelMatch(rounds: number) {
   const seen: GameEvent[] = [];
   game.setLobbySeats([seat(0), seat(1)]);
   game.startMatch({ rounds, bots: false, petPool: PETS, botName: index => `Bot ${index + 1}` });
+  // Starting a match already says something (the first intro), before any tick.
+  seen.push(...game.events);
   const tick = (count: number) => {
     for (let index = 0; index < count; index++) {
       game.tick(which => inputs.get(which) ?? idle);
@@ -777,6 +783,81 @@ describe('match scoring', () => {
 });
 
 describe('match', () => {
+  it('goes intro, countdown, play and round end for every round, then the finale, then waits', () => {
+    const { game, seen, tick } = makeDuelMatch(2);
+    expect(game.phase).toBe('intro');
+    // The roulette spins over the lobby: the game is not drawn yet and the lobby round is still on stage.
+    expect(game.revealed).toBe(false);
+    expect(game.round.mode).toBe('lobby');
+    tick(Math.round(match.introRoulette / STEP) + 1);
+    expect(game.revealed).toBe(true);
+    expect(game.round.mode).toBe('match');
+    // How long each card stayed up: ticks from a reveal to the countdown after it.
+    const cards: number[] = [];
+    let revealedAt = 0;
+    let read = seen.length;
+    for (let ticks = 1; ticks < 60 * 400 && game.phase !== 'matchEnd'; ticks++) {
+      tick(1);
+      for (const event of seen.slice(read)) {
+        if (event.t === 'reveal') revealedAt = ticks;
+        else if (event.t === 'phase' && event.phase === 'countdown') cards.push(ticks - revealedAt);
+      }
+      read = seen.length;
+    }
+    const phases = seen.flatMap(event => (event.t === 'phase' ? [event.phase] : []));
+    expect(phases).toEqual(['intro', 'countdown', 'play', 'roundEnd', 'intro', 'countdown', 'play', 'roundEnd', 'finale', 'matchEnd']);
+    const reveals = seen.flatMap(event => (event.t === 'reveal' ? [event] : []));
+    expect(reveals).toEqual([
+      { t: 'reveal', mode: 'brawl', round: 1, final: false, first: true },
+      { t: 'reveal', mode: 'brawl', round: 2, final: true, first: false },
+    ]);
+    // A game explained once gets a shorter card the next time. (The first reveal happened before this loop.)
+    expect(Math.abs(cards[1]! - match.introCard / STEP)).toBeLessThanOrEqual(1);
+    expect(match.introCardFirst).toBeGreaterThan(match.introCard);
+    game.round.free();
+  });
+
+  it('shows the finale from the lowest place up, each place once, and the winner last', () => {
+    const result = playBotMatch(42);
+    expect(result.finale.map(event => event.place)).toEqual([3, 2, 1]);
+    for (const event of result.finale) {
+      expect(event.seats).toEqual(result.standings.filter(entry => entry.place === event.place).map(entry => entry.seat));
+    }
+    // A duel has no third place.
+    const { game, seen, tick } = makeDuelMatch(1);
+    for (let guard = 0; guard < 60 * 300 && game.phase !== 'matchEnd'; guard++) tick(1);
+    expect(seen.flatMap(event => (event.t === 'finale' ? [event.place] : []))).toEqual([2, 1]);
+    game.round.free();
+  });
+
+  it('forgets a press made while waiting for GO', () => {
+    const { game, seen, tick } = makeDuelMatch(1);
+    const until = (phase: string) => {
+      for (let guard = 0; guard < 60 * 60 && game.phase !== phase; guard++) tick(1);
+    };
+    until('countdown');
+    tick(30);
+    // A tap of A in the middle of the countdown.
+    game.tick(which => (which === 0 ? { ...idle, edges: [press('a', true), press('a', false)] } : idle));
+    until('play');
+    tick(20);
+    expect(seen.some(event => event.t === 'dash')).toBe(false);
+    game.round.free();
+  });
+
+  it('plays the games it is told to, in order, repeating the last', () => {
+    const game = new Game(9);
+    const modes: string[] = [];
+    game.startMatch({ rounds: 3, bots: true, petPool: PETS, botName: index => `Bot ${index + 1}`, modes: ['brawl'] });
+    for (let guard = 0; guard < 60 * 500 && game.phase !== 'matchEnd'; guard++) {
+      game.tick(() => idle);
+      for (const event of game.events) if (event.t === 'reveal') modes.push(event.mode);
+    }
+    expect(game.phase).toBe('matchEnd');
+    expect(modes).toEqual(['brawl', 'brawl', 'brawl']);
+    game.round.free();
+  });
+
   it('fills the seats with bots and plays every round through to final standings', () => {
     const result = playBotMatch(42);
     expect(result.phase).toBe('matchEnd');

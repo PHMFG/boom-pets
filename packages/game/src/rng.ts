@@ -23,7 +23,7 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-export type RngStream = 'rolls' | 'spawns' | 'bots';
+export type RngStream = 'rolls' | 'spawns' | 'bots' | 'modes';
 
 export type Rng = {
   /** Float in [0, 1). */

@@ -27,6 +27,7 @@ export const strings = {
     escaped: 'ESCAPOU!',
     grabbed: 'PEGOU!',
     thrown: 'VOA!',
+    victory: 'VITÓRIA!',
   },
 
   /** Shown in the HUD, on phones and (in capitals) as 3D words when a power starts. */
@@ -53,6 +54,53 @@ export const strings = {
     superCurse: 'Super zica!',
     swap: 'Troca da vingança!',
     kaboom: 'Kabum!',
+    nextGame: 'Próximo jogo!',
+    champion: 'Temos um campeão!',
+    gameBrawl: 'Bate-bate!',
+    gameLava: 'O chão é lava!',
+    gameGrow: 'Come e cresce!',
+    gameRace: 'Corrida maluca!',
+    gameColor: 'Cor certa!',
+    gamePotato: 'Batata quente!',
+    gamePaint: 'Pinta o chão!',
+    gameFrita: 'Batatinha frita, um, dois, três!',
+  },
+
+  /** The games a round can be: the name, and the one line that says what to do. Both go on the card between games. */
+  games: {
+    brawl: { name: 'Bate-Bate', line: 'Jogue todo mundo pra fora!' },
+    lava: { name: 'O Chão é Lava', line: 'Suba numa pedra antes da lava!' },
+    grow: { name: 'Come e Cresce', line: 'Coma tudo! O maior vence' },
+    race: { name: 'Corrida Maluca', line: 'Chegue primeiro!' },
+    color: { name: 'Cor Certa', line: 'Corra pra cor certa!' },
+    potato: { name: 'Batata Quente', line: 'Passe a batata!' },
+    paint: { name: 'Pinta o Chão', line: 'Pinte mais que todo mundo!' },
+    frita: { name: 'Batatinha Frita 1, 2, 3', line: 'Parou, parou! Não se mexa' },
+  },
+
+  /** What a control does, in a word or two: on a game's card and on the phone's button. */
+  controls: {
+    move: 'Anda',
+    dash: 'Investida',
+    grab: 'Agarra e joga',
+    power: 'Usa o poder',
+    shove: 'Empurra',
+    bite: 'Morde',
+    jump: 'Pula',
+  },
+
+  /** The screen between games. */
+  intro: {
+    next: 'Próximo jogo…',
+    double: 'VALE DOBRADO!',
+  },
+
+  /** The end of a match, before the table. */
+  finale: {
+    drum: 'E o campeão é…',
+    won: 'venceu!',
+    tied: 'venceram!',
+    and: ' e ',
   },
 
   /** One line on what each power does. Shown beside its name on the TV and on the phone. */
@@ -88,6 +136,8 @@ export const strings = {
 
   title: {
     loading: 'Carregando…',
+    /** Shown one at a time under the loading bar. */
+    loadingTips: ['Cada rodada é um jogo diferente', 'O celular mostra o que cada botão faz', 'A última rodada vale dobrado', 'Ninguém fica de fora por muito tempo'],
     credits: 'Bichos, sons e céus: Kenney.nl (CC0)',
     version: (version: string) => `versão ${version}`,
     /** The browser kept an old copy even after reloading by itself. */

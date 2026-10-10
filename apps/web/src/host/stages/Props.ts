@@ -8,6 +8,7 @@ import {
   Color,
   ConeGeometry,
   CylinderGeometry,
+  DoubleSide,
   Group,
   IcosahedronGeometry,
   Mesh,
@@ -414,59 +415,154 @@ export class Words {
 
 const STEP_HEIGHTS = [1.5, 1.0, 0.6];
 const STEP_X = [0, -1.9, 1.9];
+/** How much bigger than the others the winner stands. */
+const WINNER_SCALE = 1.35;
+const crownBand = new CylinderGeometry(0.34, 0.3, 0.2, 10, 1, true);
+const crownPoint = new ConeGeometry(0.09, 0.26, 4);
 
-/** The end of a match: three steps rise from the floor and the top three pets celebrate on them. */
+export type PodiumEntry = { seat: number; model: PetId; place: number };
+
+type Spot = { pet: PetInstance; holder: Group; step: Mesh; seat: number; place: number; height: number; x: number; shownAt: number | null; crown: Group | null };
+
+/**
+ * The end of a match. The steps are there from the start but empty: each place is revealed when the
+ * simulation says so, third place first. The winner gets a crown and a spotlight and stands bigger than
+ * the rest; everyone who did not reach the podium watches from the sides.
+ */
 export class Podium {
   readonly group = new Group();
-  private readonly pets: { pet: PetInstance; holder: Group; place: number }[] = [];
-  private readonly steps: Mesh[] = [];
+  private readonly spots: Spot[] = [];
+  private readonly crowd: { pet: PetInstance; holder: Group }[] = [];
+  private readonly beam: Mesh;
+  private readonly crownMaterial = toonMaterial({ color: colors.gold });
+  private celebrating: number | null = null;
   private time = 0;
 
-  constructor(top: { seat: number; model: PetId }[]) {
-    top.slice(0, 3).forEach((entry, place) => {
-      const height = STEP_HEIGHTS[place]!;
-      const step = new Mesh(new BoxGeometry(1.7, height, 1.7), toonMaterial({ color: seatColor(entry.seat) }));
-      step.position.set(STEP_X[place]!, height / 2, 0);
+  /** `entries` are the final standings, best first. Seats sharing a place stand on steps of the same height. */
+  constructor(entries: PodiumEntry[]) {
+    entries.forEach((entry, index) => {
+      const pet = createPet(entry.model, seatColor(entry.seat));
+      pet.model.scale.setScalar(0.72);
+      const holder = new Group();
+      holder.add(pet.model);
+      holder.scale.setScalar(0.001);
+      this.group.add(holder);
+      if (index >= 3 || entry.place > 3) {
+        // Off the podium: a place at the side, turned toward it.
+        const side = this.crowd.length % 2 === 0 ? -1 : 1;
+        const row = Math.floor(this.crowd.length / 2);
+        holder.position.set(side * (4 + row * 1.5), 0, 1.2 + row * 0.5);
+        holder.rotation.y = -side * 0.9;
+        pet.actions.get('idle')?.play();
+        this.crowd.push({ pet, holder });
+        return;
+      }
+      const height = STEP_HEIGHTS[entry.place - 1]!;
+      const x = STEP_X[index]!;
+      // A step is plain until its place is revealed: its colour would give the name away.
+      const step = new Mesh(new BoxGeometry(1.7, height, 1.7), toonMaterial({ color: colors.cream }));
+      step.position.set(x, height / 2, 0);
       step.castShadow = true;
       const shell = new Mesh(step.geometry, inkShell);
       shell.scale.set(1.05, 1.03, 1.05);
       step.add(shell);
-      this.steps.push(step);
-
-      const pet = createPet(entry.model, seatColor(entry.seat));
-      pet.model.scale.setScalar(0.62);
-      // First place dances; the others clap along.
-      pet.actions.get(place === 0 ? 'dance' : 'gesture-positive')?.play();
-      const holder = new Group();
-      holder.position.set(STEP_X[place]!, height, 0);
-      holder.add(pet.model);
-      this.pets.push({ pet, holder, place });
-      this.group.add(step, holder);
+      holder.position.set(x, height, 0);
+      pet.actions.get('idle')?.play();
+      this.spots.push({ pet, holder, step, seat: entry.seat, place: entry.place, height, x, shownAt: null, crown: null });
+      this.group.add(step);
     });
+
+    // A cone of light on the winner. It is over-bright so the glow picks it up, and it grows open; it does not fade in.
+    this.beam = new Mesh(
+      new CylinderGeometry(0.2, 1.7, 14, 24, 1, true),
+      new MeshBasicMaterial({ color: new Color(colors.gold).multiplyScalar(1.6), transparent: true, opacity: 0.13, depthWrite: false, side: DoubleSide }),
+    );
+    this.beam.position.set(0, 7, 0);
+    this.beam.scale.set(0.001, 1, 0.001);
+    this.group.add(this.beam);
+  }
+
+  /** Shows everyone at that place, and returns where they stand so the stage can mark the moment. */
+  reveal(place: number): { x: number; y: number; z: number; seat: number }[] {
+    const shown = this.spots.filter(spot => spot.place === place && spot.shownAt === null);
+    for (const spot of shown) {
+      spot.shownAt = this.time;
+      (spot.step.material as MeshToonMaterial).color.set(seatColor(spot.seat));
+      // The winner dances; the others clap along.
+      spot.pet.mixer.stopAllAction();
+      spot.pet.actions.get(place === 1 ? 'dance' : 'gesture-positive')?.play();
+      if (place === 1) {
+        spot.crown = this.crown();
+        spot.holder.add(spot.crown);
+      }
+    }
+    if (place === 1) {
+      this.celebrating = this.time;
+      for (const { pet } of this.crowd) {
+        pet.mixer.stopAllAction();
+        pet.actions.get('gesture-positive')?.play();
+      }
+    }
+    return shown.map(spot => ({ x: spot.x, y: spot.height, z: 0, seat: spot.seat }));
+  }
+
+  /** Shows every place at once: for a match end that had no finale. */
+  revealAll(): void {
+    for (const place of [3, 2, 1]) this.reveal(place);
   }
 
   update(dt: number): void {
     this.time += dt;
-    this.steps.forEach((step, place) => {
-      // Third place rises first, the winner last.
-      const t = clamp01((this.time - (2 - place) * 0.25) / 0.35);
-      step.scale.y = Math.max(0.001, backOut(t, 1.4));
-      step.position.y = (STEP_HEIGHTS[place]! * step.scale.y) / 2;
-    });
-    for (const { pet, holder, place } of this.pets) {
-      const t = clamp01((this.time - (2 - place) * 0.25 - 0.2) / 0.3);
-      holder.scale.setScalar(backOut(t));
-      holder.position.y = STEP_HEIGHTS[place]! * this.steps[place]!.scale.y + (place === 0 ? Math.abs(Math.sin(this.time * 6)) * 0.35 : 0);
+    for (const { pet, holder } of this.crowd) {
+      // The crowd walks on while the drums roll.
+      holder.scale.setScalar(backOut(clamp01(this.time / 0.3)));
       pet.mixer.update(dt);
     }
+    for (const spot of this.spots) {
+      const since = spot.shownAt === null ? -1 : this.time - spot.shownAt;
+      const winner = spot.place === 1;
+      const size = since < 0 ? 0.001 : backOut(clamp01(since / 0.3)) * (winner ? WINNER_SCALE : 1);
+      spot.holder.scale.setScalar(Math.max(0.001, size));
+      // The winner drops in from above; then keeps hopping.
+      const drop = winner && since >= 0 ? Math.max(0, 1 - since / 0.25) * 5 : 0;
+      spot.holder.position.y = spot.height + drop + (winner && since > 0.25 ? Math.abs(Math.sin((since - 0.25) * 6)) * 0.35 : 0);
+      if (spot.crown) {
+        spot.crown.scale.setScalar(backOut(clamp01((since - 0.45) / 0.3)) || 0.001);
+        spot.crown.rotation.y = this.time * 1.4;
+      }
+      spot.pet.mixer.update(dt);
+    }
+    const open = this.celebrating === null ? 0.001 : Math.max(0.001, backOut(clamp01((this.time - this.celebrating) / 0.35)));
+    this.beam.scale.set(open, 1, open);
   }
 
   dispose(): void {
     this.group.removeFromParent();
-    this.pets.forEach(({ pet }) => pet.dispose());
-    this.steps.forEach(step => {
+    [...this.spots, ...this.crowd].forEach(({ pet }) => pet.dispose());
+    this.spots.forEach(({ step }) => {
       step.geometry.dispose();
       (step.material as MeshToonMaterial).dispose();
     });
+    this.beam.geometry.dispose();
+    (this.beam.material as MeshBasicMaterial).dispose();
+    this.crownMaterial.dispose();
+  }
+
+  /** A gold crown: a band with five points, sitting on the pet's head. */
+  private crown(): Group {
+    const crown = new Group();
+    const band = new Mesh(crownBand, this.crownMaterial);
+    const shell = new Mesh(crownBand, inkShell);
+    shell.scale.set(1.12, 1.15, 1.12);
+    crown.add(band, shell);
+    for (let index = 0; index < 5; index++) {
+      const angle = (index / 5) * Math.PI * 2;
+      const point = new Mesh(crownPoint, this.crownMaterial);
+      point.position.set(Math.sin(angle) * 0.31, 0.2, Math.cos(angle) * 0.31);
+      crown.add(point);
+    }
+    crown.position.y = 1.5;
+    crown.scale.setScalar(0.001);
+    return crown;
   }
 }

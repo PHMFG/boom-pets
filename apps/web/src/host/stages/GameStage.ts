@@ -1,6 +1,6 @@
 // Draws the game. It reads the simulation every frame and turns its events into motion, particles,
 // camera moves and pop-up words. It never changes the simulation.
-import type { Game, GameEvent, Pet } from '@boom/game';
+import type { Game, GameEvent, GameMode, Pet } from '@boom/game';
 import { POWERS, tuning } from '@boom/game';
 import type { SeatInfo } from '@boom/protocol';
 import {
@@ -69,6 +69,8 @@ export class GameStage {
   private title = false;
   private roomWord: Word3D | null = null;
   private podium: Podium | null = null;
+  /** The winner has been shown: fireworks from here on. */
+  private celebrating = false;
   private game: Game | null = null;
   private winners = new Set<number>();
   private asleep = new Set<number>();
@@ -247,6 +249,32 @@ export class GameStage {
       case 'roundWinner':
         this.winners = new Set(event.seats);
         return;
+      case 'reveal':
+        // The next game's world replaces whatever was on stage, behind its card.
+        this.winners.clear();
+        this.words.clear();
+        this.showMap(this.makeMap(event.mode, event.final));
+        if (event.final) this.popWord(strings.words3d.doubleRound, 0, 5.6, -2, 1.6, colors.gold);
+        return;
+      case 'finale': {
+        const spots = this.podium?.reveal(event.place) ?? [];
+        for (const spot of spots) {
+          this.dust(spot.x, spot.z + 1, 10);
+          this.decals.shock(spot.x, spot.z, 1.8, new Color(seatColor(spot.seat)), 0.35);
+        }
+        this.rig.shake(event.place === 1 ? 0.55 : 0.2);
+        if (event.place !== 1) return;
+        // The winner: colour comes back, the camera closes in and circles, and both sides fire confetti.
+        this.celebrating = true;
+        this.renderer.setSaturation(0);
+        this.renderer.kick(0.6);
+        this.rig.focus(0, 0.4, 14, 3600, 0.22);
+        this.rig.punchIn(0.5);
+        this.words.pop(strings.words3d.victory, 0, 0.7, 3, { size: 1.2, color: colors.gold, seconds: 3.4 });
+        const palette = [...spots.map(spot => new Color(seatColor(spot.seat))), new Color(colors.gold), WHITE];
+        for (const side of [-1, 1]) this.confetti(side * 4.2, 0.6, 1.6, palette, 70);
+        return;
+      }
       case 'dash': {
         this.dust(event.x, event.z, 5 + Math.round(event.charge * 6));
         this.decals.shock(event.x, event.z, 0.9 + event.charge * 0.9, new Color(seatColor(this.pets.get(event.pet)?.seat ?? 0)), 0.3);
@@ -467,7 +495,7 @@ export class GameStage {
     };
 
     // Once the match is over the platform is cleared for the podium.
-    const staged = game.phase !== 'matchEnd';
+    const staged = game.phase !== 'matchEnd' && game.phase !== 'finale';
     const alive = new Set<number>();
     for (const pet of staged ? round.pets : []) {
       alive.add(pet.id);
@@ -518,7 +546,7 @@ export class GameStage {
     this.decals.update(worldDt);
     this.words.update(dt, this.rig.camera);
     this.podium?.update(dt);
-    if (this.podium) this.fireworks(dt);
+    if (this.podium && this.celebrating) this.fireworks(dt);
     if (this.roomWord) {
       this.roomWord.group.visible = game.phase === 'lobby' && !this.title;
       this.roomWord.update(dt);
@@ -607,35 +635,48 @@ export class GameStage {
   }
 
   private onPhase(phase: Game['phase'], game: Game): void {
-    this.podium?.dispose();
-    this.podium = null;
-    this.rig.release();
+    // The podium built for the finale stays up while the results are shown.
+    const keepPodium = phase === 'matchEnd' && this.podium !== null;
+    if (!keepPodium) {
+      this.podium?.dispose();
+      this.podium = null;
+      this.celebrating = false;
+      this.rig.release();
+    }
     this.renderer.setSaturation(0);
-    if (phase === 'countdown') {
-      this.winners.clear();
-      this.words.clear();
-      // The final round is played at night.
-      const night = game.isFinalRound;
-      this.showMap(new BrawlMap(this.kit, { night, ripple: true }));
-      if (night) this.popWord(strings.words3d.doubleRound, 0, 5.6, -2, 1.6, colors.gold);
-    } else if (phase === 'roundEnd') {
+    if (phase === 'roundEnd') {
       this.popWord(strings.words3d.roundOver, 0, 4.4, 0, 2.6, colors.cream);
       const winner = [...this.pets.values()].find(view => this.winners.has(view.seat));
       if (winner) {
         this.rig.focus(winner.feet.x, winner.feet.z, 16, tuning.match.roundEnd - 0.5, 0.5);
         this.confetti(winner.feet.x, 3.5, winner.feet.z, [new Color(seatColor(winner.seat)), WHITE, new Color(colors.gold)], 60);
       }
-    } else if (phase === 'matchEnd') {
-      const top = game.standings.slice(0, 3).map(entry => ({ seat: entry.seat, model: this.modelOf(game, entry.seat) }));
-      // A whole, clean platform is the stage for the podium.
-      this.showMap(new BrawlMap(this.kit, { night: game.isFinalRound, ripple: false }));
-      this.podium = new Podium(top);
+    } else if (phase === 'finale' || (phase === 'matchEnd' && !keepPodium)) {
+      // A whole, clean platform at night is the stage for the podium. Colour drains while the drums roll.
+      this.words.clear();
+      this.showMap(new BrawlMap(this.kit, { night: true, ripple: false }));
+      this.podium = new Podium(game.standings.map(entry => ({ seat: entry.seat, model: this.modelOf(game, entry.seat), place: entry.place })));
       this.scene.add(this.podium.group);
-      this.rig.focus(0, 0.5, 15, 3600, 0.12);
-      this.confetti(0, 6, 0, [new Color(colors.gold), WHITE, new Color(seatColor(top[0]?.seat ?? 0))], 90);
+      if (phase === 'finale') {
+        this.renderer.setSaturation(-0.6);
+        this.rig.focus(0, 0.5, 20, 3600, 0.1);
+      } else {
+        this.podium.revealAll();
+        this.celebrating = true;
+        this.rig.focus(0, 0.5, 15, 3600, 0.12);
+      }
     } else if (phase === 'lobby') {
       this.words.clear();
-      this.showMap(new BrawlMap(this.kit, { night: false, ripple: true }));
+      this.winners.clear();
+      this.showMap(this.makeMap('brawl', false));
+    }
+  }
+
+  /** The world of a game. `final` is the last round's look, for a map that has one. */
+  private makeMap(mode: GameMode, final: boolean): MapView {
+    switch (mode) {
+      default:
+        return new BrawlMap(this.kit, { night: final, ripple: true });
     }
   }
 
@@ -769,7 +810,8 @@ export class GameStage {
     };
     // Who is within a player's reach right now. Bots do not get the hint; they do not need it.
     const reached = new Map<number, number>();
-    for (const pet of game.phase === 'matchEnd' ? [] : game.round.pets) {
+    const cleared = game.phase === 'matchEnd' || game.phase === 'finale';
+    for (const pet of cleared ? [] : game.round.pets) {
       const view = this.pets.get(pet.id);
       if (view && !pet.decoy && view.feet.y > -2) project(pet.seat, view.feet.x, view.feet.y + view.height + 0.15, view.feet.z);
       if (pet.decoy || pet.grabTarget?.kind !== 'pet' || game.seats.find(seat => seat.seat === pet.seat)?.bot !== null) continue;
@@ -777,7 +819,7 @@ export class GameStage {
       if (target && !target.decoy) reached.set(target.seat, pet.seat);
     }
     for (const seat of game.seats) {
-      const held = game.phase === 'matchEnd' ? null : (game.round.petOfSeat(seat.seat)?.held ?? null);
+      const held = cleared ? null : (game.round.petOfSeat(seat.seat)?.held ?? null);
       this.nameplates.setHeld(seat.seat, held ? POWER_ICON[held] : null, held ? TIER_COLOR[POWERS[held].tier] : '');
       this.nameplates.setReach(seat.seat, reached.get(seat.seat) ?? null);
     }

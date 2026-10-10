@@ -38,7 +38,7 @@ const LINES = Object.keys(strings.announcer) as Line[];
 /** The countdown numbers give way to anything else being shouted. */
 const QUIET_LINES: ReadonlySet<Line> = new Set(['three', 'two', 'one']);
 /** Lines that land with a low boom under them. */
-const BIG_LINES: ReadonlySet<Line> = new Set(['brand', 'go', 'finalRound', 'matchEnd', 'superPull', 'superCurse', 'kaboom']);
+const BIG_LINES: ReadonlySet<Line> = new Set(['brand', 'go', 'finalRound', 'matchEnd', 'superPull', 'superCurse', 'kaboom', 'champion', 'gameBrawl', 'gameLava', 'gameGrow', 'gameRace', 'gameColor', 'gamePotato', 'gamePaint', 'gameFrita']);
 
 /**
  * The announcer is a stadium voice: deeper than recorded, doubled, pushed into grit, squashed flat,
@@ -305,13 +305,54 @@ export class AudioEngine {
         return this.arpeggio([0, 4, 7, 12, 7, 12, 16], 0.11, 'square', 0.16);
       case 'phase':
         if (event.phase === 'roundEnd') this.announce('roundOver');
-        if (event.phase === 'matchEnd') {
-          this.arpeggio([0, 4, 7, 12, 16, 12, 16, 19, 24], 0.12, 'square', 0.18);
+        else if (event.phase === 'intro') this.roulette(tuning.match.introRoulette);
+        else if (event.phase === 'finale') {
           this.announce('matchEnd');
+          this.drumRoll(tuning.match.finaleReveal.at(-1)!);
         }
         return;
+      case 'reveal':
+        // The reel stops: a bright rising run. The announcer names the game over it.
+        this.duck(1.2);
+        return this.arpeggio([0, 7, 12, 16, 19, 24], 0.07, 'square', 0.17);
+      case 'finale':
+        if (event.place !== 1) {
+          this.sample(['hit1', 'hit2'], 0.6);
+          return this.arpeggio(event.place === 3 ? [0, 4, 7] : [4, 7, 12], 0.09, 'square', 0.16);
+        }
+        // The winner: a thump, a long fanfare, and the announcer.
+        this.noise(0.7, 0.45, 2400, 90, 'lowpass');
+        this.tone(98, 0.6, 'sine', 0.5, 40);
+        this.arpeggio([0, 4, 7, 12, 7, 12, 16, 19, 16, 19, 24, 28, 31, 36], 0.1, 'square', 0.19);
+        return this.announce('champion');
       default:
         return;
+    }
+  }
+
+  /** The roulette between games: ticks that start fast and slow to a stop as the reel does. */
+  private roulette(seconds: number): void {
+    const context = this.context;
+    if (!context) return;
+    // Each gap is longer than the last, and together they fill the spin.
+    const ticks = 16;
+    const total = (ticks * (ticks + 1)) / 2;
+    let at = context.currentTime;
+    for (let index = 1; index <= ticks; index++) {
+      this.tone(1100 - index * 22, 0.04, 'square', 0.08, undefined, undefined, at);
+      at += (seconds * index) / total;
+    }
+  }
+
+  /** A snare roll that swells for as long as the winner is kept secret. */
+  private drumRoll(seconds: number): void {
+    const context = this.context;
+    if (!context) return;
+    this.duck(seconds);
+    const gap = 0.055;
+    for (let index = 0; index * gap < seconds; index++) {
+      const progress = (index * gap) / seconds;
+      this.noise(0.05, 0.08 + progress * 0.22, 1800, 700, 'bandpass', undefined, context.currentTime + index * gap);
     }
   }
 

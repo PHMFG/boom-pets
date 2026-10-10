@@ -4,7 +4,15 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
+### Added
+
+- **A screen between games.** Before every round a roulette of game pictures spins, stops, and the game that came up is shown on a card: its picture, its name, the one line that says what to do, and what each control does. The announcer names it. On the last round the card wears a "VALE DOBRADO!" tag.
+- **A winner's moment.** After the last round the colour drains, the drums roll under "E o campeão é…", third place and then second step onto a podium whose steps stay plain until then, and then the winner drops in under a spotlight with a crown, bigger than the rest, to confetti from both sides, fireworks, the game's theme and "Temos um campeão!". The winner's name fills a banner in their colour and their phone buzzes. Everyone who missed the podium watches from the sides. Only then does the table appear.
+- **A loading screen.** While the pets load at start-up there is a bar that fills, the six player shapes hopping in turn and a tip that changes, instead of the word "Carregando…".
+
 ### Changed
+
+- A press made while waiting for GO is forgotten. Before, every button pressed during the countdown fired the moment the round began.
 
 - **One points table for every game.** Where a player finishes pays 6, 4, 3, 2 and 1 (it was 5, 3, 1), and in the brawl a knockout, a ghost's swap back in and knocking out the leader add 1 each (they were 3, 2 and 2, with 1 more for a throw). Rounds are about to become different games, and no game should weigh more than another.
 

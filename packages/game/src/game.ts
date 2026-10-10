@@ -8,10 +8,12 @@ import { createRng, type Rng } from './rng';
 import { Round } from './round';
 import { assignAwards, emptyStats, placementPoints, rankOf, standings, type SeatStats } from './scoring';
 import { gacha as gachaTune, match, STEP } from './tuning';
-import type { BotStyle, GachaView, GameEvent, Phase, PowerId, SeatSetup, Standing } from './types';
+import type { BotStyle, GachaView, GameEvent, GameMode, Phase, PowerId, SeatSetup, Standing } from './types';
 
 const BOT_STYLES: readonly BotStyle[] = ['coward', 'kamikaze', 'thrower'];
 const NEUTRAL: SampledInput = { x: 0, y: 0, a: false, b: false, stale: true, edges: [] };
+/** The games a match can draw. A game joins this list when it can be played from start to finish. */
+export const PLAYABLE_MODES: readonly GameMode[] = ['brawl'];
 
 export type MatchOptions = {
   rounds: number;
@@ -20,6 +22,8 @@ export type MatchOptions = {
   /** Pet ids bots may use. */
   petPool: readonly string[];
   botName(index: number): string;
+  /** The game of each round, in order, instead of drawing them. One entry is repeated for every round. For tests and tools. */
+  modes?: readonly GameMode[];
 };
 
 export class Game {
@@ -28,8 +32,12 @@ export class Game {
   /** 1 for the first round of a match; 0 in the lobby. */
   roundIndex = 0;
   rounds: number = match.rounds;
-  /** Real seconds left in a timed phase (countdown, round end). */
+  /** Real seconds left in a timed phase (intro, countdown, round end, finale). */
   phaseLeft = 0;
+  /** The game of the round being played, or about to be. In the lobby, the brawl. */
+  gameMode: GameMode = 'brawl';
+  /** During an intro: false while the roulette still spins, true once the game is drawn and its round built. */
+  revealed = true;
   seats: SeatSetup[] = [];
   readonly scores = new Map<number, number>();
   /** Mystery Cube rolls since each seat's last SUPER. */
@@ -48,7 +56,15 @@ export class Game {
   private readonly seed: number;
   private readonly rolls: Rng;
   private readonly botRng: Rng;
+  private readonly modeRng: Rng;
   private spawns: Rng;
+  /** Games still to come before every game has had a turn. */
+  private bag: GameMode[] = [];
+  private forced: readonly GameMode[] | null = null;
+  /** Games already explained once in this session: their card is shorter the next time. */
+  private readonly seen = new Set<GameMode>();
+  private matches = 0;
+  private finaleShown = 0;
   private readonly brains = new Map<number, BotBrain>();
   private readonly stats = new Map<number, SeatStats>();
   private readonly roundKills = new Map<number, number>();
@@ -65,6 +81,8 @@ export class Game {
     this.seed = seed;
     this.rolls = createRng(seed, 'rolls');
     this.botRng = createRng(seed, 'bots');
+    // Made once, so a rematch draws a new order of games instead of repeating the last one.
+    this.modeRng = createRng(seed, 'modes');
     this.spawns = createRng(seed, 'spawns');
     this.round = this.newRound('lobby');
   }
@@ -100,6 +118,8 @@ export class Game {
     }
     this.seats = seats.sort((a, b) => a.seat - b.seat);
     this.rounds = options.rounds;
+    this.forced = options.modes && options.modes.length > 0 ? options.modes : null;
+    this.matches++;
     this.roundIndex = 0;
     this.bounty = null;
     this.standings = [];
@@ -113,7 +133,7 @@ export class Game {
       this.stats.set(seat.seat, emptyStats());
       if (seat.bot) this.brains.set(seat.seat, new BotBrain(seat.seat, seat.bot, this.botRng));
     }
-    this.nextRound();
+    this.startIntro();
   }
 
   /** A player whose phone is gone for good is played by a bot for the rest of the match. */
@@ -128,6 +148,8 @@ export class Game {
     this.round.free();
     this.phase = 'lobby';
     this.roundIndex = 0;
+    this.gameMode = 'brawl';
+    this.revealed = true;
     this.gacha = null;
     this.slowLeft = 0;
     this.brains.clear();
@@ -151,8 +173,10 @@ export class Game {
       if (this.gacha) this.gachaInput(seat.seat, input);
     }
 
-    if (this.phase === 'countdown') this.tickCountdown();
+    if (this.phase === 'intro') this.tickIntro();
+    else if (this.phase === 'countdown') this.tickCountdown();
     else if (this.phase === 'roundEnd') this.tickRoundEnd();
+    else if (this.phase === 'finale') this.tickFinale();
     if (this.gacha) this.tickGacha();
 
     this.slowLeft = Math.max(0, this.slowLeft - STEP);
@@ -172,7 +196,8 @@ export class Game {
   // ── Rounds ─────────────────────────────────────────────────────────────────
 
   private newRound(mode: 'lobby' | 'match'): Round {
-    this.spawns = createRng(this.seed + this.roundIndex * 7919, 'spawns');
+    // A different stream for every round of every match, so a rematch does not repeat its maps.
+    this.spawns = createRng(this.seed + this.roundIndex * 7919 + Math.max(0, this.matches - 1) * 104_729, 'spawns');
     return new Round(mode, this.seats, this.spawns, {
       emit: event => this.emit(event),
       roll: seat => this.roll(seat),
@@ -181,17 +206,58 @@ export class Game {
     }, 1 + this.roundsMade++ * 100_000);
   }
 
-  private nextRound(): void {
-    this.round.free();
+  /**
+   * The screen between games. A roulette spins over whatever was on stage; then the next game is drawn,
+   * its round is built, and its card explains it while the pets drop in. All timed here, so it never waits
+   * for anyone and a fast-forwarded match passes through it.
+   */
+  private startIntro(): void {
     this.roundIndex++;
     this.roundKills.clear();
     this.gacha = null;
     this.edges.clear();
+    this.revealed = false;
+    this.phase = 'intro';
+    this.phaseLeft = match.introRoulette;
+    this.emit({ t: 'phase', phase: 'intro', round: this.roundIndex });
+  }
+
+  private tickIntro(): void {
+    this.phaseLeft -= STEP;
+    if (this.phaseLeft > 0) return;
+    if (this.revealed) return this.startCountdown();
+    // The game is drawn only now: nothing on a screen or a phone can give it away while the roulette spins.
+    this.gameMode = this.drawMode();
+    const first = !this.seen.has(this.gameMode);
+    this.seen.add(this.gameMode);
+    this.round.free();
+    this.round = this.newRound('match');
     this.brains.forEach(brain => brain.reset());
+    this.revealed = true;
+    this.phaseLeft = first ? match.introCardFirst : match.introCard;
+    this.emit({ t: 'reveal', mode: this.gameMode, round: this.roundIndex, final: this.isFinalRound, first });
+  }
+
+  /** The next game: the one a test asked for, or the next out of the bag, which is refilled when every game has had its turn. */
+  private drawMode(): GameMode {
+    if (this.forced) return this.forced[Math.min(this.roundIndex - 1, this.forced.length - 1)]!;
+    if (this.bag.length === 0) {
+      const last = this.gameMode;
+      this.bag = [...PLAYABLE_MODES];
+      for (let index = this.bag.length - 1; index > 0; index--) {
+        const other = this.modeRng.int(index + 1);
+        [this.bag[index], this.bag[other]] = [this.bag[other]!, this.bag[index]!];
+      }
+      // The same game twice in a row, across a refill, would look like a mistake.
+      if (this.bag.length > 1 && this.bag.at(-1) === last && this.roundIndex > 1) this.bag.unshift(this.bag.pop()!);
+    }
+    return this.bag.pop()!;
+  }
+
+  private startCountdown(): void {
     this.phase = 'countdown';
     this.phaseLeft = match.countdown;
     this.lastCount = match.countdown + 1;
-    this.round = this.newRound('match');
     this.emit({ t: 'phase', phase: 'countdown', round: this.roundIndex });
   }
 
@@ -203,6 +269,8 @@ export class Game {
       this.emit({ t: 'countdown', n: count });
     }
     if (this.phaseLeft > 0) return;
+    // Whatever was pressed while waiting is forgotten: nobody dashes or jumps by accident at GO.
+    this.edges.clear();
     this.phase = 'play';
     this.round.playing = true;
     this.emit({ t: 'countdown', n: 0 });
@@ -242,8 +310,26 @@ export class Game {
   private tickRoundEnd(): void {
     this.phaseLeft -= STEP;
     if (this.phaseLeft > 0) return;
-    if (this.roundIndex < this.rounds) return this.nextRound();
+    if (this.roundIndex < this.rounds) return this.startIntro();
     this.standings = standings(this.scores, assignAwards(this.stats));
+    this.finaleShown = 0;
+    this.phase = 'finale';
+    this.phaseLeft = match.finale;
+    this.emit({ t: 'phase', phase: 'finale', round: this.roundIndex });
+  }
+
+  /** The finale shows third place, then second, then the winner, each at its moment, and then hands over to the results. */
+  private tickFinale(): void {
+    this.phaseLeft -= STEP;
+    const elapsed = match.finale - this.phaseLeft;
+    while (this.finaleShown < match.finaleReveal.length && elapsed >= match.finaleReveal[this.finaleShown]!) {
+      const place = (3 - this.finaleShown) as 1 | 2 | 3;
+      this.finaleShown++;
+      const seats = this.standings.filter(entry => entry.place === place).map(entry => entry.seat);
+      // With a tie for first there is no second place, and a duel has no third.
+      if (seats.length > 0) this.emit({ t: 'finale', place, seats });
+    }
+    if (this.phaseLeft > 0) return;
     this.phase = 'matchEnd';
     this.emit({ t: 'phase', phase: 'matchEnd', round: this.roundIndex });
   }
@@ -251,7 +337,7 @@ export class Game {
   // ── Input ──────────────────────────────────────────────────────────────────
 
   private inputFor(seat: number): SampledInput {
-    if (this.phase === 'countdown') return NEUTRAL;
+    if (this.phase === 'intro' || this.phase === 'countdown' || this.phase === 'finale') return NEUTRAL;
     const input = this.latest.get(seat) ?? NEUTRAL;
     let edges = this.edges.get(seat) ?? [];
     this.edges.delete(seat);

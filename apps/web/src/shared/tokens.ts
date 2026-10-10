@@ -72,6 +72,7 @@ export function applyTokens(root: HTMLElement): void {
   set('wobble', `${motion.wobble.ms}ms`);
   set('buzz', `${motion.buzz.ms}ms`);
   set('feed', `${motion.feed.ms}ms`);
+  set('ease-spin', motion.spin.css);
   set('swell', `${motion.swell.ms}ms`);
   set('tick', `${motion.tick.ms}ms`);
   set('title-drop', `${motion.title.dropMs}ms`);

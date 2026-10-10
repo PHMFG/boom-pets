@@ -1,10 +1,11 @@
 // Runs the game on the host: the fixed-rate loop, who sits where, when a match starts and ends,
 // and keeping the stage, the sound, the HUD and every phone in step with the simulation.
-import { Game, initPhysics, InputBuffer, POWERS, tuning, type BotStyle, type GameEvent, type SeatSetup } from '@boom/game';
+import { Game, initPhysics, InputBuffer, PLAYABLE_MODES, POWERS, tuning, type BotStyle, type GameEvent, type GameMode, type SeatSetup } from '@boom/game';
 import { MAX_SEATS, type PhoneMode, type PhoneStatus, type PowerCard, type SeatInfo } from '@boom/protocol';
 import { motion } from '../../shared/motion';
 import { PET_IDS, type PetId } from '../../shared/pets';
 import { AWARD_ICON, CAUSE_ICON, EMOTES, POWER_ICON, TIER_COLOR } from '../../shared/powers';
+import { GAME_LINE } from '../../shared/games';
 import { strings } from '../../shared/strings.pt-BR';
 import { AudioEngine } from '../audio/AudioEngine';
 import type { Nameplates } from '../hud/Nameplates';
@@ -69,10 +70,14 @@ export class Session {
   private banner: { seat: number; text: string } | null = null;
   private powerNote: (PowerNote & { until: number }) | null = null;
   private matchesStarted = 0;
+  /** The games to play, in order, when the address bar names them (`?modes=lava,race`). For tests and for trying one game. */
+  private readonly forcedModes: GameMode[] | undefined;
 
   /** `solo` runs without phones (bots only) and never touches the relay, for testing beside a real session. */
-  constructor(stageHost: HTMLElement, nameplates: Nameplates, options: { autostart: boolean; solo: boolean }) {
+  constructor(stageHost: HTMLElement, nameplates: Nameplates, options: { autostart: boolean; solo: boolean; modes?: string[] }) {
     this.nameplates = nameplates;
+    const modes = (options.modes ?? []).filter((mode): mode is GameMode => (PLAYABLE_MODES as readonly string[]).includes(mode));
+    this.forcedModes = modes.length > 0 ? modes : undefined;
     this.socket = options.solo ? null : new HostSocket(this.input);
     if (options.solo) hud.set({ connection: 'solo' });
     this.stage = new GameStage(stageHost, nameplates);
@@ -88,7 +93,7 @@ export class Session {
       }
     });
 
-    void Promise.all([initPhysics(), loadPets()]).then(() => {
+    void Promise.all([initPhysics(), loadPets(done => hud.set({ loadProgress: done }))]).then(() => {
       if (this.disposed) return;
       this.game = new Game(this.seed);
       this.stage.setGame(this.game);
@@ -164,8 +169,10 @@ export class Session {
     this.autoStartAt = null;
     for (const choice of this.choices.values()) choice.ready = false;
     this.seed = (this.seed * 48271) % 0x7fffffff || 1;
-    game.startMatch({ rounds: options.rounds, bots: options.bots, petPool: PET_IDS, botName: index => `Robô ${index + 1}` });
+    game.startMatch({ rounds: options.rounds, bots: options.bots, petPool: PET_IDS, botName: index => `Robô ${index + 1}`, modes: this.forcedModes });
     this.log.begin(game, this.seed);
+    // Starting a match already says something (the first intro) before any tick, and it must be heard.
+    for (const event of game.events) this.onEvent(event);
     // The two battle themes take turns, one match each, from the top.
     this.audio.setSong(this.matchesStarted++ % 2 === 0 ? 'battleA' : 'battleB', true);
     this.refreshNames();
@@ -412,6 +419,21 @@ export class Session {
       case 'bounty':
         this.nameplates.setCrown(event.seat);
         break;
+      case 'reveal':
+        // The roulette has stopped: the card, the phones and the announcer all name the game.
+        hud.set({ gameMode: event.mode, intro: { mode: event.mode, final: event.final } });
+        this.audio.announce(GAME_LINE[event.mode]);
+        this.refreshNames();
+        this.syncHud(performance.now());
+        this.syncPhones();
+        break;
+      case 'finale':
+        if (event.place !== 1) break;
+        hud.set({ finale: { winners: event.seats.map(seat => this.who(seat)) } });
+        for (const seat of event.seats) this.socket?.send(seat, { t: 'haptic', pattern: 'win' });
+        // The game's own theme is the victory lap.
+        this.audio.setSong('title', true);
+        break;
       case 'revengeSwap':
         this.pushFeed(this.who(event.ghost), '👻', this.who(event.victim), null);
         break;
@@ -419,21 +441,28 @@ export class Session {
         this.pushFeed(this.who(event.seat), POWER_ICON[event.power], null, event.cursed ? strings.tiers.superCurse : strings.powers[event.power]);
         break;
       case 'phase':
-        if (event.phase === 'play' && event.round === 1 && !localStorage.getItem(TUTORIAL_KEY)) {
+        if (event.phase === 'intro') {
+          hud.set({ intro: { mode: null, final: game.isFinalRound } });
+          // The last round counts double, and gets its own track from here on.
+          if (game.isFinalRound && game.rounds > 1) {
+            this.audio.setSong('final', true);
+            this.audio.announce('finalRound');
+          } else this.audio.announce('nextGame');
+        } else if (event.phase === 'countdown') hud.set({ intro: null });
+        else if (event.phase === 'finale') {
+          hud.set({ finale: { winners: [] } });
+          this.audio.setSong(null);
+        }
+        if (event.phase === 'play' && event.round === 1 && game.gameMode === 'brawl' && !localStorage.getItem(TUTORIAL_KEY)) {
           // First ever match: three short hints, one after the other.
           localStorage.setItem(TUTORIAL_KEY, '1');
           this.tipUntil = performance.now() + TIP_MS * 3;
         }
-        // The last round counts double, and gets its own track from its countdown on.
-        if (event.phase === 'countdown' && game.isFinalRound && game.rounds > 1) {
-          this.audio.setSong('final', true);
-          this.audio.announce('finalRound');
-        }
         if (event.phase === 'matchEnd') {
+          hud.set({ finale: null });
           // A solo run is a test beside a real session: its bot matches do not belong among the playtests.
           if (this.socket) this.log.save(game);
-          this.audio.setSong('lobby');
-        }
+        } else if (event.phase === 'lobby') hud.set({ intro: null, finale: null, gameMode: 'brawl' });
         this.refreshNames();
         this.syncHud(performance.now());
         this.syncPhones();

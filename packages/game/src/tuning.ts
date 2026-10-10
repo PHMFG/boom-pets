@@ -185,9 +185,16 @@ export const gacha = {
 export const match = {
   rounds: 5,
   quickRounds: 3,
+  /** Seconds the roulette spins before the next game is revealed, and how long its card then stays: longer the first time a game comes up. */
+  introRoulette: 2,
+  introCardFirst: 4,
+  introCard: 2.5,
   countdown: 3,
   roundCap: 75,
   roundEnd: 5,
+  /** Seconds the finale lasts, and when in it third place, second place and the winner are shown. */
+  finale: 9,
+  finaleReveal: [1.8, 3, 4.6],
   /** Seats filled with bots when few humans play. */
   fillTo: 4,
   /** Seconds a knock is remembered for kill credit. */

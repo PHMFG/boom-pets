@@ -19,11 +19,13 @@ let pixels: { data: Uint8ClampedArray; width: number; height: number } | null = 
 
 export const isPetId = (value: string): value is PetId => (PET_IDS as readonly string[]).includes(value);
 
-/** Loads every pet model. Pets can be created synchronously once this resolves. */
-export function loadPets(): Promise<void> {
+/** Loads every pet model. Pets can be created synchronously once this resolves. `onProgress` hears the share loaded, 0 to 1. */
+export function loadPets(onProgress?: (done: number) => void): Promise<void> {
+  let loaded = 0;
   return (loading ??= Promise.all(
     PET_IDS.map(async id => {
       const gltf = await loader.loadAsync(petModelUrl(id));
+      onProgress?.(++loaded / PET_IDS.length);
       sources.set(id, gltf);
       gltf.scene.traverse(node => {
         if (!(node instanceof Mesh)) return;

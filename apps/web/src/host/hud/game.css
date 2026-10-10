@@ -242,7 +242,9 @@
   animation: squish-out var(--squish-out) both;
 }
 
-.is-title .nameplate-layer {
+/* Name tags belong to a round. They would sit on top of the card between games. */
+.is-title .nameplate-layer,
+.phase-intro .nameplate-layer {
   display: none;
 }
 
@@ -353,6 +355,234 @@
 
 .nameplate-sleep {
   color: var(--tier-cursed);
+}
+
+/* ── Loading, between games, and the winner ─────────────────────────────── */
+
+/* A letter of a big word that drops in after the one before it. */
+.pop-letter {
+  display: inline-block;
+  animation: pop-in var(--pop-in) both calc(var(--i) * var(--stagger));
+}
+
+.loading {
+  position: absolute;
+  bottom: calc(70 * var(--u));
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  gap: calc(18 * var(--u));
+  translate: -50% 0;
+}
+
+.loading-shapes {
+  display: flex;
+  gap: calc(16 * var(--u));
+}
+
+.loading-shapes span {
+  display: flex;
+  width: calc(44 * var(--u));
+  height: calc(44 * var(--u));
+  animation: letter-hop var(--prompt) ease-in-out infinite calc(var(--i) * var(--stagger) * 3);
+}
+
+.loading-bar {
+  width: calc(560 * var(--u));
+  height: calc(36 * var(--u));
+  overflow: hidden;
+  border: var(--outline) solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--white);
+  box-shadow: 0 var(--shadow) 0 var(--ink);
+}
+
+.loading-fill {
+  display: block;
+  width: calc(var(--done) * 100%);
+  height: 100%;
+  background: var(--gold);
+  transition: width var(--move);
+}
+
+.loading-text,
+.loading-tip {
+  color: var(--white);
+  -webkit-text-stroke: calc(8 * var(--u)) var(--ink);
+  paint-order: stroke fill;
+}
+
+.loading-text {
+  font: 400 calc(44 * var(--u)) / 1 var(--font-display);
+}
+
+.loading-tip {
+  font: 800 calc(30 * var(--u)) / 1.1 var(--font-text);
+  animation: pop-in var(--pop-in) both;
+}
+
+.intro {
+  position: absolute;
+  inset: 0 0 calc(140 * var(--u)) 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: calc(22 * var(--u));
+  pointer-events: none;
+}
+
+.intro-reel,
+.intro-card {
+  grid-area: 2 / 1;
+}
+
+.intro-next {
+  grid-area: 1 / 1;
+  color: var(--white);
+  font: 400 calc(60 * var(--u)) / 1 var(--font-display);
+  -webkit-text-stroke: calc(12 * var(--u)) var(--ink);
+  paint-order: stroke fill;
+  animation: pop-in var(--pop-in) both;
+}
+
+/* The reel: a window one picture tall, and a strip of pictures that runs past it and slows. */
+.intro-reel {
+  --cell: calc(250 * var(--u));
+
+  width: var(--cell);
+  height: var(--cell);
+  padding: 0;
+  overflow: hidden;
+  border-radius: calc(48 * var(--u));
+  rotate: -3deg;
+}
+
+.intro-reel-strip {
+  display: grid;
+  animation: reel-spin var(--spin) var(--ease-spin) both;
+}
+
+.intro-reel-strip span {
+  display: grid;
+  height: var(--cell);
+  place-items: center;
+  font-size: calc(160 * var(--u));
+  line-height: 1;
+}
+
+@keyframes reel-spin {
+  from {
+    translate: 0 0;
+  }
+
+  to {
+    translate: 0 calc((1 - var(--count)) * var(--cell));
+  }
+}
+
+.intro-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: calc(12 * var(--u));
+  max-width: calc(1500 * var(--u));
+  padding: calc(26 * var(--u)) calc(64 * var(--u)) calc(34 * var(--u));
+  rotate: 1deg;
+  text-align: center;
+}
+
+.intro-icon {
+  font-size: calc(150 * var(--u));
+  line-height: 1.05;
+  animation: pop-in var(--pop-in) both;
+}
+
+.intro-name {
+  color: var(--gold);
+  font: 400 calc(118 * var(--u)) / 1 var(--font-display);
+  -webkit-text-stroke: calc(20 * var(--u)) var(--ink);
+  paint-order: stroke fill;
+  white-space: nowrap;
+}
+
+.intro-line {
+  font: 800 calc(44 * var(--u)) / 1.15 var(--font-text);
+}
+
+.intro-controls {
+  display: flex;
+  gap: calc(40 * var(--u));
+  margin: calc(10 * var(--u)) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.intro-controls li {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  font: 400 calc(38 * var(--u)) / 1 var(--font-display);
+  white-space: nowrap;
+  animation: pop-in var(--pop-in) both calc(var(--pop-in-ms) + var(--i) * var(--stagger) * 2);
+}
+
+.intro-double {
+  position: absolute;
+  top: calc(-34 * var(--u));
+  right: calc(-56 * var(--u));
+  padding: calc(8 * var(--u)) calc(26 * var(--u));
+  background: var(--gold);
+  font: 400 calc(40 * var(--u)) / 1 var(--font-display);
+  rotate: 7deg;
+}
+
+.finale {
+  position: absolute;
+  top: calc(34 * var(--u));
+  left: 50%;
+  z-index: 2;
+  translate: -50% 0;
+  white-space: nowrap;
+}
+
+.finale-winner {
+  position: relative;
+  margin-top: calc(50 * var(--u));
+}
+
+.finale-drum {
+  padding: calc(14 * var(--u)) calc(46 * var(--u)) calc(18 * var(--u));
+  font: 400 calc(68 * var(--u)) / 1 var(--font-display);
+  rotate: -1deg;
+}
+
+.finale-winner {
+  display: grid;
+  justify-items: center;
+  padding: calc(40 * var(--u)) calc(70 * var(--u)) calc(20 * var(--u));
+  border-bottom-width: calc(16 * var(--u));
+  border-bottom-color: var(--seat);
+  rotate: 1deg;
+}
+
+.finale-trophy {
+  position: absolute;
+  top: calc(-62 * var(--u));
+  font-size: calc(96 * var(--u));
+  line-height: 1;
+  animation: pop-in var(--pop-in) both, breathe var(--swell) ease-in-out infinite alternate var(--pop-in-ms);
+}
+
+.finale-name {
+  color: var(--seat);
+  font: 400 calc(124 * var(--u)) / 1 var(--font-display);
+  -webkit-text-stroke: calc(20 * var(--u)) var(--ink);
+  paint-order: stroke fill;
+}
+
+.finale-won {
+  font: 400 calc(52 * var(--u)) / 1.1 var(--font-display);
 }
 
 /* ── Join card ──────────────────────────────────────────────────────────── */
