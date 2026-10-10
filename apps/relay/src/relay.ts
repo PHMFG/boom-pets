@@ -12,6 +12,7 @@ import {
   type ToPhone,
 } from '@boom/protocol';
 import { hostHelloSchema, hostMessageSchema, phoneHelloSchema, phoneMessageSchema } from '@boom/protocol/schemas';
+import { summariseMatch } from '@boom/stats';
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage } from 'node:http';
@@ -177,10 +178,21 @@ export async function startRelay(options: RelayOptions): Promise<Relay> {
         if (typeof log !== 'object' || log === null || Array.isArray(log)) return void response.writeHead(400).end();
         // The game screen knows the match; only the relay knows how each phone's connection went.
         const began = 'startedAt' in log && typeof log.startedAt === 'string' ? Date.parse(log.startedAt) : 0;
-        const body = JSON.stringify({ ...log, phones: room.takeConnections(began || 0) });
-        const name = `${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+        const saved = { ...log, phones: room.takeConnections(began || 0) };
+        const body = JSON.stringify(saved);
+        const stem = new Date().toISOString().replace(/[:.]/g, '-');
+        const name = `${stem}.json`;
+        // Beside the log goes the same match written out for a person to read. If that cannot be
+        // written (an odd log, say), the log itself is still saved.
+        let summary: string | null = null;
+        try {
+          summary = summariseMatch(saved);
+        } catch {
+          summary = null;
+        }
         void mkdir(directory, { recursive: true })
           .then(() => writeFile(`${directory}/${name}`, body))
+          .then(() => (summary === null ? undefined : writeFile(`${directory}/${stem}.md`, summary).catch(() => undefined)))
           .then(
             () => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ file: name })),
             () => response.writeHead(500).end(),

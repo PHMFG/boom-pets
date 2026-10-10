@@ -1,0 +1,14 @@
+{
+  "name": "@boom/stats",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@boom/protocol": "workspace:*"
+  }
+}

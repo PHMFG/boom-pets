@@ -80,7 +80,7 @@ Changes come from watching people play, and are checked by measuring.
 2. Find which pillar it breaks.
 3. Change the rule or the number. Prefer one new cost or one clearer signal over a new mechanic.
 4. Run `pnpm balance 30`. With bots only, a round should last about 25 to 35 seconds, the first knockout should come around 10 seconds in, and no single cause should be more than 60% of knockouts.
-5. Play it, then read `pnpm report` after the next session with people. It flags idle players, a first dash that came late, taps outnumbering charged dashes, grabs that mostly miss, one cause dominating, and the leader collecting the SUPERs.
+5. Play it, then read `pnpm report` after the next session with people. It sets the builds side by side and, for the newest, says what each move pays, how pets were knocked out, how the buttons were used, how rounds and scores went, and what the cubes gave, with a warning wherever a number crosses its limit. How to read it is in `AGENTS.md`.
 6. Write the change and its reason in `CHANGELOG.md`.
 
 ## What playtests have taught
@@ -105,7 +105,9 @@ Also from that session: a grabbed player's joystick was dropped, so they had to 
 | A is still mashed, now to no effect | Two players pressed A 512 and 340 times while it was resting. The ring on the phone and under the pet is not being read as "wait" |
 | Powers are used about half the time | Five uses in three matches, from about nine powers that waited on the button |
 
-This breaks pillar 3 (mashing B is the best way to play) and pillar 4 (in practice nothing beats a grab). The network side held: joins of 0.4 to 10 s, median latency of 7 to 14 ms, and every drop back within half a second.
+This breaks pillar 3 (mashing B is the best way to play) and pillar 4 (in practice nothing beats a grab).
+
+One cause was found afterwards, by the tests written for the new match logs: every dash that hit was ended a second time as a miss, so a hit rested A for as long as a miss did. Dashing was worth less than designed in builds 0.2.0 to 0.4.2, which is part of why throwing took over. Build 0.4.3 fixes it; with bots, dashes went from a third of knockouts to nearly half and throws from 29% to 8%. Judge the throw against the dash again on a session played on 0.4.3 or later before changing either. The network side held: joins of 0.4 to 10 s, median latency of 7 to 14 ms, and every drop back within half a second.
 
 ## Checklist for anything that changes how the game plays
 
@@ -118,4 +120,5 @@ This breaks pillar 3 (mashing B is the best way to play) and pillar 4 (in practi
 7. Bots use it, no better than a person could.
 8. Every number is in `tuning.ts` with a comment. Nothing in the simulation calls `Math.random`.
 9. `pnpm test` passes with a test for the new rule, and `pnpm balance 30` is inside the ranges above.
-10. `CHANGELOG.md` says what changed and why.
+10. The match log counts it and the report can warn about it (see "Playtest logs and the report" in `AGENTS.md`).
+11. `CHANGELOG.md` says what changed and why.

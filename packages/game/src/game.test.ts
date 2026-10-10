@@ -213,6 +213,17 @@ describe('round', () => {
     expect(victim.lastHit, 'a shove off the edge would still be a knockout').toMatchObject({ seat: 0, cause: 'dash' });
   });
 
+  it('ends a dash that hit once, as a hit, with the shorter rest', () => {
+    const { round, run, set, of, approach } = makeRound(2);
+    const attacker = round.petOfSeat(0)!;
+    approach(0, 1, 1.4);
+    set(0, { edges: [press('a', true), press('a', false)] });
+    run(30);
+    expect(of('dashHit')).toHaveLength(1);
+    expect(of('dashEnd')).toEqual([{ t: 'dashEnd', pet: attacker.id, seat: 0, hit: true }]);
+    expect(attacker.dashCooldownTotal, 'a hit rests for less than a miss').toBe(dash.cooldown);
+  });
+
   it('makes a dash wait before the next one, longer after a miss, so mashing A does nothing', () => {
     const { round, run, set, of } = makeRound(2);
     const pet = round.petOfSeat(0)!;

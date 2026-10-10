@@ -345,8 +345,8 @@ export class Round {
       vx = pet.dashX * inner.dashSpeed;
       vz = pet.dashZ * inner.dashSpeed;
       inner.body.setLinvel({ x: vx, y: velocity.y, z: vz }, true);
-      this.dashContacts(pet);
-      if (pet.dashTime <= 0) this.endDash(pet, false);
+      // A dash ends once: on whatever it touches, or, having touched nothing, when its time is up.
+      if (!this.dashContacts(pet) && pet.dashTime <= 0) this.endDash(pet, false);
       return;
     }
 
@@ -443,12 +443,15 @@ export class Round {
   }
 
   /** While dashing: the first pet or barrel touched ends the dash with a blast. */
-  private dashContacts(pet: Pet): void {
+  /** Returns true if the dash ended on something. */
+  private dashContacts(pet: Pet): boolean {
     const reach = petTune.radius * pet.scale + dash.reach;
     for (const other of this.pets) {
       if (!other.alive || other === pet || other.seat === pet.seat || other.carriedBy === pet.id) continue;
       if (Math.abs(other.y - pet.y) > 1.2 * Math.max(pet.scale, other.scale)) continue;
-      if (Math.hypot(other.x - pet.x, other.z - pet.z) <= reach + petTune.radius * other.scale) return this.dashImpact(pet, other);
+      if (Math.hypot(other.x - pet.x, other.z - pet.z) > reach + petTune.radius * other.scale) continue;
+      this.dashImpact(pet, other);
+      return true;
     }
     for (const barrel of this.barrels) {
       if (barrel.carriedBy !== null || Math.abs(barrel.y - pet.y) > 1.2) continue;
@@ -459,8 +462,10 @@ export class Round {
       const shove = this.inner.get(pet.id)!.dashSpeed * 0.7;
       body.setLinvel({ x: pet.dashX * shove, y: 2, z: pet.dashZ * shove }, true);
       this.inner.get(pet.id)!.body.setLinvel({ x: -pet.dashX * 2, y: 0, z: -pet.dashZ * 2 }, true);
-      return this.endDash(pet, true);
+      this.endDash(pet, true);
+      return true;
     }
+    return false;
   }
 
   private dashImpact(attacker: Pet, victim: Pet): void {
@@ -893,7 +898,7 @@ export class Round {
         const speed = Math.hypot(pet.vx, pet.vz) || 1;
         const thrower = inner.thrower === null ? undefined : this.petById(inner.thrower);
         this.knock(other, pet.vx / speed, pet.vz / speed, grab.throwHitForce, grab.throwHitLift, { seat: thrower?.seat ?? pet.seat, step: this.steps, cause: 'throw' });
-        this.hooks.emit({ t: 'throwHit', pet: pet.id, victim: other.id, x: (pet.x + other.x) / 2, z: (pet.z + other.z) / 2 });
+        this.hooks.emit({ t: 'throwHit', pet: pet.id, victim: other.id, seat: thrower?.seat ?? null, x: (pet.x + other.x) / 2, z: (pet.z + other.z) / 2 });
         pet.thrown = false;
         break;
       }

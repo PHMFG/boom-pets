@@ -53,6 +53,8 @@ Relay (`apps/relay/src/`): `relay.ts` passes messages, keeps the roster (`room.t
 
 Shared: `apps/web/src/shared/` (tokens, motion, strings, pets, power icons, SVG glyphs) and `packages/protocol/src/` (`index.ts` messages, `schemas.ts` validation for the relay).
 
+Statistics (`packages/stats/src/`): `log.ts` is what a match log holds and reads logs of every older build; `match.ts` writes one match out for a person to read; `report.ts` reads every match together and judges the balance. The game screen fills a log in `host/app/PlaytestLog.ts`.
+
 Announcer: one recording per line in `apps/web/public/voice/`, made by `pnpm voice`. The drama (depth, doubling, grit, hall, echo, level) is the `ANNOUNCER` block at the top of `audio/AudioEngine.ts`.
 
 Music: five tracks in `apps/web/public/music/` (`title`, `lobby`, `battle-a`, `battle-b`, `rio-rumble`). Which plays when is in `docs/DESIGN.md` under Sound. To change a track, replace its file and keep the name.
@@ -69,7 +71,7 @@ Other: `tools/` (scripts below), `assets-raw/` (unzipped Kenney packs, not commi
 - `pnpm fake 4`: connect 4 simulated phones that ready up and play. Add `--seconds=30` to stop on its own.
 - `pnpm test`, `pnpm typecheck`, `pnpm build` (the build also checks the phone bundle: 150 KB budget, no Three.js).
 - `pnpm test:e2e`: the browser tests in `e2e/`, about 8 minutes. They start their own copy of the game on other ports and never touch a session on the usual ones. Phones run on WebKit with iPhone settings and on Chromium with Android settings. They cover: a four-phone session with a gacha and a rematch; six phones joining with timing (and no two controls of the lobby pad overlapping on any of the six phone shapes), a seventh turned away, and a dropped phone getting its pet back in the lobby and mid-match; solo and duo with bots; and a full five-round match in real time. `pnpm test:e2e -g "four phones"` runs one of them.
-- `pnpm report`: reads the playtest logs in `playtests/` and prints idle time, time to first dash, latency, how each player used the buttons (taps against charged dashes, grabs, throws, powers), knockouts by cause and who got the SUPER rolls, with the warning signs flagged. It ends with the plan's definition of done, each item marked `met` or `not yet` from matches played on real phones, so it is the way to tell whether S6 is reached. Logs from development runs are kept apart in `playtests/dev-runs/`.
+- `pnpm report`: reads every match log in `playtests/`, prints the playtest report and saves it there as `REPORT.md`. `pnpm report --build=0.4.3` judges another build than the newest; `pnpm report some/folder` reads another folder. See "Playtest logs and the report" below.
 - `pnpm balance 30`: play 30 bot-only matches without a screen and print pacing numbers. Run it after changing `tuning.ts`, `round.ts` or `bots.ts`. The ranges to stay inside are in `docs/GAMEPLAY.md`.
 - `pnpm font`: rebuild the 3D font after changing `words3d` or the power names. It fails if a character has no glyph.
 - `pnpm assets`, `pnpm sounds`: copy models and skyboxes, and convert impact sounds, from `assets-raw` into `apps/web/public`.
@@ -88,6 +90,22 @@ Enter starts a match (or a rematch); Esc returns to the lobby from the results. 
 - Only a page opened at `localhost` may be the game screen. The first one keeps the room; a second waits its turn. For testing beside a real session, open `http://localhost:5173/?solo&autostart`: a solo run never touches the relay and saves no playtest log.
 - The roster (seat, name, token) lives in the relay, so reloading the game screen keeps the phones seated. Restarting the relay makes a new room code.
 - While `pnpm dev` runs, saving a file acts on whoever is playing: most edits reload the game screen (a match in progress is lost), and an edit to the relay or to `packages/protocol` restarts the relay, which unseats every phone. Do not edit while people are playing. To try a change beside a running session, start a second copy on other ports: `BOOM_WEB_PORT=5193 BOOM_RELAY_PORT=47841 BOOM_PLAYTEST_DIR=test-results/dev-playtests pnpm dev`.
+
+## Playtest logs and the report
+
+Every match played through the relay leaves two files in `playtests/`, named by the time it ended: a `.json` with everything counted, and a `.md` with the same match written out for a person (result, how each player used the buttons, who knocked out whom, each round, cubes and powers, phones). `pnpm report` reads all the `.json` files and writes `REPORT.md` beside them. `playtests/dev-runs/` holds logs from development that must not count. None of this is committed: the logs carry players' nicknames.
+
+What a log counts, per player: taps and charged dashes, their average charge, how many hit, presses of A while it rested, overcharges; grabs landed and missed, throws, throws that landed on a rival, times grabbed and times it got free; powers rolled, waiting, used, and how long they waited; knockouts and deaths by cause; points by where they came from; rounds won, seconds alive, idle share, first dash, latency. Per match: each round's length, first knockout and whether the clock ended it; every knockout with who did it; rolls by tier and rank; each power rolled and run; each SUPER gacha; the build's version.
+
+The report has, in order: the builds side by side; the balance of one build (what each move pays in knockouts per 100 uses, how pets were knocked out, the buttons, rounds, cubes and luck, scores); each player over every build; the warning signs; the definition of done. A warning is a number crossing a limit in `LIMITS` at the top of `packages/stats/src/report.ts`. Rules change between builds, so balance is always read one build at a time.
+
+How to work with it:
+
+- **Before changing a rule or a number**, run `pnpm report` and read the warnings and the balance of the current build. Say in your summary which warning or which number the change is aimed at.
+- **After a change that players will feel**, raise the version before the next session, so its matches form a new row in "Build by build". That row is how the change is judged.
+- **When you add a move, a power, a rule or an event**, count it: add the field in `log.ts` (and raise `LOG_FORMAT`), fill it in `PlaytestLog.ts`, show it in `match.ts` and `report.ts`, give it a limit if it can go out of balance, and extend `PlaytestLog.test.ts` (the log must still add up over a whole bot match) and `stats.test.ts`. Older logs must keep reading: `readLog` fills what they lack.
+- **Bots and people disagree.** `pnpm balance` says how bots play a rule; the report says how people do. In the second playtest bots split their knockouts evenly between dashes and throws while people made 68% of theirs by throwing. When the two disagree, people are right.
+- **Keep test matches out.** A `?solo` run saves nothing, the browser tests write to `test-results/`, and a second copy of the game takes `BOOM_PLAYTEST_DIR`. If a bot-only log lands in `playtests/` anyway, move it to `dev-runs/`.
 
 ## Version control and changelog
 

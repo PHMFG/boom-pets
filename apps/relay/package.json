@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@boom/protocol": "workspace:*",
+    "@boom/stats": "workspace:*",
     "ws": "^8.22.0"
   },
   "devDependencies": {

@@ -47,7 +47,7 @@ Computer
 
 - `pnpm test`, `pnpm typecheck`, `pnpm build`
 - `pnpm test:e2e` plays a whole session in real browsers: the game screen and four phones.
-- `pnpm report` summarises the playtest logs the game saves after each match, and marks each item of the definition of done as met or not yet from matches played on real phones.
+- Every match leaves a log and a readable summary in `playtests/`. `pnpm report` reads them all and writes the playtest report: how the latest build plays, what each move pays, and what looks out of balance.
 - `pnpm fake 4` connects four simulated phones that play by themselves.
 - `pnpm balance 20` plays twenty bot matches without a screen and prints pacing numbers.
 - http://localhost:5173/?studio shows every pet and animation clip. `?solo&autostart` runs a bot match without touching connected phones.

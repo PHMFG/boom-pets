@@ -165,7 +165,7 @@ export type GameEvent =
   | { t: 'grabMiss'; pet: number }
   | { t: 'throw'; pet: number; kind: 'pet' | 'barrel'; target: number }
   /** A thrown pet landed on a rival. */
-  | { t: 'throwHit'; pet: number; victim: number; x: number; z: number }
+  | { t: 'throwHit'; pet: number; victim: number; seat: number | null; x: number; z: number }
   | { t: 'escape'; pet: number }
   | { t: 'land'; pet: number; speed: number }
   | { t: 'fall'; pet: number; seat: number }

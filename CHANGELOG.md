@@ -4,13 +4,24 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-### Recorded
+Nothing yet.
 
-- The second playtest (10 October 2026, six phones, build 0.4.2): `docs/PLAN.md` now shows the definition of done met on its own items, and `docs/GAMEPLAY.md` records what the logs showed about how people played, which is that throwing has become the one thing that works.
+## [0.4.3] - 2026-10-10
 
 ### Fixed
 
+- **A dash that hit was treated as a miss afterwards.** The dash was ended twice, the second time as a miss, so after every hit A rested for 0.9 s instead of 0.5 s. Dashing has been worth less than designed since 0.2.0, which is part of why throws took over in the second playtest. Found by the tests for the new match logs.
 - Starting the game no longer prints a warning about the web server's configuration.
+
+### Added
+
+- **Every match is logged in full.** Beside what was already counted, a log now has each dash's charge and whether it hit, grabs that led to throws and throws that landed on a rival, how often a grabbed pet got free, how long powers waited to be used, where every point came from, time alive, each round's length and how it ended, every SUPER gacha, and the build that played it.
+- **A readable file for every match.** Beside each log in `playtests/` the game now writes the match out for a person: result, buttons, who knocked out whom, rounds, cubes, phones. `pnpm report` writes the same for older matches.
+- **A report built around balance.** `pnpm report` sets the builds side by side, and for the newest says what each move pays in knockouts per use, how pets were knocked out, how the buttons were used, how rounds and scores went and what the cubes gave, with a warning wherever a number crosses its limit. It is saved as `playtests/REPORT.md`.
+
+### Recorded
+
+- The second playtest (10 October 2026, six phones, build 0.4.2): `docs/PLAN.md` now shows the definition of done met on its own items, and `docs/GAMEPLAY.md` records what the logs showed about how people played, which is that throwing had become the one thing that works.
 
 ## [0.4.2] - 2026-10-10
 
