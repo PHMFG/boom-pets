@@ -59,8 +59,10 @@ const ANNOUNCER = {
   echoFeedback: 0.4,
   echoLevel: 0.36,
   /**
-   * Final level into the master limiter. Measured at this setting, a line runs about 10 dB hotter than
-   * an impact and peaks just over full scale on the longest one, which the limiter catches.
+   * Final level into the master limiter. Measured at this setting, the voice alone: a line's loudest
+   * second averages -11 to -8 dB, against -18 dB for the hardest impact, so 7 to 10 dB hotter. The short
+   * lines peak just under full scale and the longest just over (+0.9 dB), which the limiter catches.
+   * The tail is 22 dB down half a second after the words end and rings for about two more.
    */
   level: 0.9,
 } as const;

@@ -130,6 +130,13 @@ body {
   display: none;
 }
 
+/* Which build this phone has loaded. If it is not the one on the TV, the page is stale: reload it. */
+.join-version {
+  margin: 0;
+  color: color-mix(in srgb, var(--cream) 55%, transparent);
+  font: 800 3.4vmin / 1 var(--font-text);
+}
+
 /* ── Pad ────────────────────────────────────────────────────────────────── */
 
 .pad {

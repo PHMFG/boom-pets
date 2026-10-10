@@ -2,6 +2,7 @@
 import '@fontsource/lilita-one/latin-400.css';
 import { NAME_MAX_LENGTH, ROOM_CODE_LENGTH } from '@boom/protocol';
 import { strings } from '../shared/strings.pt-BR';
+import { VERSION } from '../shared/version';
 import { applyTokens } from '../shared/tokens';
 import './controller.css';
 import { PhoneLink, savedToken, type LinkState } from './net';
@@ -55,7 +56,8 @@ function showJoin(problem = ''): void {
     ${roomFromLink ? '' : `<input class="join-field is-code" name="room" maxlength="${ROOM_CODE_LENGTH}" placeholder="${text.roomPlaceholder}" autocomplete="off" autocapitalize="characters" />`}
     <button class="join-button">${problem ? text.retry : text.join}</button>
     <p class="join-problem" role="alert"></p>
-    <p class="join-hint"></p>`;
+    <p class="join-hint"></p>
+    <p class="join-version">${strings.title.version(VERSION)}</p>`;
   const name = form.elements.namedItem('name') as HTMLInputElement;
   const room = form.elements.namedItem('room') as HTMLInputElement | null;
   name.value = remembered(NAME_KEY);

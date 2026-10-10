@@ -8,10 +8,14 @@ One mode, Bate-Bate: knock the other pets off a platform that keeps shrinking. C
 
 ```bash
 pnpm install
-pnpm dev
+pnpm play
 ```
 
-Open http://localhost:5173 on this computer, press any key, and scan the QR code with each phone. Phones and computer must be on the same Wi-Fi.
+`pnpm play` builds the game and runs the built copy. Open http://localhost:5173 on this computer, choose Jogar, and scan the QR code with each phone. Phones and computer must be on the same Wi-Fi.
+
+The title screen and the phone's join page both show the version (`versão 0.4.1`). If a browser shows an older number than `package.json`, it is showing a stale page: reload it, and if that is not enough, build again with `pnpm play`.
+
+To work on the game, use `pnpm dev` instead: it serves the source and reloads the pages whenever a file is saved, which is what you want while developing and not while playing.
 
 With nobody on a phone, press Enter to watch or test a match of bots.
 

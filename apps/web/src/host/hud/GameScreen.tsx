@@ -5,6 +5,7 @@ import { renderSVG } from 'uqr';
 import { seatShapeSvg } from '../../shared/glyphs';
 import { HOW_ROWS, MENU_ICON } from '../../shared/powers';
 import { strings } from '../../shared/strings.pt-BR';
+import { VERSION } from '../../shared/version';
 import { colors, seats as seatTokens } from '../../shared/tokens';
 import { Session } from '../app/Session';
 import { Nameplates } from './Nameplates';
@@ -234,7 +235,13 @@ export function GameScreen() {
                 </section>
               )}
             </Presence>
-            <Presence show={!help}>{() => <p className="title-credits">{strings.title.credits}</p>}</Presence>
+            <Presence show={!help}>
+              {() => (
+                <p className="title-credits">
+                  {strings.title.credits} · {strings.title.version(VERSION)}
+                </p>
+              )}
+            </Presence>
           </div>
         )}
       </Presence>

@@ -6,6 +6,18 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 Nothing yet.
 
+## [0.4.1] - 2026-10-10
+
+### Added
+
+- **`pnpm play` builds the game and runs the built copy**, and `pnpm start` runs the copy already built. A built copy does not reload or change while people play, which `pnpm dev` does every time a file is saved.
+- **The version is on screen**: on the title screen beside the credits, and on the phone's join page. A browser showing an older number than `package.json` is showing a stale page.
+
+### Measured
+
+- Frame pacing at 1920 by 1080 with every screen-filling power on at once, on a 2x screen, and with the processor slowed four and six times: the median stays at 8.3 ms in every case. The figures are in `docs/PLAN.md`.
+- The announcer at his final level: 7 to 10 dB hotter than the hardest impact, with a tail that rings about two seconds.
+
 ## [0.4.0] - 2026-10-10
 
 ### Added

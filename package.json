@@ -1,12 +1,14 @@
 {
   "name": "boom-pets",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.21.0",
   "scripts": {
     "dev": "concurrently -k -n relay,web -c magenta,cyan \"pnpm --filter @boom/relay dev\" \"pnpm --filter @boom/web dev\"",
     "build": "pnpm --filter @boom/web build && node tools/check-bundle.ts",
+    "start": "concurrently -k -n relay,web -c magenta,cyan \"pnpm --filter @boom/relay start\" \"pnpm --filter @boom/web preview\"",
+    "play": "pnpm build && pnpm start",
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck",
     "inspect:pets": "node tools/inspect-glb.ts \"assets-raw/cube-pets/Models/GLB format\"",

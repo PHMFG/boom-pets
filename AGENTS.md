@@ -63,7 +63,9 @@ Other: `tools/` (scripts below), `assets-raw/` (unzipped Kenney packs, not commi
 
 ## Commands
 
-- `pnpm dev`: start the relay and the web server. Open http://localhost:5173 on this computer; phones join from the QR code.
+- `pnpm dev`: start the relay and the web server from source, for developing. Open http://localhost:5173 on this computer; phones join from the QR code. Pages reload when a file is saved.
+- `pnpm play`: build the game and run the built copy on the same ports, for playing. Nothing reloads under the players. `pnpm start` runs the copy already built. Only one of `dev` and `start` can hold the ports at a time.
+- The version in the root `package.json` is shown on the title screen and on the phone's join page. It is read when the server starts or the game is built.
 - `pnpm fake 4`: connect 4 simulated phones that ready up and play. Add `--seconds=30` to stop on its own.
 - `pnpm test`, `pnpm typecheck`, `pnpm build` (the build also checks the phone bundle: 150 KB budget, no Three.js).
 - `pnpm test:e2e`: the browser tests in `e2e/`, about 8 minutes. They start their own copy of the game on other ports and never touch a session on the usual ones. Phones run on WebKit with iPhone settings and on Chromium with Android settings. They cover: a four-phone session with a gacha and a rematch; six phones joining with timing (and no two controls of the lobby pad overlapping on any of the six phone shapes), a seventh turned away, and a dropped phone getting its pet back in the lobby and mid-match; solo and duo with bots; and a full five-round match in real time. `pnpm test:e2e -g "four phones"` runs one of them.

@@ -365,7 +365,18 @@ Rules in this plan that no longer hold: a power no longer starts by itself (good
 
 - **A main menu.** The title screen was a single "press any key". It is now a menu of three buttons over the brawl: Jogar, Como jogar (one panel with each control drawn as the phone draws it and one line beside it) and Bichos (the pets studio, with Esc to come back). Arrow keys and Enter, or the mouse.
 - **The HUD came off the platform.** Hints and the card that explains a power moved to the top-left corner over the sky; the leader's crown moved to the corner of their card.
-- **Smoothness, measured.** A bot match at 1600 by 900 on this computer's graphics card, over 600 frames: median frame 8.3 ms (120 a second), 95th percentile 9.2 ms, worst 14.6 ms, none over 33 ms.
+- **Smoothness, measured** on this computer's graphics card (an Apple M5 Pro; no other machine was tried) at 1920 by 1080, 900 frames a run:
+
+  | Scene | Median | 95th | 99th | Worst | Frames over 33 ms |
+  | --- | --- | --- | --- | --- | --- |
+  | A plain bot match | 8.3 ms | 8.6 | 9.2 | 150 | 1 |
+  | Every screen-filling power on at once, barrels going off | 8.3 ms | 8.6 | 9.2 | 16.7 | 0 |
+  | The same on a 2x screen | 8.3 ms | 8.6 | 9.2 | 58 | 1 |
+  | The same, processor slowed 4 times | 8.3 ms | 9.2 | 9.4 | 32 | 0 |
+  | The same, processor slowed 6 times | 8.3 ms | 9.2 | 16.7 | 49 | 1 |
+
+  The game holds 120 frames a second in all of them. The single long frames are not tied to anything the game does: 70 seconds of play on the 4-times-slower processor, with every game event logged against the frame it fell in, had one frame over 25 ms (42 ms) out of 8392, and no event in it.
+- **The announcer, measured.** With music and effects off, a line's loudest second averages -11 to -8 dB against -18 dB for the hardest impact; the longest line peaks at +0.9 dB into the master limiter; the reverb and echo are 22 dB down half a second after the words end and gone two seconds later.
 - **Every new screen was photographed** on phone-sized Safari and Chrome engines and on the game screen, which is how the overlapping power card, the over-long hints and the squeezed name were found.
 
 ### Polish pass after S6
