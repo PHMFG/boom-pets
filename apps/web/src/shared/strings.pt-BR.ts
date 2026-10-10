@@ -54,6 +54,7 @@ export const strings = {
 
   studio: {
     title: 'Estúdio',
+    back: 'ESC: voltar ao jogo',
     clips: {
       static: 'Parado', idle: 'Respirando', walk: 'Andando', run: 'Correndo', eat: 'Comendo',
       dance: 'Dançando', 'gesture-positive': 'Comemorando', 'gesture-negative': 'Emburrado',
@@ -66,7 +67,22 @@ export const strings = {
     failed: 'Não consegui carregar os modelos.',
   },
 
-  title: { press: 'Aperte qualquer tecla', loading: 'Carregando…', credits: 'Bichos, sons e céus: Kenney.nl (CC0)' },
+  title: { loading: 'Carregando…', credits: 'Bichos, sons e céus: Kenney.nl (CC0)' },
+
+  /** The main menu on the title screen, and the panel that explains the game. */
+  menu: {
+    play: 'Jogar',
+    how: 'Como jogar',
+    pets: 'Bichos',
+    keys: '← → para escolher · ENTER para confirmar',
+    howGoal: 'Derrube todo mundo da plataforma. Quem somar mais pontos ganha.',
+    howStick: 'O polegar esquerdo mexe o bicho',
+    howA: 'Segure para carregar e solte para disparar. Um toque só empurra. Segurou demais? Bum!',
+    howB: 'Chegue perto e agarre bichos e barris. De novo para arremessar',
+    howPower: 'Pegou um Cubo Misterioso? O poder espera no botão que aparece',
+    howGhost: 'Caiu? Você vira fantasma e joga meteoros nos outros',
+    back: 'ESC para voltar',
+  },
 
   lobby: {
     start: 'ENTER para começar',

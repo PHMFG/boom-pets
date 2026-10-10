@@ -6,6 +6,22 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 Nothing yet.
 
+## [0.3.0] - 2026-10-10
+
+### Added
+
+- **A main menu.** The title screen used to say only "press any key". It now has three buttons over the brawl: Jogar, Como jogar and Bichos. The arrow keys choose and Enter confirms, or use the mouse. The chosen button lifts and turns gold, and one of the bots brawling behind looks up when the choice moves.
+- **Como jogar**: one panel that shows each control the way the phone draws it, with one line beside it: the stick, A (hold, release, and what a tap does), B, the power button, and what happens when you fall.
+- **Bichos** opens the pets studio, and Esc there comes back to the game.
+
+### Fixed
+
+- Holding Enter on the title screen could go straight through the lobby and start a match. A held key no longer repeats.
+
+### Measured
+
+- Frame pacing in a bot match at 1600 by 900 on the graphics card, over 600 frames: median 8.3 ms, 95th percentile 9.2 ms, worst 14.6 ms, none over 33 ms.
+
 ## [0.2.2] - 2026-10-10
 
 A polish pass over the game screen, made by photographing the title, lobby, a match, a round end and the results.

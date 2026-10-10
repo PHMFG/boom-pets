@@ -44,7 +44,7 @@ Host (`apps/web/src/host/`)
 - `pets/PetView.ts`: one pet. The model plays its clips; code-driven motion goes on wrapper groups above it.
 - `render/`: `Renderer.ts` (post-processing), `CameraRig.ts`, `materials.ts` (toon and outline), `assets.ts`, `Text3D.ts`, `emoji.ts`.
 - `fx/Particles.ts`, `fx/Decals.ts`, `audio/AudioEngine.ts` (samples for impacts, everything else synthesised).
-- `hud/GameScreen.tsx` and `game.css`: the flat HUD for every phase. `Nameplates.ts` is written to the DOM each frame.
+- `hud/GameScreen.tsx` and `game.css`: the main menu on the title screen, and the flat HUD for every phase. `Nameplates.ts` is written to the DOM each frame.
 - `studio/`: test bench at `/?studio` for pets, clips and the 3D font.
 
 Phone (`apps/web/src/controller/`): `main.ts` (join), `net.ts` (connection), `pad.ts` (joystick, A and B, the power button with its card, and the screen for each state).
@@ -70,6 +70,8 @@ Other: `tools/` (scripts below), `assets-raw/` (unzipped Kenney packs, not commi
 - `pnpm inspect:pets`: list parts and clips of every pet model.
 
 ## Host keys
+
+On the title screen, the main menu: left and right arrows choose between Jogar, Como jogar and Bichos, Enter confirms, Esc closes Como jogar and leaves the pets studio. The mouse works too.
 
 Enter starts a match (or a rematch); Esc returns to the lobby from the results. In the lobby: R rounds (5 or 3), B bots. Anywhere: M less shake and glow, S sound, backtick debug overlay, 1 to 6 buzz that seat's phone.
 

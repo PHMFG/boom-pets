@@ -361,6 +361,13 @@ Two matches were played on an iPhone and an Android phone, one of them with four
 
 Rules in this plan that no longer hold: a power no longer starts by itself (good ones wait on the power button), grabbing a pet is a 0.2 s lunge rather than a 0.25 s reach, the carrier moves at 85% speed, and the phone has a third button.
 
+### Polish after S6 was reached (10 October 2026)
+
+- **A main menu.** The title screen was a single "press any key". It is now a menu of three buttons over the brawl: Jogar, Como jogar (one panel with each control drawn as the phone draws it and one line beside it) and Bichos (the pets studio, with Esc to come back). Arrow keys and Enter, or the mouse.
+- **The HUD came off the platform.** Hints and the card that explains a power moved to the top-left corner over the sky; the leader's crown moved to the corner of their card.
+- **Smoothness, measured.** A bot match at 1600 by 900 on this computer's graphics card, over 600 frames: median frame 8.3 ms (120 a second), 95th percentile 9.2 ms, worst 14.6 ms, none over 33 ms.
+- **Every new screen was photographed** on phone-sized Safari and Chrome engines and on the game screen, which is how the overlapping power card, the over-long hints and the squeezed name were found.
+
 ### Polish pass after S6
 
 - **Main menu.** Bots brawl on the platform behind the title while the camera circles them; the logo's letters drop in, wave, and fly apart when a key is pressed. Two bots stay in the lobby until the first player joins.

@@ -86,6 +86,7 @@ It is read from a sofa, by people who are mostly looking at their own pet.
 
 | Zone | What lives there |
 | --- | --- |
+| The title screen | The logo at the top, the main menu along the bottom, and bots brawling in between: the menu is the game showing itself off, so nothing may cover the middle except the panel that explains the game |
 | Top centre | Round pips and the timer, and nothing else: anything more there hides the far edge of the platform |
 | Top left | One explanation at a time, over the sky: a first-play hint, or the card explaining a power |
 | Top right | The feed: who knocked out whom, and how |
@@ -94,6 +95,7 @@ It is read from a sofa, by people who are mostly looking at their own pet.
 | Over each pet | Its name tag, with a badge for a power it is holding and a hand when a player could grab it |
 
 - One explanation at a time in the top-left slot. A power card outranks a hint.
+- In the main menu the chosen button lifts, grows, straightens and turns gold, and a bot in the brawl looks up when the choice moves. A menu is driven by the arrow keys and Enter first, the mouse second: the screen is across the room.
 - The HUD stays off the platform. A panel goes over the sky or along an edge, never over where pets can be.
 - A power is always shown as its picture, its name and one line on what it does.
 - The 3D scene carries the action. The HUD says who and how much; it does not replay what the scene already showed.

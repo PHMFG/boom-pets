@@ -19,6 +19,8 @@ const OPTIONS_KEY = 'boom.options';
 // The number goes up when the controls change, so everyone sees the hints once more.
 const TUTORIAL_KEY = 'boom.tutorialSeen.2';
 const TIP_MS = 7000;
+/** What a bot behind the title does when the menu selection moves. */
+const MENU_LOOKS = ['👀', '👋', '😎', '🤔'];
 const POWER_NOTE_MS = 4500;
 /** Seconds between "everyone is ready" and the match starting, so a slip of the thumb can be undone. */
 const AUTO_START = 3;
@@ -109,7 +111,20 @@ export class Session {
 
   // ── Commands from the HUD and keyboard ─────────────────────────────────────
 
-  /** The first key press: leaves the title screen and unlocks sound. */
+  /** Browsers keep sound off until the first key or click. Any of them on the title screen counts. */
+  wake(): void {
+    this.audio.unlock();
+  }
+
+  /** The selection moved in the main menu: a click, and one of the bots brawling behind it looks up. */
+  menuMoved(): void {
+    this.audio.click();
+    const bots = this.game?.seats.filter(seat => seat.bot !== null) ?? [];
+    const bot = bots[Math.floor(Math.random() * bots.length)];
+    if (bot) this.stage.emote(bot.seat, MENU_LOOKS[Math.floor(Math.random() * MENU_LOOKS.length)]!);
+  }
+
+  /** "Jogar" in the main menu: leaves the title screen for the lobby. */
   dismissTitle(): void {
     this.audio.unlock();
     if (!hud.get().title || !this.game) return;

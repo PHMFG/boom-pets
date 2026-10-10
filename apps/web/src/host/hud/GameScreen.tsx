@@ -3,6 +3,7 @@ import { tuning } from '@boom/game';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { renderSVG } from 'uqr';
 import { seatShapeSvg } from '../../shared/glyphs';
+import { HOW_ROWS, MENU_ICON } from '../../shared/powers';
 import { strings } from '../../shared/strings.pt-BR';
 import { colors, seats as seatTokens } from '../../shared/tokens';
 import { Session } from '../app/Session';
@@ -14,6 +15,10 @@ import './game.css';
 const NETWORK_NAME_KEY = 'boom.networkName';
 /** How long the lobby waits with nobody joined before suggesting the network is the problem. */
 const HINT_AFTER_MS = 20_000;
+/** The main menu, left to right. */
+const MENU = ['play', 'how', 'pets'] as const;
+type MenuItem = (typeof MENU)[number];
+
 /** The title's letters fly apart on the way out, which takes a little longer than a plain squish. */
 const TITLE_EXIT_MS = 380;
 
@@ -57,6 +62,9 @@ export function GameScreen() {
 
   const [fps, setFps] = useState(0);
   const [debug, setDebug] = useState(false);
+  const [menuIndex, setMenuIndex] = useState(0);
+  const [help, setHelp] = useState(false);
+  const menuKey = useRef<(key: string) => void>(() => undefined);
   const [waitedLong, setWaitedLong] = useState(false);
   const [networkName, setNetworkName] = useState(readSavedNetworkName);
   const inLobby = phase === 'lobby';
@@ -71,8 +79,12 @@ export function GameScreen() {
     session.current = created;
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.metaKey || event.ctrlKey) return;
-      if (hud.get().title) return created.dismissTitle();
+      // A key held down repeats: without this, the Enter that picks "Jogar" would go on to start a match.
+      if (event.target instanceof HTMLInputElement || event.metaKey || event.ctrlKey || event.repeat) return;
+      if (hud.get().title) {
+        created.wake();
+        return menuKey.current(event.key);
+      }
       const state = hud.get();
       const key = event.key.toLowerCase();
       if (key === '`') setDebug(value => !value);
@@ -87,7 +99,7 @@ export function GameScreen() {
         if (Number.isInteger(seat) && seat >= 0 && seat < MAX_SEATS) created.buzz(seat);
       }
     };
-    const onPointer = () => created.dismissTitle();
+    const onPointer = () => created.wake();
     window.addEventListener('keydown', onKey);
     window.addEventListener('pointerdown', onPointer);
     return () => {
@@ -137,6 +149,28 @@ export function GameScreen() {
     : null;
   const cards = new Map(players.map(player => [player.seat, player]));
   const act = (run: (current: Session) => void) => () => session.current && run(session.current);
+  // ── Main menu ──
+  const pick = (index: number) => {
+    if (index === menuIndex) return;
+    setMenuIndex(index);
+    session.current?.menuMoved();
+  };
+  const confirm = (item: MenuItem) => {
+    if (loading) return;
+    if (item === 'play') session.current?.dismissTitle();
+    else if (item === 'how') setHelp(true);
+    else location.search = '?studio';
+  };
+  // The key handler is set up once, so it reads the menu through a ref that every render refreshes.
+  menuKey.current = (key: string) => {
+    if (loading) return;
+    if (help) {
+      if (key === 'Escape' || key === 'Enter' || key === ' ' || key === 'Backspace') setHelp(false);
+    } else if (key === 'ArrowRight' || key === 'ArrowDown' || key === 'd') pick((menuIndex + 1) % MENU.length);
+    else if (key === 'ArrowLeft' || key === 'ArrowUp' || key === 'a') pick((menuIndex + MENU.length - 1) % MENU.length);
+    else if (key === 'Enter' || key === ' ') confirm(MENU[menuIndex]!);
+  };
+
   const lobbyUp = !title && inLobby;
   const prompt = startIn !== null ? text.startingIn(startIn) : seats.length === 0 ? (options.bots ? text.startBots : '') : text.start;
 
@@ -159,9 +193,48 @@ export function GameScreen() {
                 </span>
               ))}
             </h1>
-            <p className="title-mode sticker">{strings.mode}</p>
-            <p className="title-press">{loading ? strings.title.loading : strings.title.press}</p>
-            <p className="title-credits">{strings.title.credits}</p>
+            {/* The panel that explains the game takes the room of the mode tag and the credits while it is up. */}
+            <Presence show={!help}>{() => <p className="title-mode sticker">{strings.mode}</p>}</Presence>
+            {loading && <p className="title-press">{strings.title.loading}</p>}
+            <Presence show={!loading && !help}>
+              {() => (
+                <nav className="menu">
+                  {MENU.map((item, index) => (
+                    <button
+                      key={item}
+                      className={`menu-item sticker${index === menuIndex ? ' is-selected' : ''}`}
+                      style={{ '--i': index } as CSSProperties}
+                      onPointerEnter={() => pick(index)}
+                      onClick={() => confirm(item)}
+                    >
+                      <span className="menu-icon" aria-hidden="true">
+                        {MENU_ICON[item]}
+                      </span>
+                      {strings.menu[item]}
+                    </button>
+                  ))}
+                  <p className="menu-keys">{strings.menu.keys}</p>
+                </nav>
+              )}
+            </Presence>
+            <Presence show={help}>
+              {() => (
+                <section className="how sticker" onClick={() => setHelp(false)}>
+                  <h2>{strings.menu.how}</h2>
+                  <p className="how-goal">{strings.menu.howGoal}</p>
+                  {HOW_ROWS.map((row, index) => (
+                    <p key={row.text} className="how-row" style={{ '--i': index } as CSSProperties}>
+                      <span className={`key-glyph is-${row.kind}`} aria-hidden="true">
+                        {row.glyph}
+                      </span>
+                      {strings.menu[row.text]}
+                    </p>
+                  ))}
+                  <p className="how-back">{strings.menu.back}</p>
+                </section>
+              )}
+            </Presence>
+            <Presence show={!help}>{() => <p className="title-credits">{strings.title.credits}</p>}</Presence>
           </div>
         )}
       </Presence>

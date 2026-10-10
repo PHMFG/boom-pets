@@ -88,6 +88,137 @@
   animation: pop-in var(--pop-in) both var(--title-prompt-delay), breathe var(--swell) ease-in-out infinite alternate calc(var(--title-prompt-delay) + var(--pop-in-ms));
 }
 
+/* ── Main menu ──────────────────────────────────────────────────────────── */
+
+/* Three chunky buttons along the bottom, so the brawl stays in view between them and the logo. */
+.menu {
+  position: absolute;
+  bottom: calc(120 * var(--u));
+  display: flex;
+  justify-content: center;
+  gap: calc(30 * var(--u));
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  padding: calc(18 * var(--u)) calc(40 * var(--u)) calc(20 * var(--u)) calc(30 * var(--u));
+  color: var(--ink);
+  font: 400 calc(52 * var(--u)) / 1 var(--font-display);
+  white-space: nowrap;
+  cursor: pointer;
+  /* Each arrives a beat after the one before, once the logo has landed. */
+  animation-delay: calc(var(--title-prompt-delay) + var(--i) * var(--stagger) * 3);
+  transition:
+    translate var(--move),
+    scale var(--move),
+    rotate var(--move),
+    background-color var(--punch);
+}
+
+.menu-item:nth-child(odd) {
+  rotate: -2deg;
+}
+
+.menu-item:nth-child(even) {
+  rotate: 2deg;
+}
+
+/* The chosen one lifts, grows, straightens and turns gold: "press this". */
+.menu-item.is-selected {
+  background: var(--gold);
+  translate: 0 calc(-14 * var(--u));
+  scale: 1.14;
+  rotate: 0deg;
+}
+
+.menu-icon {
+  font-size: calc(48 * var(--u));
+  line-height: 1;
+}
+
+.menu-item.is-selected .menu-icon {
+  animation: breathe var(--nudge) ease-in-out infinite alternate;
+}
+
+.menu-keys {
+  position: absolute;
+  top: calc(100% + 16 * var(--u));
+  left: 0;
+  width: 100%;
+  margin: 0;
+  color: var(--white);
+  font: 800 calc(26 * var(--u)) / 1 var(--font-text);
+  text-align: center;
+  animation: pop-in var(--pop-in) both calc(var(--title-prompt-delay) + var(--stagger) * 12);
+}
+
+.menu.is-leaving .menu-item,
+.menu.is-leaving .menu-keys,
+.title-screen.is-leaving .menu-item,
+.title-screen.is-leaving .menu-keys,
+.title-screen.is-leaving .how {
+  animation: squish-out var(--squish-out) both;
+}
+
+/* "Como jogar": one panel, each control drawn as the phone draws it. */
+.how {
+  position: absolute;
+  top: calc(300 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(16 * var(--u));
+  width: calc(1120 * var(--u));
+  padding: calc(26 * var(--u)) calc(44 * var(--u)) calc(24 * var(--u));
+  rotate: -1deg;
+  cursor: pointer;
+}
+
+.how.is-leaving,
+.title-mode.is-leaving,
+.title-credits.is-leaving {
+  animation: squish-out var(--squish-out) both;
+}
+
+.how h2 {
+  font-size: calc(62 * var(--u));
+  text-align: center;
+}
+
+.how-goal {
+  margin: 0 0 calc(6 * var(--u));
+  font: 800 calc(30 * var(--u)) / 1.2 var(--font-text);
+  text-align: center;
+}
+
+.how-row {
+  display: flex;
+  align-items: center;
+  gap: calc(24 * var(--u));
+  margin: 0;
+  font: 400 calc(34 * var(--u)) / 1.15 var(--font-display);
+  animation: pop-in var(--pop-in) both calc(var(--i) * var(--stagger) * 2);
+}
+
+.how-row .key-glyph {
+  flex: none;
+  /* The buttons press themselves one after another, like a row of thumbs. */
+  animation-delay: calc(var(--i) * var(--nudge));
+}
+
+.key-glyph.is-stick,
+.key-glyph.is-ghost {
+  background: var(--tier-common);
+}
+
+.how-back {
+  margin: calc(6 * var(--u)) 0 0;
+  color: var(--steel);
+  font: 800 calc(26 * var(--u)) / 1 var(--font-text);
+  text-align: center;
+}
+
 .title-credits {
   position: absolute;
   bottom: calc(26 * var(--u));

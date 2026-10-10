@@ -35,6 +35,15 @@ export function Studio() {
     };
   }, []);
 
+  // The main menu opens this page, so Esc goes back to it.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') location.search = '';
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   useEffect(() => stage.current?.setClip(clip), [clip]);
   useEffect(() => stage.current?.focus(focus), [focus]);
   useEffect(() => stage.current?.setSpin(spin), [spin]);
@@ -46,6 +55,7 @@ export function Studio() {
       <div ref={host} className="studio-stage" />
       <aside ref={panel} className="studio-panel sticker">
         <h1>{text.title}</h1>
+        <p className="studio-back">{text.back}</p>
         <p className={`studio-status is-${status.kind}`} role="status">
           {status.kind === 'loading' && text.loading}
           {status.kind === 'ready' && text.loaded(status.count)}

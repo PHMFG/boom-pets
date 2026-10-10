@@ -100,8 +100,8 @@ class Session {
   /** Opens the game screen, passes the title and waits for a lobby with every seat free. */
   async openLobby(): Promise<void> {
     await this.page.goto('/');
-    await expect(this.page.locator('.title-press')).toHaveText('Aperte qualquer tecla', { timeout: 60_000 });
-    await this.page.keyboard.press('Space');
+    await expect(this.page.locator('.menu-item.is-selected'), 'the main menu opens on Jogar').toHaveText(/Jogar/, { timeout: 60_000 });
+    await this.page.keyboard.press('Enter');
     await expect(this.page.locator('.join-card')).toBeVisible();
     // Seats of phones from an earlier test are held for 30 seconds before they free up.
     await expect(this.page.locator('.seat-card:not(.is-free)'), 'the lobby starts empty').toHaveCount(0, { timeout: 45_000 });
@@ -183,7 +183,16 @@ test('four phones join, play a match with a SUPER gacha, and see their results',
   const began = Date.now();
   const session = new Session(page, baseURL!);
   await page.goto('/');
-  await expect(page.locator('.title-press')).toHaveText('Aperte qualquer tecla', { timeout: 60_000 });
+  await expect(page.locator('.menu-item.is-selected')).toHaveText(/Jogar/, { timeout: 60_000 });
+  // ── The main menu: arrows choose, Enter confirms, and Como jogar explains every button ──
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('.menu-item.is-selected')).toHaveText(/Como jogar/);
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.how')).toContainText('Segure para carregar e solte para disparar');
+  await expect(page.locator('.how .key-glyph')).toHaveCount(5);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.how')).toBeHidden();
+  await expect(page.locator('.menu-item')).toHaveCount(3);
   await expect.poll(() => page.evaluate(() => window.__BOOM__.game.seats.filter(seat => seat.bot).length), { message: 'bots brawl behind the title' }).toBe(4);
   await session.openLobby();
 
