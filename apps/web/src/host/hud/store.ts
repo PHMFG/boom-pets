@@ -72,6 +72,8 @@ export type HudState = {
   rounds: number;
   /** Whole seconds left in the round. */
   timeLeft: number;
+  /** Seconds the round being played may last, for the timer's ring. */
+  roundCap: number;
   players: PlayerCard[];
   results: ResultRow[];
   options: Options;
@@ -98,6 +100,7 @@ export const hud = createStore<HudState>({
   round: 0,
   rounds: 5,
   timeLeft: 0,
+  roundCap: 0,
   players: [],
   results: [],
   options: { rounds: 5, bots: true, reduced: false, muted: false },

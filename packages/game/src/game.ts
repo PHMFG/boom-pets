@@ -75,7 +75,7 @@ export class Game {
 
   /** Seconds left before the round is called. */
   get timeLeft(): number {
-    return Math.max(0, match.roundCap - this.round.time);
+    return Math.max(0, this.round.cap - this.round.time);
   }
 
   /** Lobby only: who is on the platform. Joins, leaves and pet changes show at once. */
@@ -212,9 +212,8 @@ export class Game {
   private endRound(): void {
     this.round.playing = false;
     const factor = this.isFinalRound ? match.finalRoundFactor : 1;
-    const survivors = [...new Set(this.round.aliveSeats())];
-    // Best first: everyone still standing shares first, then the knocked-out, last out first.
-    const groups = [survivors, ...[...this.round.out].reverse().map(seat => [seat])].filter(group => group.length > 0);
+    // Best first; seats in one group tied. Each kind of round knows how its own places are decided.
+    const groups = this.round.ranking();
     for (const [seat, points] of placementPoints(groups, factor)) {
       if (points === 0) continue;
       const pet = this.round.petOfSeat(seat);

@@ -16,6 +16,7 @@ import {
   type Meteor,
   type Pet,
   type PowerId,
+  type RoundCore,
   type SeatSetup,
   type Tier,
 } from './types';
@@ -62,8 +63,10 @@ type Inner = {
   pulses: number;
 };
 
-export class Round {
+export class Round implements RoundCore {
+  readonly gameMode = 'brawl' as const;
   readonly mode: 'lobby' | 'match';
+  readonly cap: number;
   readonly pets: Pet[] = [];
   readonly barrels: Barrel[] = [];
   readonly meteors: Meteor[] = [];
@@ -99,6 +102,7 @@ export class Round {
   /** `firstId` keeps ids unique across rounds, so nothing on screen is ever mistaken for last round's pet. */
   constructor(mode: 'lobby' | 'match', seats: readonly SeatSetup[], rng: Rng, hooks: RoundHooks, firstId = 1) {
     this.mode = mode;
+    this.cap = mode === 'match' ? match.roundCap : Infinity;
     this.nextId = firstId;
     this.rng = rng;
     this.hooks = hooks;
@@ -181,6 +185,16 @@ export class Round {
   /** Seats that still have a living pet. */
   aliveSeats(): number[] {
     return this.pets.filter(pet => pet.alive && !pet.decoy).map(pet => pet.seat);
+  }
+
+  /** Everyone still standing shares first; then the knocked-out, last out first. */
+  ranking(): number[][] {
+    return [[...new Set(this.aliveSeats())], ...[...this.out].reverse().map(seat => [seat])].filter(group => group.length > 0);
+  }
+
+  /** The platform is flat. */
+  floorY(): number {
+    return 0;
   }
 
   isFloor(x: number, z: number): boolean {
@@ -573,7 +587,7 @@ export class Round {
       if (barrel.fuse !== null || Math.hypot(barrel.x - x, barrel.z - z) > radius + barrelTune.radius) continue;
       this.arm(barrel, barrelTune.chainDelay, credit.seat >= 0 ? credit.seat : null, chain + 1);
     }
-    const lateRound = this.mode === 'match' && this.playing && this.time >= match.roundCap - arena.explosionsBreakTilesInLast;
+    const lateRound = this.mode === 'match' && this.playing && this.time >= this.cap - arena.explosionsBreakTilesInLast;
     if (options.hole) this.breakTiles(x, z, options.hole);
     else if (lateRound) this.breakTiles(x, z, radius * 0.55);
   }
@@ -979,7 +993,7 @@ export class Round {
 
   private checkFinished(): void {
     if (this.mode !== 'match' || !this.playing || this.finished) return;
-    if (new Set(this.aliveSeats()).size <= 1 || this.time >= match.roundCap) this.finished = true;
+    if (new Set(this.aliveSeats()).size <= 1 || this.time >= this.cap) this.finished = true;
   }
 
   // ── Tiles ──────────────────────────────────────────────────────────────────

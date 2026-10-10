@@ -49,6 +49,7 @@ export function GameScreen() {
   const round = useStore(hud, state => state.round);
   const rounds = useStore(hud, state => state.rounds);
   const timeLeft = useStore(hud, state => state.timeLeft);
+  const roundCap = useStore(hud, state => state.roundCap);
   const players = useStore(hud, state => state.players);
   const results = useStore(hud, state => state.results);
   const options = useStore(hud, state => state.options);
@@ -304,7 +305,7 @@ export function GameScreen() {
                 </span>
               ))}
             </div>
-            <div className={`round-timer${timeLeft <= tuning.arena.explosionsBreakTilesInLast ? ' is-late' : ''}`} style={{ '--left': timeLeft / tuning.match.roundCap } as CSSProperties}>
+            <div className={`round-timer${timeLeft <= tuning.arena.explosionsBreakTilesInLast ? ' is-late' : ''}`} style={{ '--left': roundCap > 0 ? timeLeft / roundCap : 0 } as CSSProperties}>
               <span key={timeLeft <= 10 ? timeLeft : 'calm'}>{timeLeft}</span>
             </div>
           </div>

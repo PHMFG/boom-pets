@@ -163,6 +163,23 @@ describe('round', () => {
     expect(round.finished).toBe(true);
   });
 
+  it('ranks the survivors first, as a tie, then the knocked-out with the last out ahead', () => {
+    const { round, run, set } = makeRound(4);
+    expect(round.gameMode).toBe('brawl');
+    expect(round.cap).toBe(match.roundCap);
+    expect(round.ranking()).toEqual([[0, 1, 2, 3]]);
+    // Two of them walk off, one after the other.
+    for (const seat of [2, 0]) {
+      const pet = round.petOfSeat(seat)!;
+      const away = Math.hypot(pet.x, pet.z) || 1;
+      set(seat, { x: pet.x / away, y: -pet.z / away });
+      for (let guard = 0; guard < 600 && round.petOfSeat(seat); guard++) run(1);
+      set(seat, {});
+    }
+    expect(round.ranking()).toEqual([[1, 3], [0], [2]]);
+    expect(makeRound(2, 'lobby').round.cap).toBe(Infinity);
+  });
+
   it('counts a walk off the edge as nobody\'s kill', () => {
     const { run, set, of } = makeRound(2);
     set(0, { x: 1 });

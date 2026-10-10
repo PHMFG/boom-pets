@@ -1,5 +1,6 @@
 // What the simulation shows the outside world: state to read every frame, and events for one-shot moments.
 // The host reads these and never writes to them.
+import type { SampledInput } from './input';
 
 export type Tier = 'common' | 'rare' | 'cursed' | 'super' | 'superCurse';
 
@@ -20,6 +21,11 @@ export const POWERS = {
 export type PowerId = keyof typeof POWERS;
 
 export type Cause = 'fall' | 'dash' | 'barrel' | 'throw' | 'meteor' | 'overcharge' | 'power';
+
+/** The games a round can be. `brawl` is the original; the others are the simple games played on a `Field`. */
+export const GAME_MODES = ['brawl', 'lava', 'grow', 'race', 'color', 'potato', 'paint', 'frita'] as const;
+export type GameMode = (typeof GAME_MODES)[number];
+export type MiniMode = Exclude<GameMode, 'brawl'>;
 export type Phase = 'lobby' | 'countdown' | 'play' | 'roundEnd' | 'matchEnd';
 export type BotStyle = 'coward' | 'kamikaze' | 'thrower';
 
@@ -131,6 +137,37 @@ export type Meteor = {
   fromGhost: boolean;
 };
 export type Ghost = { seat: number; x: number; z: number; cooldown: number; cooldownTotal: number };
+
+/**
+ * What every kind of round offers, whatever game it is. The game, the screen, the logs and the tools read a
+ * round through this; anything only the brawl has (barrels, the cube, powers) is reached after checking `gameMode`.
+ */
+export interface RoundCore {
+  readonly gameMode: GameMode;
+  /** Seconds of play before the round is called. Infinity in the lobby. */
+  readonly cap: number;
+  readonly pets: Pet[];
+  readonly ghosts: Ghost[];
+  /** Seats in the order they were knocked out. */
+  readonly out: number[];
+  /** Seconds of play so far. */
+  time: number;
+  steps: number;
+  playing: boolean;
+  finished: boolean;
+  step(read: (seat: number) => SampledInput): void;
+  free(): void;
+  /** A number that changes if anything about the round does. */
+  hash(): number;
+  petOfSeat(seat: number): Pet | undefined;
+  petById(id: number): Pet | undefined;
+  aliveSeats(): number[];
+  isFloor(x: number, z: number): boolean;
+  /** Height of the floor at a spot. */
+  floorY(x: number, z: number): number;
+  /** Places for scoring, best first. Seats in one group tied. */
+  ranking(): number[][];
+}
 
 /** Tile states, one per tile in a size-by-size grid (index = column * size + row). */
 export const TILE = { solid: 0, warning: 1, gone: 2 } as const;

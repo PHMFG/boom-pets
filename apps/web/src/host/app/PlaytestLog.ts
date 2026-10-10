@@ -283,7 +283,7 @@ export class PlaytestLog {
       round: game.roundIndex,
       seconds: round2(length),
       firstKnockoutAt: this.current.firstKnockoutAt,
-      endedBy: length >= tuning.match.roundCap - tuning.STEP ? 'time' : 'knockout',
+      endedBy: length >= game.round.cap - tuning.STEP ? 'time' : 'knockout',
       winners: this.current.winners,
       knockouts: this.current.knockouts,
     });

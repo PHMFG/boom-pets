@@ -43,7 +43,7 @@ for (let seed = 1; seed <= matches; seed++) {
       else if (event.t === 'phase' && event.phase === 'roundEnd') {
         rounds++;
         roundSeconds.push(game.round.time);
-        if (game.round.time >= 74.9) capped++;
+        if (game.round.time >= game.round.cap - 0.1) capped++;
         sawKnockout = false;
       }
     }
