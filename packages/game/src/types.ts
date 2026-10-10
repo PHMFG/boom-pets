@@ -224,6 +224,8 @@ export type GameEvent =
   /** Pinta o Chão: a bucket of paint is coming down, and one was kicked over. */
   | { t: 'bucket'; id: number; x: number; z: number; delay: number }
   | { t: 'splash'; seat: number; x: number; z: number; radius: number }
+  /** O Chão é Lava: a new phase of a wave has begun. `seconds` is how long it lasts. */
+  | { t: 'lava'; phase: 'calm' | 'alarm' | 'flood'; wave: number; seconds: number }
   | { t: 'spawn'; pet: number; seat: number }
   | { t: 'dash'; pet: number; charge: number; x: number; z: number; dx: number; dz: number }
   | { t: 'dashHit'; pet: number; seat: number; x: number; y: number; z: number; charge: number; radius: number; victims: number[] }

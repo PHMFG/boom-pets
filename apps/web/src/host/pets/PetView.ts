@@ -56,6 +56,8 @@ export type PetContext = {
   /** How far between the last two physics steps this frame falls, 0 to 1. */
   alpha: number;
   isFloor(x: number, z: number): boolean;
+  /** How high the floor stands at a spot: a pet's ring lies on it. */
+  floorY(x: number, z: number): number;
   /** Dancing because it won the round. */
   winner: boolean;
   /** Its phone dropped: it sleeps where it stands. */
@@ -271,9 +273,10 @@ export class PetView {
     this.height = HEAD * pet.scale * (1 + 0.25 * charge) + this.hop;
 
     // The seat ring stays flat on the floor under the pet, and hides when there is no floor there.
-    const onFloor = context.isFloor(this.feet.x, this.feet.z) && this.feet.y > -0.4;
+    const ground = context.floorY(this.feet.x, this.feet.z);
+    const onFloor = context.isFloor(this.feet.x, this.feet.z) && this.feet.y > ground - 0.4;
     this.ring.visible = onFloor && !carried;
-    this.ring.position.y = 0.045 - this.feet.y;
+    this.ring.position.y = ground + 0.045 - this.feet.y;
     // The ring is how a player finds their pet, so it never changes colour or size. What A is doing is told by the
     // gauge around it: a white arc that fills while A is held (danger colour and throbbing past the warning), and a
     // grey arc that drains while A rests after a dash, like the one on the phone's A. No arc means A is ready.

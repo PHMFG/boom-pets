@@ -8,6 +8,7 @@ export type { AnyRound } from './rounds';
 export { Field, type MiniRules } from './minis/field';
 export type { AnyRules } from './minis';
 export type { Bucket, PaintRules } from './minis/paint';
+export { ROCK, type LavaRules } from './minis/lava';
 export * from './scoring';
 export * as tuning from './tuning';
 export * from './types';

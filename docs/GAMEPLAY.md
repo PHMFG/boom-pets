@@ -89,6 +89,7 @@ They fill the room to four, react a quarter of a second late, aim a little off, 
 | Game | The one line | Controls, and what A costs | The enemy | How it ends | Out? |
 | --- | --- | --- | --- | --- | --- |
 | **Bate-Bate** (`brawl`) | Jogue todo mundo pra fora! | Stick, A, B, power (pillars 3 and 4) | The edge | Last pet standing, or 75 s | Ghost with meteors |
+| **O Chão é Lava** (`lava`) | Suba numa pedra antes da lava! | Stick; A is a shove (a short lunge that pushes whoever it touches), then A rests, longer after a miss | The lava: it climbs the sides of the floor while an alarm sounds, then covers everything but the rocks | Each wave has one rock fewer than there are pets, and a rock holds one. Whoever is not on a rock when the lava is up is out; the next calm is shorter. Last pet standing, or 45 s. Pets lost in the same wave tie | Ghost that drifts |
 | **Pinta o Chão** (`paint`) | Pinte mais que todo mundo! | Stick only | The clock, and everyone else's feet | 40 s; most tiles. The count is hidden for the last 8 s | Never |
 
 A game is added to this table in the commit that adds it to the match.

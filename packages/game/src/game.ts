@@ -16,7 +16,7 @@ import type { BotStyle, GachaView, GameEvent, GameMode, Phase, PowerId, SeatSetu
 const BOT_STYLES: readonly BotStyle[] = ['coward', 'kamikaze', 'thrower'];
 const NEUTRAL: SampledInput = { x: 0, y: 0, a: false, b: false, stale: true, edges: [] };
 /** The games a match can draw. A game joins this list when it can be played from start to finish. */
-export const PLAYABLE_MODES: readonly GameMode[] = ['brawl', 'paint'];
+export const PLAYABLE_MODES: readonly GameMode[] = ['brawl', 'paint', 'lava'];
 
 export type MatchOptions = {
   rounds: number;
@@ -206,7 +206,7 @@ export class Game {
     const firstId = 1 + this.roundsMade++ * 100_000;
     // The lobby is always the brawl's platform. In a match, each game brings its own kind of round.
     if (mode === 'match' && this.gameMode !== 'brawl') {
-      return new Field(makeRules(this.gameMode), this.seats, this.spawns, { emit: event => this.emit(event) }, firstId);
+      return new Field(makeRules(this.gameMode), this.seats, this.spawns, { emit: event => this.emit(event) }, firstId) as AnyRound;
     }
     return new Round(mode, this.seats, this.spawns, {
       emit: event => this.emit(event),

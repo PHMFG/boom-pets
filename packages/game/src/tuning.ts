@@ -170,6 +170,32 @@ export const supers = {
   showerSafe: 2.5,
 } as const;
 
+/** O Chão é Lava. */
+export const lava = {
+  cap: 45,
+  columns: 14,
+  rows: 12,
+  /** How high a rock stands (never more than 0.3, or a pet could not step up onto it), and how wide: room for one pet, two if they balance. */
+  rockHeight: 0.3,
+  rockRadius: 0.5,
+  /** Rocks are never closer together than this. */
+  rockGap: 3,
+  /** Seconds to find a rock before the first alarm, how much shorter each calm is than the last, and the shortest it gets. */
+  calm: 4.5,
+  calmStep: 0.5,
+  calmMin: 2,
+  /** Seconds the alarm sounds before the lava is up, and seconds it stays up. */
+  alarm: 2.5,
+  flood: 2,
+  /** A's shove: a short lunge that pushes whoever it touches, then a rest, longer after a miss. */
+  shoveSpeed: 9,
+  shoveSeconds: 0.2,
+  shoveForce: 6,
+  shoveLift: 2,
+  shoveRest: 0.5,
+  shoveRestMiss: 0.9,
+} as const;
+
 /** Pinta o Chão. */
 export const paint = {
   cap: 40,

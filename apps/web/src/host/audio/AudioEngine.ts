@@ -311,6 +311,29 @@ export class AudioEngine {
           this.drumRoll(tuning.match.finaleReveal.at(-1)!);
         }
         return;
+      case 'lava': {
+        const context = this.context;
+        if (!context) return;
+        if (event.phase === 'alarm') {
+          // A siren for as long as the alarm lasts: one rising sweep a second.
+          this.duck(event.seconds);
+          for (let at = 0; at < event.seconds - 0.2; at += 0.62) this.tone(430, 0.55, 'sawtooth', 0.11, 860, undefined, context.currentTime + at);
+        } else if (event.phase === 'flood') {
+          // The lava arrives: a low surge and a hiss.
+          this.noise(1.1, 0.4, 300, 2600, 'bandpass');
+          this.tone(70, 0.9, 'sine', 0.45, 45);
+        }
+        return;
+      }
+      case 'jump':
+        return this.tone(420, 0.14, 'triangle', 0.1, 760);
+      case 'respawn':
+        return this.tone(880, 0.12, 'triangle', 0.09, 520);
+      case 'bucket':
+        return this.tone(1300, event.delay, 'sine', 0.06, 420);
+      case 'splash':
+        this.noise(0.35, 0.3, 2600, 500, 'lowpass');
+        return this.arpeggio([7, 12, 19], 0.05, 'triangle', 0.14);
       case 'reveal':
         // The reel stops: a bright rising run. The announcer names the game over it.
         this.duck(1.2);

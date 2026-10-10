@@ -29,6 +29,7 @@ export const colors = {
  * in what surrounds the floor. The brawl uses `floor`, `floorDark` and `cloud` above.
  */
 export const maps = {
+  lava: { stone: '#F1EBE1', stoneDark: '#E4DBCE', rock: '#6E5C78', rim: '#3B2B40', cone: '#4E3A55', lava: '#FF6A1A', lavaHot: '#FFB23E' },
   paint: { paper: '#FFFFFF', paperDark: '#F1F3F7', tape: '#F2DFA0', desk: '#C99A66', pencil: '#F4B63F', wood: '#E9C99A', lead: '#3A3550', eraser: '#F28FB0', bucket: '#9AA3B8' },
 } as const;
 

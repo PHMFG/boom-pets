@@ -153,6 +153,7 @@ It is held without being looked at, so it must work by feel and explain itself i
   | Game | Floor | Around it | Sky |
   | --- | --- | --- | --- |
   | Bate-Bate | White checker | Lavender clouds far below | Day; night when it is the last round |
+  | O Chão é Lava | Pale stone. The rocks to stand on are dark and drawn a little wider than they are: on a pale floor they must be the first thing anyone sees | A sea of lava, brighter than white so it glows, with dark boulders standing in it and two cones at the back | Night |
   | Pinta o Chão | White paper; a painted tile is its player's colour, lightened | A desk, masking tape round the paper, giant pencils, a pot of paint for each player colour | Morning |
 
 - **Camera.** Tilted 52° down through a narrow lens. In a round it frames the living pets and nothing more (a ghost's cursor and a falling cube pull it a little), so it is as close as the fight allows and moves in and out with it: the platform's empty corners are not worth the pixels. The fit is exact: the farthest pet's name tag stays below the round counter and the nearest pet's ring above the players' cards (the HUD reports what it covers as insets). It looks a moment ahead along each pet's path, pulls back at once when someone is about to leave the picture and closes in gently, and never comes so close that a fight in the middle has no edge in view. It shakes with impacts in proportion to them and punches in on big moments. The numbers are at the top of `render/CameraRig.ts`.
@@ -167,6 +168,7 @@ It is held without being looked at, so it must work by feel and explain itself i
 | A thrown pet landing on someone | Both squash | Ring, stars | Medium shake |
 | An explosion | Thrown, tumbling | Bright sphere, smoke, sparks, debris, scorch | Shake, colour fringe, extra glow |
 | A SUPER arriving | Its owner changes on the spot; everyone else looks scared | A wide warning on the floor, then a strike and its blast | Close on the owner for the gacha, then shake |
+| The lava's alarm, and the lava | Nothing; those left out burst into sparks | The sea climbs through the alarm, then jumps over the floor. The words SOBE! and LAVA! | Small shake, then a bigger one with a little glow |
 | A bucket of paint kicked over | Nothing | A ring and a burst of cubes in the kicker's colour, as wide as the patch painted | Small shake |
 | A place revealed in the finale | Pops onto its step, which takes its colour | Dust and a ring in its colour | Small shake |
 | The winner | Drops in, bigger than the rest, crowned, dancing | Spotlight, confetti from both sides, fireworks, the word VITÓRIA! | Colour returns, closes in and circles |
@@ -203,7 +205,7 @@ A new effect goes on this ladder next to something of the same weight, and is no
 
 - One track fades into the next; nothing cuts. Music sits under the effects, ducks for big moments (a gacha, an explosion) and goes muffled in slow motion.
 - If a track's file is missing, a synthesised tune stands in, so the game is never silent.
-- **The announcer is a stadium voice, and the loudest thing in the game.** His lines are recorded (`strings.announcer`, `pnpm voice`) and played deeper than recorded, doubled, pushed into grit, squashed flat and thrown into a big hall with an echo after it; the big lines land with a low boom, and the music gets out of the way. He speaks only at the moments the whole room should look up: the next game and its name, the countdown, the final round, the end of a round and of the match, the winner, a SUPER and its curse, the revenge swap, a chain of explosions. A new line has to be one of those moments, or he becomes noise.
+- **The announcer is a stadium voice, and the loudest thing in the game.** His lines are recorded (`strings.announcer`, `pnpm voice`) and played deeper than recorded, doubled, pushed into grit, squashed flat and thrown into a big hall with an echo after it; the big lines land with a low boom, and the music gets out of the way. He speaks only at the moments the whole room should look up: the next game and its name, the countdown, the lava's alarm, the final round, the end of a round and of the match, the winner, a SUPER and its curse, the revenge swap, a chain of explosions. A new line has to be one of those moments, or he becomes noise.
 - Sound follows size: a bigger charge whooshes longer and louder, a bigger blast booms longer, and each link of a chain reaction thumps higher.
 - Every event that matters is heard as well as seen. S mutes.
 

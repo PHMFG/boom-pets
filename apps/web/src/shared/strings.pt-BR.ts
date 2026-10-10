@@ -28,6 +28,8 @@ export const strings = {
     grabbed: 'PEGOU!',
     thrown: 'VOA!',
     victory: 'VITÓRIA!',
+    lavaWarn: 'SOBE!',
+    lava: 'LAVA!',
   },
 
   /** Shown in the HUD, on phones and (in capitals) as 3D words when a power starts. */
@@ -64,6 +66,7 @@ export const strings = {
     gamePotato: 'Batata quente!',
     gamePaint: 'Pinta o chão!',
     gameFrita: 'Batatinha frita, um, dois, três!',
+    lavaWarn: 'A lava vem aí!',
   },
 
   /** The games a round can be: the name, and the one line that says what to do. Both go on the card between games. */
@@ -88,6 +91,12 @@ export const strings = {
     shove: 'Empurra',
     bite: 'Morde',
     jump: 'Pula',
+  },
+
+  /** A word across a phone's pad for a moment of a game. Short: it is read in a glance, mid-round. */
+  alerts: {
+    lavaWarn: 'Suba numa pedra!',
+    lava: 'LAVA!',
   },
 
   /** The screen between games. */

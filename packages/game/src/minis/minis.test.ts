@@ -4,7 +4,7 @@ import type { ButtonEdge, SampledInput } from '../input';
 import { initPhysics } from '../physics';
 import { createRng } from '../rng';
 import { Round } from '../round';
-import { paint, pet as petTune, STEP } from '../tuning';
+import { lava, paint, pet as petTune, STEP } from '../tuning';
 import type { GameEvent, GameMode, MiniMode, SeatSetup } from '../types';
 import { Field, rankBy } from './field';
 import { makeRules, type AnyRules } from './index';
@@ -27,10 +27,23 @@ export function makeField<Mode extends MiniMode>(mode: Mode, seats: number) {
   };
   const set = (which: number, input: Partial<SampledInput>) => inputs.set(which, { ...idle, ...input });
   const of = <Type extends GameEvent['t']>(type: Type) => events.filter((event): event is Extract<GameEvent, { t: Type }> => event.t === type);
+  /** Walks a seat's pet to a spot and stops it there. */
+  const walk = (which: number, x: number, z: number) => {
+    const pet = field.petOfSeat(which)!;
+    for (let guard = 0; guard < 900; guard++) {
+      const distance = Math.hypot(x - pet.x, z - pet.z);
+      if (distance < 0.08) break;
+      const pace = Math.min(1, distance / 1.5);
+      set(which, { x: ((x - pet.x) / distance) * pace, y: (-(z - pet.z) / distance) * pace });
+      run(1);
+    }
+    set(which, {});
+    run(6);
+  };
   // Let everyone drop in and settle, then start play.
   run(120);
   field.playing = true;
-  return { field, events, run, set, of };
+  return { field, events, run, set, of, walk };
 }
 
 /** A whole match of bots playing the given games. */
@@ -155,6 +168,68 @@ describe('Pinta o Chão', () => {
     expect(tiles.every(group => new Set(group).size === 1)).toBe(true);
     expect(field.ranking().flat().sort()).toEqual([0, 1, 2]);
     expect(field.metric(0)).toBe(field.rules.counts.get(0));
+    field.free();
+  });
+});
+
+describe('O Chão é Lava', () => {
+  it('raises one rock fewer than there are pets, warns, and takes out whoever is not standing on one', () => {
+    const { field, run, of, walk } = makeField('lava', 3);
+    const rules = field.rules;
+    run(2);
+    expect(rules.rocks).toHaveLength(2);
+    expect(of('lava')[0]).toMatchObject({ phase: 'calm', wave: 1, seconds: lava.calm });
+    walk(0, rules.rocks[0]!.x, rules.rocks[0]!.z);
+    walk(1, rules.rocks[1]!.x, rules.rocks[1]!.z);
+    // On a rock a pet stands that much higher.
+    expect(field.petOfSeat(0)!.y).toBeCloseTo(petTune.radius + petTune.halfHeight + lava.rockHeight, 2);
+    while (rules.phase === 'calm') run(1);
+    expect(of('lava').at(-1)).toMatchObject({ phase: 'alarm', seconds: lava.alarm });
+    // The alarm is a warning: nobody is out yet.
+    expect(field.out).toEqual([]);
+    while (rules.phase === 'alarm') run(1);
+    expect(field.out).toEqual([2]);
+    expect(of('eliminated')[0]).toMatchObject({ seat: 2, cause: 'lava' });
+    expect(field.ghosts[0]).toMatchObject({ seat: 2, cursor: false });
+    expect(field.finished).toBe(false);
+    field.free();
+  });
+
+  it('ends when one pet is left or none, with those lost in the same wave sharing a place', () => {
+    const { field, run, walk } = makeField('lava', 3);
+    const rules = field.rules;
+    run(2);
+    walk(0, rules.rocks[0]!.x, rules.rocks[0]!.z);
+    walk(1, rules.rocks[1]!.x, rules.rocks[1]!.z);
+    while (rules.wave === 1) run(1);
+    // Wave two: one rock for two pets, and its calm is shorter. Both walk away from it.
+    expect(rules.rocks).toHaveLength(1);
+    expect(rules.left).toBeCloseTo(lava.calm - lava.calmStep, 1);
+    const rock = rules.rocks[0]!;
+    walk(0, rock.x > 0 ? -5 : 5, 0);
+    walk(1, rock.x > 0 ? -5 : 5, 3);
+    while (!field.finished) run(1);
+    expect(field.ranking()).toEqual([[0, 1], [2]]);
+    field.free();
+  });
+
+  it('lets a shove push a pet off its rock, and rests A after', () => {
+    const { field, run, set, of, walk } = makeField('lava', 2);
+    const rock = field.rules.rocks[0] ?? (run(2), field.rules.rocks[0]!);
+    walk(0, rock.x, rock.z);
+    walk(1, rock.x + 1.3, rock.z);
+    const victim = field.petOfSeat(0)!;
+    expect(field.floorY(victim.x, victim.z)).toBe(lava.rockHeight);
+    set(1, { x: -1, edges: [press('a', true), press('a', false)] });
+    run(30);
+    expect(of('dashHit')[0]?.victims).toEqual([victim.id]);
+    expect(field.floorY(victim.x, victim.z)).toBe(0);
+    expect(field.petOfSeat(1)!.dashCooldown).toBeGreaterThan(0);
+    // A second press while it rests does nothing but say so.
+    set(1, { edges: [press('a', true)] });
+    run(1);
+    expect(of('tired')).toHaveLength(1);
+    expect(of('dash')).toHaveLength(1);
     field.free();
   });
 });

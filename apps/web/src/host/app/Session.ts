@@ -424,6 +424,14 @@ export class Session {
       case 'bounty':
         this.nameplates.setCrown(event.seat);
         break;
+      case 'lava':
+        // The alarm is felt in every hand, and the pad says what to do at once, not at the next refresh.
+        if (event.phase === 'alarm') {
+          this.socket?.send('all', { t: 'haptic', pattern: 'warn' });
+          this.audio.announce('lavaWarn');
+        }
+        this.syncPhones();
+        break;
       case 'reveal':
         // The roulette has stopped: the card, the phones and the announcer all name the game.
         hud.set({ gameMode: event.mode, intro: { mode: event.mode, final: event.final } });
@@ -565,6 +573,8 @@ export class Session {
   private padAlert(game: Game): PhoneStatus['alert'] {
     if (game.gameMode === 'brawl' || (game.phase !== 'countdown' && game.phase !== 'play')) return null;
     if (game.phase === 'countdown' || game.round.time < REMIND_SECONDS) return { text: strings.games[game.gameMode].line, tone: 'info', color: null };
+    const round = game.round;
+    if (round.gameMode === 'lava' && round.rules.phase !== 'calm') return { text: round.rules.phase === 'alarm' ? strings.alerts.lavaWarn : strings.alerts.lava, tone: 'danger', color: null };
     return null;
   }
 

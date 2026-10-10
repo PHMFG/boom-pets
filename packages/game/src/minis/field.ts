@@ -35,6 +35,8 @@ export interface MiniRules {
   pressA?(field: Field, pet: Pet, stickX: number, stickZ: number): void;
   /** A lunging pet reached another. Returns true if that ends the lunge as a hit. */
   touch?(field: Field, pet: Pet, other: Pet): boolean;
+  /** How high the floor stands at a spot, for a game whose floor is not flat tile by tile. Never more than 0.3. */
+  floorY?(field: Field, x: number, z: number): number;
   /** How fast this pet walks, as a share of normal. */
   speed?(field: Field, pet: Pet): number;
   /** Where a pet that fell comes back, in a game where it does. */
@@ -161,7 +163,8 @@ export class Field<Rules extends MiniRules = MiniRules> implements RoundCore {
 
   floorY(x: number, z: number): number {
     const index = this.index(x, z);
-    return index >= 0 ? this.heights[index]! : 0;
+    if (index < 0) return 0;
+    return this.rules.floorY ? clamp(this.rules.floorY(this, x, z), 0, MAX_HEIGHT) : this.heights[index]!;
   }
 
   ranking(): number[][] {
