@@ -4,6 +4,7 @@ export * from './odds';
 export { initPhysics } from './physics';
 export * from './rng';
 export { Round } from './round';
+export type { AnyRound } from './rounds';
 export * from './scoring';
 export * as tuning from './tuning';
 export * from './types';

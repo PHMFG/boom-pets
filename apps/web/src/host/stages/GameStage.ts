@@ -7,10 +7,7 @@ import {
   Color,
   DirectionalLight,
   EquirectangularReflectionMapping,
-  Group,
   HemisphereLight,
-  IcosahedronGeometry,
-  Mesh,
   OrthographicCamera,
   Scene,
   SRGBColorSpace,
@@ -29,29 +26,19 @@ import type { Nameplates } from '../hud/Nameplates';
 import { PetView, type PetContext } from '../pets/PetView';
 import { createPet, isPetId, petPalette } from '../render/assets';
 import { CameraRig } from '../render/CameraRig';
-import { toonMaterial } from '../render/materials';
 import { Renderer } from '../render/Renderer';
 import { Word3D } from '../render/Text3D';
-import { BarrelView, CubeView, GachaMachine, GhostView, MeteorView, Podium, seatColor, SlotReels, Words } from './Props';
-import { TileField } from './TileField';
+import { DANGER, HOT, INK, random, SMOKE, syncViews, WHITE, type MapView, type SkyId, type StageKit } from './kit';
+import { BrawlMap } from './maps/BrawlMap';
+import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
 const HALF = tuning.arena.size / 2;
-const CORNERS = [{ x: -HALF, z: -HALF }, { x: HALF, z: -HALF }, { x: -HALF, z: HALF }, { x: HALF, z: HALF }];
+const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 /** Seconds ahead the camera looks along a pet's path, so a pet sent flying is still in the picture where it lands. */
 const LOOK_AHEAD = 0.2;
 /** How far beyond the living pets a ghost's cursor may pull the camera. Farther out, it is the ghost that has to come back. */
 const GHOST_PULL = 3;
-const WHITE = new Color(colors.white);
-const HOT = new Color(colors.gold).multiplyScalar(2.6);
 const FLASH = new Color(colors.white).multiplyScalar(3);
-const SMOKE = [new Color(colors.cream), new Color(colors.smoke), new Color(colors.danger), new Color(colors.gold)];
-const INK = new Color(colors.ink);
-const DANGER = new Color(colors.danger);
-const DUST = new Color(colors.floorDark);
-/** Light levels. Kept low enough that the cream floor does not burn out to white. */
-const DAY = { hemisphere: 1.15, sun: 1.55 };
-const NIGHT = { hemisphere: 0.95, sun: 1.3 };
-const random = (low: number, high: number) => low + Math.random() * (high - low);
 
 export class GameStage {
   /** Called twice a second with the measured frame rate. */
@@ -63,29 +50,28 @@ export class GameStage {
   private readonly rig = new CameraRig();
   private readonly renderer: Renderer;
   private readonly resize: ResizeObserver;
-  private readonly tiles = new TileField();
   private readonly particles = new Particles();
   private readonly decals = new Decals();
   private readonly words = new Words();
   private readonly machine = new GachaMachine();
-  private readonly hemisphere = new HemisphereLight(0xffffff, colors.creamDark, DAY.hemisphere);
-  private readonly sun = new DirectionalLight(0xffffff, DAY.sun);
+  private readonly hemisphere = new HemisphereLight(0xffffff, colors.creamDark, 1);
+  private readonly sun = new DirectionalLight(0xffffff, 1);
   private readonly pets = new Map<number, PetView>();
-  private readonly barrels = new Map<number, BarrelView>();
-  private readonly meteors = new Map<number, MeteorView>();
   private readonly ghosts = new Map<number, GhostView>();
   private readonly reels = new Map<number, SlotReels>();
   private readonly portraits = new Map<PetId, string>();
   private readonly point = new Vector3();
-  private cube: CubeView | null = null;
-  private cubeLanded = false;
+  private readonly kit: StageKit;
+  private readonly loader = new TextureLoader();
+  private readonly skies = new Map<SkyId, Texture>();
+  /** The world of the game being played. The stage swaps it when the game changes. */
+  private map: MapView;
   private title = false;
   private roomWord: Word3D | null = null;
   private podium: Podium | null = null;
   private game: Game | null = null;
   private winners = new Set<number>();
   private asleep = new Set<number>();
-  private skies: { day: Texture | null; night: Texture | null } = { day: null, night: null };
   private insets = { left: 0, bottom: 0, top: 0 };
   private size = { width: 1, height: 1 };
   private time = 0;
@@ -104,7 +90,7 @@ export class GameStage {
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     Object.assign(this.sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: 60 });
-    this.scene.add(this.hemisphere, this.sun, this.tiles.mesh, this.particles.group, this.decals.mesh, this.words.group, this.machine.group, this.clouds());
+    this.scene.add(this.hemisphere, this.sun, this.particles.group, this.decals.mesh, this.words.group, this.machine.group);
     this.machine.onLand = () => {
       const { x, z } = this.machine.group.position;
       this.dust(x, z, 14);
@@ -112,15 +98,18 @@ export class GameStage {
       this.rig.shake(0.5);
     };
 
-    const loader = new TextureLoader();
-    for (const name of ['day', 'night'] as const) {
-      loader.load(`/skyboxes/skybox-${name}.png`, sky => {
-        sky.mapping = EquirectangularReflectionMapping;
-        sky.colorSpace = SRGBColorSpace;
-        this.skies[name] = sky;
-        if (name === 'day' && !this.scene.background) this.scene.background = sky;
-      });
-    }
+    this.kit = {
+      particles: this.particles,
+      decals: this.decals,
+      words: this.words,
+      rig: this.rig,
+      renderer: this.renderer,
+      dust: (x, z, count) => this.dust(x, z, count),
+      poof: (x, y, z) => this.poof(x, y, z),
+      stars: (x, y, z, count) => this.stars(x, y, z, count),
+      confetti: (x, y, z, palette, count) => this.confetti(x, y, z, palette, count),
+    };
+    this.map = this.showMap(new BrawlMap(this.kit, { night: false, ripple: false }));
 
     this.resize = new ResizeObserver(() => this.fit());
     this.resize.observe(container);
@@ -233,10 +222,9 @@ export class GameStage {
 
   dispose(): void {
     this.resize.disconnect();
-    [...this.pets.values(), ...this.barrels.values(), ...this.meteors.values(), ...this.ghosts.values(), ...this.reels.values()].forEach(view => view.dispose());
-    this.cube?.dispose();
+    [...this.pets.values(), ...this.ghosts.values(), ...this.reels.values()].forEach(view => view.dispose());
+    this.map.dispose();
     this.podium?.dispose();
-    this.tiles.dispose();
     this.particles.dispose();
     this.decals.dispose();
     this.renderer.dispose();
@@ -248,6 +236,7 @@ export class GameStage {
   handle(event: GameEvent): void {
     const game = this.game;
     if (!game) return;
+    this.map.handle(event, game.round);
     switch (event.t) {
       case 'phase':
         return this.onPhase(event.phase, game);
@@ -286,11 +275,6 @@ export class GameStage {
       }
       case 'explosion':
         return this.boom(event.x, event.y, event.z, event.radius, event.cause === 'barrel' || event.cause === 'overcharge', event.chain);
-      case 'barrelArmed': {
-        const barrel = game.round.barrels.find(candidate => candidate.id === event.barrel);
-        if (barrel) this.decals.warning(barrel.x, barrel.z, tuning.barrel.blastRadius, Math.max(event.delay, 0.12), DANGER);
-        return;
-      }
       case 'dashEnd':
         // A dash that hit nothing leaves the pet winded for a moment.
         if (!event.hit) this.pets.get(event.pet)?.emote('😓', 0.7);
@@ -360,23 +344,6 @@ export class GameStage {
         return;
       case 'eliminated':
         return this.onEliminated(event);
-      case 'tileWarn':
-        return this.tiles.warn(event.index);
-      case 'tileFall': {
-        this.tiles.drop(event.index, event.broken);
-        const { x, z } = this.tiles.centre(event.index);
-        for (let index = 0; index < (event.broken ? 4 : 2); index++) {
-          this.particles.cube({ x: x + random(-0.4, 0.4), y: 0.1, z: z + random(-0.4, 0.4), vx: random(-2, 2), vy: random(1, 5), vz: random(-2, 2), life: random(0.5, 1), size: random(0.1, 0.22), gravity: 22, spin: random(-8, 8), color: DUST });
-        }
-        return;
-      }
-      case 'cubeSpawn':
-        this.decals.warning(event.x, event.z, 0.9, tuning.cube.dropTime, new Color(colors.gold));
-        return;
-      case 'cubeCollected':
-        this.confetti(event.x, 0.8, event.z, [new Color(colors.gold), WHITE], 18);
-        this.decals.shock(event.x, event.z, 1.6, new Color(colors.gold));
-        return;
       case 'roll': {
         const view = this.pets.get(event.pet);
         if (!view) return;
@@ -455,9 +422,6 @@ export class GameStage {
         this.renderer.setSaturation(0);
         this.rig.release();
         return;
-      case 'meteorCall':
-        this.decals.warning(event.x, event.z, event.radius, event.delay, DANGER);
-        return;
       case 'ghost':
         this.poof(event.x, 1.5, event.z);
         return;
@@ -528,38 +492,14 @@ export class GameStage {
       this.removePet(id);
     }
 
-    this.sync(this.barrels, staged ? round.barrels : [], () => new BarrelView(), (view, barrel) => {
-      view.update(barrel, alpha, worldDt, this.time);
-      const { x, y, z } = view.group.position;
-      // A lit fuse spits sparks; a thrown barrel leaves a trail of smoke.
-      if (barrel.fuse !== null) this.particles.spark({ x: x + random(-0.2, 0.2), y: y + 0.6, z: z + random(-0.2, 0.2), vx: random(-2, 2), vy: random(2, 5), vz: random(-2, 2), life: 0.25, size: 0.1, gravity: 12, color: HOT });
-      if (barrel.thrown && Math.random() < 0.5) this.particles.puff({ x, y, z, life: 0.35, size: 0.3, sizeEnd: 0.1, color: SMOKE[0]! });
-    });
-    this.sync(this.meteors, round.meteors, () => new MeteorView(), (view, meteor) => {
-      view.update(meteor, this.time);
-      const { x, y, z } = view.group.position;
-      this.particles.spark({ x, y, z, vx: random(-1, 1), vy: random(0, 2), vz: random(-1, 1), life: 0.3, size: 0.3, color: HOT });
-    });
-    this.sync(
+    this.map.frame(staged ? round : null, worldDt, this.time, alpha);
+    syncViews(
+      this.scene,
       this.ghosts,
       (staged ? round.ghosts : []).map(ghost => ({ ...ghost, id: ghost.seat })),
       ghost => new GhostView(ghost.seat, this.modelOf(game, ghost.seat)),
       (view, ghost) => view.update(ghost, worldDt, this.time),
     );
-
-    if (round.cube && !this.cube) {
-      this.cube = new CubeView();
-      this.scene.add(this.cube.group);
-    } else if (!round.cube && this.cube) {
-      this.cube.dispose();
-      this.cube = null;
-    }
-    if (round.cube) this.cube?.update(round.cube, worldDt, this.time);
-    if (round.cube?.landed && !this.cubeLanded) {
-      this.dust(round.cube.x, round.cube.z, 8);
-      this.decals.shock(round.cube.x, round.cube.z, 1.4, new Color(colors.gold), 0.35);
-    }
-    this.cubeLanded = round.cube?.landed ?? false;
 
     for (const [id, reels] of this.reels) {
       const view = this.pets.get(id);
@@ -574,7 +514,6 @@ export class GameStage {
     const gachaPet = game.gacha ? [...this.pets.values()].find(view => view.seat === game.gacha!.seat) : undefined;
     this.machine.update(game.gacha, Math.min(HALF - 2, (gachaPet?.feet.x ?? 0) + 2), gachaPet?.feet.z ?? 0, this.time);
 
-    this.tiles.update(worldDt, this.time);
     this.particles.update(worldDt);
     this.decals.update(worldDt);
     this.words.update(dt, this.rig.camera);
@@ -609,28 +548,6 @@ export class GameStage {
   }
 
   // ── Internals ──────────────────────────────────────────────────────────────
-
-  /** Keeps a map of views in step with a list of simulation objects: new ones appear, missing ones are removed. */
-  private sync<Item extends { id: number }, View extends { group: Group; dispose(): void }>(
-    views: Map<number, View>, items: readonly Item[], create: (item: Item) => View, update: (view: View, item: Item) => void,
-  ): void {
-    const present = new Set<number>();
-    for (const item of items) {
-      present.add(item.id);
-      let view = views.get(item.id);
-      if (!view) {
-        view = create(item);
-        views.set(item.id, view);
-        this.scene.add(view.group);
-      }
-      update(view, item);
-    }
-    for (const [id, view] of views) {
-      if (present.has(id)) continue;
-      view.dispose();
-      views.delete(id);
-    }
-  }
 
   private modelOf(game: Game, seat: number): PetId {
     const model = game.seats.find(candidate => candidate.seat === seat)?.pet ?? '';
@@ -697,12 +614,9 @@ export class GameStage {
     if (phase === 'countdown') {
       this.winners.clear();
       this.words.clear();
-      this.tiles.reset(true);
       // The final round is played at night.
       const night = game.isFinalRound;
-      this.scene.background = (night ? this.skies.night : this.skies.day) ?? this.scene.background;
-      this.hemisphere.intensity = night ? NIGHT.hemisphere : DAY.hemisphere;
-      this.sun.intensity = night ? NIGHT.sun : DAY.sun;
+      this.showMap(new BrawlMap(this.kit, { night, ripple: true }));
       if (night) this.popWord(strings.words3d.doubleRound, 0, 5.6, -2, 1.6, colors.gold);
     } else if (phase === 'roundEnd') {
       this.popWord(strings.words3d.roundOver, 0, 4.4, 0, 2.6, colors.cream);
@@ -713,18 +627,15 @@ export class GameStage {
       }
     } else if (phase === 'matchEnd') {
       const top = game.standings.slice(0, 3).map(entry => ({ seat: entry.seat, model: this.modelOf(game, entry.seat) }));
-      // The whole platform comes back as a clean stage for the podium.
-      this.tiles.reset(false);
+      // A whole, clean platform is the stage for the podium.
+      this.showMap(new BrawlMap(this.kit, { night: game.isFinalRound, ripple: false }));
       this.podium = new Podium(top);
       this.scene.add(this.podium.group);
       this.rig.focus(0, 0.5, 15, 3600, 0.12);
       this.confetti(0, 6, 0, [new Color(colors.gold), WHITE, new Color(seatColor(top[0]?.seat ?? 0))], 90);
     } else if (phase === 'lobby') {
       this.words.clear();
-      this.tiles.reset(true);
-      this.scene.background = this.skies.day ?? this.scene.background;
-      this.hemisphere.intensity = DAY.hemisphere;
-      this.sun.intensity = DAY.sun;
+      this.showMap(new BrawlMap(this.kit, { night: false, ripple: true }));
     }
   }
 
@@ -824,9 +735,9 @@ export class GameStage {
    * picture is as close as the fight allows: the platform's empty corners are not worth the pixels.
    */
   private focusPoints(game: Game): { x: number; z: number }[] {
-    if (game.phase !== 'play' && game.phase !== 'countdown') return CORNERS;
+    if (game.phase !== 'play' && game.phase !== 'countdown') return this.corners();
     const points: { x: number; z: number }[] = [];
-    const onPlatform = (value: number) => Math.min(HALF + 1, Math.max(-HALF - 1, value));
+    const { bounds } = this.map;
     let minX = Infinity;
     let maxX = -Infinity;
     let minZ = Infinity;
@@ -835,13 +746,13 @@ export class GameStage {
       const view = this.pets.get(pet.id);
       if (!view || view.feet.y < -3) continue;
       const { x, z } = view.feet;
-      points.push({ x, z }, { x: onPlatform(x + pet.vx * LOOK_AHEAD), z: onPlatform(z + pet.vz * LOOK_AHEAD) });
+      points.push({ x, z }, { x: clamp(x + pet.vx * LOOK_AHEAD, bounds.minX - 1, bounds.maxX + 1), z: clamp(z + pet.vz * LOOK_AHEAD, bounds.minZ - 1, bounds.maxZ + 1) });
       minX = Math.min(minX, x);
       maxX = Math.max(maxX, x);
       minZ = Math.min(minZ, z);
       maxZ = Math.max(maxZ, z);
     }
-    if (points.length === 0) return CORNERS;
+    if (points.length === 0) return this.corners();
     for (const ghost of game.round.ghosts) {
       points.push({ x: Math.min(maxX + GHOST_PULL, Math.max(minX - GHOST_PULL, ghost.x)), z: Math.min(maxZ + GHOST_PULL, Math.max(minZ - GHOST_PULL, ghost.z)) });
     }
@@ -883,19 +794,31 @@ export class GameStage {
     this.rig.setViewport(width, height, this.insets);
   }
 
-  /** A slow sea of clouds far below, so the platform reads as high up. */
-  private clouds(): Group {
-    const group = new Group();
-    const geometry = new IcosahedronGeometry(1, 1);
-    const material = toonMaterial({ color: colors.cloud });
-    for (let index = 0; index < 16; index++) {
-      const cloud = new Mesh(geometry, material);
-      const angle = (index / 16) * Math.PI * 2;
-      const reach = 14 + (index % 4) * 6;
-      cloud.position.set(Math.sin(angle) * reach, -13 - (index % 3) * 2, Math.cos(angle) * reach - 4);
-      cloud.scale.set(5 + (index % 3) * 2, 2.2, 4 + (index % 2) * 2);
-      group.add(cloud);
+  /** Puts a map on stage in place of the one that was there, with its sky and its light. */
+  private showMap(map: MapView): MapView {
+    // `map` is unset only while the constructor runs.
+    (this.map as MapView | undefined)?.dispose();
+    this.map = map;
+    this.scene.add(map.group);
+    this.hemisphere.intensity = map.light.hemisphere;
+    this.sun.intensity = map.light.sun;
+    const known = this.skies.get(map.sky);
+    if (known) this.scene.background = known;
+    else {
+      // Skies are big pictures, so each is fetched the first time a map asks for it.
+      this.loader.load(`/skyboxes/skybox-${map.sky}.png`, sky => {
+        sky.mapping = EquirectangularReflectionMapping;
+        sky.colorSpace = SRGBColorSpace;
+        this.skies.set(map.sky, sky);
+        if (this.map.sky === map.sky) this.scene.background = sky;
+      });
     }
-    return group;
+    return map;
+  }
+
+  /** The corners of the map's floor: what the camera frames when there are no pets to follow. */
+  private corners(): { x: number; z: number }[] {
+    const { minX, maxX, minZ, maxZ } = this.map.bounds;
+    return [{ x: minX, z: minZ }, { x: maxX, z: minZ }, { x: minX, z: maxZ }, { x: maxX, z: maxZ }];
   }
 }
