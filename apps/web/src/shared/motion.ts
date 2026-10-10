@@ -10,6 +10,8 @@ export const motion = {
   staggerMs: 40,
   /** Number change, button press. */
   punch: { ms: 90, scale: 1.2 },
+  /** A score ticking up: long enough to be seen from the sofa. */
+  count: { ms: 260 },
   /** Anything idle. */
   breathe: { ms: 2400, amount: 0.02 },
   /** Anything asking to be pressed: one swell this long, back and forth. */
@@ -24,6 +26,12 @@ export const motion = {
   buzz: { ms: 320 },
   /** How long a line of the event feed stays. */
   feed: { ms: 3600 },
-  /** The title: when the tag line arrives after the letters, and how long the letters take to fly off. */
-  title: { tagDelayMs: 620, flyMs: 360 },
+  /** A line that waits for the player ("press any key", "ENTER to start"): one slow swell, back and forth. */
+  swell: { ms: 900 },
+  /** A number the whole room watches changing: the timer's last seconds, a round pip filling. */
+  tick: { ms: 320 },
+  /** The title. Letters drop in one after another, then hop in a wave; the tag line and the prompt follow; on a key the letters fly off. */
+  title: { dropMs: 520, dropStaggerMs: 70, hopMs: 2600, hopDelayMs: 900, hopStaggerMs: 110, tagDelayMs: 620, promptDelayMs: 800, flyMs: 360 },
+  /** The results: rows arrive one after another once the podium is up. */
+  results: { delayMs: 600, staggerMs: 120 },
 } as const;

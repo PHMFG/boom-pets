@@ -6,6 +6,23 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 Nothing yet.
 
+## [0.2.2] - 2026-10-10
+
+A polish pass over the game screen, made by photographing the title, lobby, a match, a round end and the results.
+
+### Changed
+
+- The first-match hints and the card that explains a power moved from under the timer to the top-left corner, over the sky. In the middle they hid the pets at the far edge of the platform.
+- The leader's crown sits on the corner of their card instead of in front of their name, which it used to squeeze down to a letter.
+
+### Fixed
+
+- Several timings were still written in the stylesheets (the title's letters, the prompts, the results rows, the score). They are motion tokens now, and `docs/DESIGN.md` gives the command that proves none are left.
+
+### Decided
+
+- S6 of the plan is reached, by the owner's decision: joining by QR code, latency, coming back after a drop and whole matches were proven on real phones in the first session, and the two items never done as written (six phones at once, a session where four or more all play) are waived. `docs/PLAN.md` records it.
+
 ## [0.2.1] - 2026-10-10
 
 Found by photographing every new screen on phone-sized browsers after 0.2.0, before anyone played it.

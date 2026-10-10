@@ -331,7 +331,7 @@ Updated after the first session with people, on 9 October 2026: two five-round m
 
 The gate (two people play with no powers and laugh) was the second match: two players, five rounds, and the report from the table was that the game was liked. What that session found wrong, and what changed, is under "After the first playtest" below.
 
-Still open, and only people can close them: six real phones at once, and a session where four or more all play. `pnpm report` marks each item from the logs as they come in.
+**S6 is reached, by the owner's decision on 10 October 2026.** Two things in the table were never done as written: six real phones at once, and a session where four or more all play. The owner waived both on the strength of the first session, which proved on real phones what those items were there to prove: joining from the QR code, latency, coming back after a drop, and whole matches. They stay listed here as not done, and `pnpm report` will still mark them from the logs when such a session happens.
 
 ### The session that closes S6
 

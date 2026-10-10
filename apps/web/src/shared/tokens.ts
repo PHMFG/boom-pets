@@ -58,6 +58,7 @@ export function applyTokens(root: HTMLElement): void {
   set('squish-out', `${motion.squishOut.ms}ms ${motion.squishOut.css}`);
   set('move', `${motion.move.ms}ms ${motion.move.css}`);
   set('punch', `${motion.punch.ms}ms`);
+  set('count', `${motion.count.ms}ms`);
   set('stagger', `${motion.staggerMs}ms`);
   set('breathe', `${motion.breathe.ms}ms`);
   set('nudge', `${motion.nudge.ms}ms`);
@@ -66,6 +67,16 @@ export function applyTokens(root: HTMLElement): void {
   set('wobble', `${motion.wobble.ms}ms`);
   set('buzz', `${motion.buzz.ms}ms`);
   set('feed', `${motion.feed.ms}ms`);
+  set('swell', `${motion.swell.ms}ms`);
+  set('tick', `${motion.tick.ms}ms`);
+  set('title-drop', `${motion.title.dropMs}ms`);
+  set('title-drop-stagger', `${motion.title.dropStaggerMs}ms`);
+  set('title-hop', `${motion.title.hopMs}ms`);
+  set('title-hop-delay', `${motion.title.hopDelayMs}ms`);
+  set('title-hop-stagger', `${motion.title.hopStaggerMs}ms`);
   set('title-tag-delay', `${motion.title.tagDelayMs}ms`);
+  set('title-prompt-delay', `${motion.title.promptDelayMs}ms`);
   set('title-fly', `${motion.title.flyMs}ms`);
+  set('results-delay', `${motion.results.delayMs}ms`);
+  set('results-stagger', `${motion.results.staggerMs}ms`);
 }

@@ -381,10 +381,7 @@ function SeatCard({ seat, player, lobby }: { seat: number; player: PlayerCard | 
         </span>
       )}
       <span className="seat-text">
-        <span className="seat-name">
-          {player?.bounty && <span aria-hidden="true">👑 </span>}
-          {player ? player.name : strings.lobby.freeSeat}
-        </span>
+        <span className="seat-name">{player ? player.name : strings.lobby.freeSeat}</span>
         {player && !lobby && (
           <span className="seat-pity" aria-hidden="true">
             {Array.from({ length: tuning.cube.pity }, (_, index) => (
@@ -399,6 +396,11 @@ function SeatCard({ seat, player, lobby }: { seat: number; player: PlayerCard | 
         </span>
       )}
       {player && lobby && player.ready && <span className="seat-ready">{strings.lobby.ready}</span>}
+      {player?.bounty && (
+        <span className="seat-crown" aria-hidden="true">
+          👑
+        </span>
+      )}
     </div>
   );
 }

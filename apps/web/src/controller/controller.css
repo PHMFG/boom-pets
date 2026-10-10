@@ -519,7 +519,7 @@ body {
 }
 
 .pad-a.is-cooling .pad-cooldown {
-  animation: cooldown var(--cooldown, 4000ms) linear both;
+  animation: cooldown var(--cooldown) linear both;
 }
 
 /* The power button. It is only there while a power waits, so its arrival is the news. */

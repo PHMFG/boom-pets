@@ -64,13 +64,15 @@ The `.sticker` class is the base of every panel: cream fill, `--outline` ink bor
 | `squishOut` (160 ms, swells then shrinks) | Anything leaving |
 | `move` (420 ms) | Cards, the crown, points flying to a card |
 | `staggerMs` (40 ms) | Delay between items of a row or list |
-| `punch` (90 ms) | A number changing, a button going down |
+| `punch` (90 ms) | A button going down, a small number changing |
+| `count` (260 ms), `tick` (320 ms) | A score going up; a number the whole room watches, such as the timer |
 | `breathe` (2.4 s) | Anything idle |
 | `nudge` (500 ms) | Anything asking to be pressed |
-| `prompt` (1.1 s) | A prompt waiting for a key |
+| `prompt` (1.1 s), `swell` (900 ms) | A button drawn in a hint, pressing itself; a line waiting for a key |
 | `alarm` (380 ms) | Danger. This is the fastest anything may pulse |
 | `wobble` (180 ms) | "Do something!": the buttons of a carried player |
 | `buzz` (320 ms) | The border pulse on a phone that stands in for vibration |
+| `title`, `results`, `feed` | The few timed sequences: the title's letters, the rows of the results, how long a feed line stays |
 
 Rules:
 
@@ -84,13 +86,15 @@ It is read from a sofa, by people who are mostly looking at their own pet.
 
 | Zone | What lives there |
 | --- | --- |
-| Top centre | Round pips and the timer. Under it, one line at a time: a first-play hint, or the card explaining a power |
+| Top centre | Round pips and the timer, and nothing else: anything more there hides the far edge of the platform |
+| Top left | One explanation at a time, over the sky: a first-play hint, or the card explaining a power |
 | Top right | The feed: who knocked out whom, and how |
 | Middle | The banner for who took the round |
 | Bottom | One card per player: shape, portrait, name, score, luck pips, the power running (with its time left) and the power waiting |
 | Over each pet | Its name tag, with a badge for a power it is holding and a hand when a player could grab it |
 
-- One explanation at a time in the top-centre slot. A power card outranks a hint.
+- One explanation at a time in the top-left slot. A power card outranks a hint.
+- The HUD stays off the platform. A panel goes over the sky or along an edge, never over where pets can be.
 - A power is always shown as its picture, its name and one line on what it does.
 - The 3D scene carries the action. The HUD says who and how much; it does not replay what the scene already showed.
 
@@ -153,7 +157,7 @@ A new effect goes on this ladder next to something of the same weight, and is no
 
 ## Checklist for anything seen or heard
 
-1. Every colour, size token and duration comes from `tokens.ts` or `motion.ts`. The stylesheets contain no raw colour and no raw milliseconds.
+1. Every colour, size token and duration comes from `tokens.ts` or `motion.ts`. The stylesheets contain no raw colour and no raw milliseconds: `grep -rnE "(^|[^a-zA-Z0-9_-])[0-9.]+m?s\b|#[0-9A-Fa-f]{3,8}\b" apps/web/src --include="*.css"` finds nothing.
 2. Every word is in `strings.pt-BR.ts`, in Portuguese.
 3. It pops in and squishes out. Nothing appears, moves or leaves without animation, and no particle fades.
 4. A player is shown as colour and shape together.

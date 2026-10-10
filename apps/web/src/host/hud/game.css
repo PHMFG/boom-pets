@@ -65,8 +65,8 @@
   paint-order: stroke fill;
   text-shadow: 0 calc(20 * var(--u)) 0 var(--tier-cursed);
   animation:
-    letter-drop 520ms var(--ease-pop) both calc(var(--i) * 70ms),
-    letter-hop 2600ms ease-in-out infinite calc(900ms + var(--i) * 110ms);
+    letter-drop var(--title-drop) var(--ease-pop) both calc(var(--i) * var(--title-drop-stagger)),
+    letter-hop var(--title-hop) ease-in-out infinite calc(var(--title-hop-delay) + var(--i) * var(--title-hop-stagger));
 }
 
 .title-mode {
@@ -85,7 +85,7 @@
   font: 400 calc(54 * var(--u)) / 1 var(--font-display);
   -webkit-text-stroke: calc(10 * var(--u)) var(--ink);
   paint-order: stroke fill;
-  animation: pop-in var(--pop-in) both 800ms, breathe 900ms ease-in-out infinite alternate 1100ms;
+  animation: pop-in var(--pop-in) both var(--title-prompt-delay), breathe var(--swell) ease-in-out infinite alternate calc(var(--title-prompt-delay) + var(--pop-in-ms));
 }
 
 .title-credits {
@@ -360,7 +360,7 @@
   font-size: calc(58 * var(--u));
   line-height: 1;
   translate: -50% 0;
-  animation: pop-in var(--pop-in) both, breathe 900ms ease-in-out infinite alternate var(--pop-in);
+  animation: pop-in var(--pop-in) both, breathe var(--swell) ease-in-out infinite alternate var(--pop-in-ms);
 }
 
 .start-prompt:empty {
@@ -455,7 +455,7 @@
 
 /* In the last ten seconds the number punches on every tick. */
 .round-timer.is-late span {
-  animation: punch 320ms var(--ease-pop);
+  animation: punch var(--tick) var(--ease-pop);
 }
 
 .round-timer span {
@@ -469,18 +469,24 @@
 
 /* ── First-play hints ───────────────────────────────────────────────────── */
 
+/* Hints and power cards sit in the top-left corner, over the sky. In the middle they hid the far edge of the platform. */
 .tip {
   position: absolute;
-  top: calc(170 * var(--u));
-  left: 50%;
+  top: calc(30 * var(--u));
+  left: calc(30 * var(--u));
   display: flex;
   align-items: center;
   gap: calc(18 * var(--u));
+  max-width: calc(680 * var(--u));
   padding: calc(14 * var(--u)) calc(28 * var(--u)) calc(14 * var(--u)) calc(16 * var(--u));
-  translate: -50% 0;
   rotate: -1deg;
-  font: 400 calc(40 * var(--u)) / 1.1 var(--font-display);
-  white-space: nowrap;
+  transform-origin: top left;
+  font: 400 calc(34 * var(--u)) / 1.15 var(--font-display);
+  text-wrap: balance;
+}
+
+.tip .key-glyph {
+  flex: none;
 }
 
 /* Drawn like the buttons on the phone, so the hint and the controller match. */
@@ -507,14 +513,14 @@
 
 .power-note {
   position: absolute;
-  top: calc(170 * var(--u));
-  left: 50%;
+  top: calc(30 * var(--u));
+  left: calc(30 * var(--u));
   display: flex;
   align-items: center;
   gap: calc(20 * var(--u));
   padding: calc(12 * var(--u)) calc(34 * var(--u)) calc(14 * var(--u)) calc(14 * var(--u));
-  translate: -50% 0;
-  rotate: 1deg;
+  rotate: -1deg;
+  transform-origin: top left;
   white-space: nowrap;
 }
 
@@ -710,7 +716,18 @@
   flex: none;
   font-size: calc(54 * var(--u));
   line-height: 1;
-  animation: punch 260ms var(--ease-pop, ease-out);
+  animation: punch var(--count) var(--ease-pop, ease-out);
+}
+
+/* The leader's card wears the crown on its corner, where it cannot squeeze the name. */
+.seat-crown {
+  position: absolute;
+  top: calc(-34 * var(--u));
+  right: calc(6 * var(--u));
+  font-size: calc(40 * var(--u));
+  line-height: 1;
+  rotate: 12deg;
+  animation: pop-in var(--pop-in) both;
 }
 
 .seat-ready {
@@ -766,7 +783,7 @@
   background: var(--white);
   font: 400 calc(32 * var(--u)) / 1.1 var(--font-display);
   animation: pop-in var(--pop-in) both;
-  animation-delay: calc(600ms + var(--order) * 120ms);
+  animation-delay: calc(var(--results-delay) + var(--order) * var(--results-stagger));
 }
 
 .result-place {
