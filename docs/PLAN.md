@@ -351,6 +351,12 @@ Played by hand through the Simulator against a game screen on the same computer:
 
 Not seen there: the lever (the Simulator's pet never rolled a SUPER) and the carried screen. The Simulator shares the computer's network, so it says nothing about Wi-Fi latency, and it cannot vibrate.
 
+### After the first playtest (2026-10-09)
+
+Two matches were played on an iPhone and an Android phone, one of them with four people. The measures and the definition of done as that session left it are printed by `pnpm report`. The three problems it found (mashing A, grabs that did not pay, powers nobody understood) and what changed are in `CHANGELOG.md` under 0.2.0, and the reasoning is in `docs/GAMEPLAY.md`. From here on those two files and `docs/DESIGN.md` describe the game; this plan stays as the record of how it began.
+
+Rules in this plan that no longer hold: a power no longer starts by itself (good ones wait on the power button), grabbing a pet is a 0.2 s lunge rather than a 0.25 s reach, the carrier moves at 85% speed, and the phone has a third button.
+
 ### Polish pass after S6
 
 - **Main menu.** Bots brawl on the platform behind the title while the camera circles them; the logo's letters drop in, wave, and fly apart when a key is pressed. Two bots stay in the lobby until the first player joins.

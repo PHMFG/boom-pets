@@ -22,8 +22,9 @@ Phone
 | Control | In a match | As a ghost |
 | --- | --- | --- |
 | Stick (left thumb, anywhere) | Move | Move the meteor target |
-| A | Hold to charge, release to dash. Hold too long and you explode | Drop a meteor |
-| B | Grab a barrel or a pet, press again to throw | |
+| A | Hold to charge, release to dash. Hold too long and you explode. A tap is only a shove, and A rests a moment after every dash | Drop a meteor |
+| B | Lunge at a barrel or a pet in reach and pick it up; press again to throw. The button shows a hand when something is in reach | |
+| Power button | Appears when you get a power from a Mystery Cube, with a card saying what it does. Tap to use it. Curses do not wait | |
 
 In the lobby the arrows change your pet and the button says you are ready. When everyone is ready the match starts by itself.
 
@@ -47,7 +48,7 @@ Computer
 - `pnpm balance 20` plays twenty bot matches without a screen and prints pacing numbers.
 - http://localhost:5173/?studio shows every pet and animation clip. `?solo&autostart` runs a bot match without touching connected phones.
 
-`AGENTS.md` maps the code and lists the conventions. `docs/PLAN.md` is the design, with a last section on what was built differently.
+`AGENTS.md` maps the code and lists the conventions. `docs/DESIGN.md` is how the game looks, moves and sounds, and `docs/GAMEPLAY.md` is how it plays and why; a change is held to the checklist at the end of each. `CHANGELOG.md` says what changed in each version. `docs/PLAN.md` is the original plan.
 
 ## Credits
 

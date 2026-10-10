@@ -1,6 +1,6 @@
 # Changelog
 
-What changed in Boom Pets, newest first, and why. A version is a build that was played. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); what counts as a bigger or smaller version is in `AGENTS.md`.
+What changed in Boom Pets, newest first, and why. A version is a build handed over to be played, so feedback can name the build it is about. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); what counts as a bigger or smaller version is in `AGENTS.md`.
 
 ## [Unreleased]
 
