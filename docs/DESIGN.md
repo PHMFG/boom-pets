@@ -34,8 +34,10 @@ If a value you need is not there, add it there with a comment saying what it is 
 | --- | --- |
 | `ink` | Every outline, every hard shadow, body text |
 | `cream` | The paper every sticker is cut from |
-| `floor`, `floorDark` | The platform's tiles, and nothing else. A clean, cool white on purpose: see "Finding your pet" |
+| `floor`, `floorDark` | The brawl's platform, and nothing else. A clean, cool white on purpose: see "Finding your pet" |
 | `cloud` | The clouds below the platform, tinted toward the sky so the white platform's edge reads against them |
+| `maps.<game>` | What one game's map is made of: its floor, rim and props. Each game has its own block, used nowhere else |
+| `go` | "Run", "safe": the opposite of danger, on the phone |
 | `white` | Highlights, and the inside of a button that is not lit |
 | `gold` | "Press this", rewards, SUPER, the leader's crown |
 | `danger` | Anything about to hurt: overcharge, a throw, warnings on the floor |
@@ -58,7 +60,7 @@ A pet on the platform wears its player's colour three times, each with an ink ed
 
 And the stage is built so those read:
 
-- **The floor is the plainest surface on screen**: a clean, cool white (`floor`, `floorDark`), with no colour of its own to compete with a pet's or a seat's. Every pet and all six seat colours stand out on it, and a white pet is held by its ink line and its ring. The old floor was cream, which is the colour family most pets are made of. A darker green-blue floor was tried and turned down: white reads better. The clouds below are tinted toward the sky (`cloud`), so the platform's edge is the brightest line in the picture.
+- **Whatever pets walk on is pale, in every game.** The brawl's platform is a clean, cool white (`floor`, `floorDark`), with no colour of its own to compete with a pet's or a seat's. Every pet and all six seat colours stand out on it, and a white pet is held by its ink line and its ring. The old floor was cream, which is the colour family most pets are made of. A darker green-blue floor was tried and turned down: white reads better. The clouds below are tinted toward the sky (`cloud`), so the platform's edge is the brightest line in the picture. A game's map gets its character from what surrounds the floor (rim, props, sky, light), not from the floor: a themed floor would undo this. Where the floor itself takes colour as part of the game, the colour is lightened until a ring of that same colour still shows on it.
 - **Pets are drawn a little bigger than the body the simulation pushes around** (`MODEL_SCALE` in `pets/PetView.ts`), so they read from across a room.
 - **The camera stays as close as the fight allows** (see Camera below).
 
@@ -109,8 +111,9 @@ It is read from a sofa, by people who are mostly looking at their own pet.
 | Top centre | Round pips and the timer, and nothing else: anything more there hides the far edge of the platform |
 | Top left | One explanation at a time, over the sky: a first-play hint, or the card explaining a power |
 | Top right | The feed: who knocked out whom, and how |
-| Middle | The banner for who took the round |
-| Bottom | One card per player: shape, portrait, name, score, luck pips, the power running (with its time left) and the power waiting |
+| Middle | The banner for who took the round. Between games, the roulette and then the next game's card: the one time something large may cover the middle, because nothing is being played |
+| Top centre, at the end | "E o campeão é…" and then the winner's name in the winner's colour, over the podium. The camera frames the podium in what the banner leaves free |
+| Bottom | One card per player: shape, portrait, name, score, and under the name what the game being played counts: luck pips in the brawl, tiles or food in a game that has a number of its own ("?" while it is kept secret) |
 | Over each pet | Its name tag in the player's colour, pointing down at the pet, with a badge for a power it is holding and a hand when a player could grab it |
 
 - One explanation at a time in the top-left slot. A power card outranks a hint.
@@ -124,6 +127,9 @@ It is read from a sofa, by people who are mostly looking at their own pet.
 It is held without being looked at, so it must work by feel and explain itself in a glance.
 
 - The pad is always landscape. A phone held upright turns the pad itself.
+- **The pad is the game being played.** The game screen tells each phone what A is (its picture and a word under it), whether B exists, and nothing else: a button a game does not use is not drawn, and its half of the screen does nothing. With only A, the whole right half is A. Only the brawl's dash charges; any other A is just a press, with no gauge and no warning.
+- Between games the next game's card (picture, name, its one line) sits over the middle of the pad. It is not another screen: the thumbs stay where they are. As a simple game starts, its line stays on the pad for a few seconds, because there may be no button to read.
+- A game may put one word across the pad for a moment that matters ("stop", the colour to run to). It is the only text a player should ever have to read mid-round.
 - The left half is the joystick, which appears under the thumb wherever it lands. The right half is A and B, and a touch presses whichever is nearer.
 - **A thumb that is down stays down.** When the pet is grabbed, let go or knocked out, the joystick stays where it is. It goes dim while nothing listens to it.
 - **A control is on screen only while it does something, and says what it will do.** B turns gold with a hand when something is in reach and shows a throw while carrying. The power button exists only while a power waits, with a card naming the power and what it does. A shows a ring while it rests after a dash.
@@ -142,6 +148,13 @@ It is held without being looked at, so it must work by feel and explain itself i
 - **The floor speaks first** (`fx/Decals.ts`). A danger is always drawn on the floor before it lands: barrels, falling tiles, meteors, the cube. Shock rings on the floor show how far a blast reached.
 - **Words in 3D** (`render/Text3D.ts`) are for the few big moments: one or two capitals and an exclamation mark. New words go in `strings.words3d`, then `pnpm font`.
 - **Feelings are emoji in a bubble** over the pet. What a pet feels is shown this way, not in the HUD.
+- **Maps.** Each game has its own world (`stages/maps/`): its floor, what surrounds it, its sky and light, and its props. Every prop is built from plain shapes, toon shaded with an ink outline (`maps/toys.ts`), like the barrel and the gacha machine: nothing in a map is a downloaded model. What is on screen now:
+
+  | Game | Floor | Around it | Sky |
+  | --- | --- | --- | --- |
+  | Bate-Bate | White checker | Lavender clouds far below | Day; night when it is the last round |
+  | Pinta o Chão | White paper; a painted tile is its player's colour, lightened | A desk, masking tape round the paper, giant pencils, a pot of paint for each player colour | Morning |
+
 - **Camera.** Tilted 52° down through a narrow lens. In a round it frames the living pets and nothing more (a ghost's cursor and a falling cube pull it a little), so it is as close as the fight allows and moves in and out with it: the platform's empty corners are not worth the pixels. The fit is exact: the farthest pet's name tag stays below the round counter and the nearest pet's ring above the players' cards (the HUD reports what it covers as insets). It looks a moment ahead along each pet's path, pulls back at once when someone is about to leave the picture and closes in gently, and never comes so close that a fight in the middle has no edge in view. It shakes with impacts in proportion to them and punches in on big moments. The numbers are at the top of `render/CameraRig.ts`.
 
 ### How big should an effect be?
@@ -154,6 +167,9 @@ It is held without being looked at, so it must work by feel and explain itself i
 | A thrown pet landing on someone | Both squash | Ring, stars | Medium shake |
 | An explosion | Thrown, tumbling | Bright sphere, smoke, sparks, debris, scorch | Shake, colour fringe, extra glow |
 | A SUPER arriving | Its owner changes on the spot; everyone else looks scared | A wide warning on the floor, then a strike and its blast | Close on the owner for the gacha, then shake |
+| A bucket of paint kicked over | Nothing | A ring and a burst of cubes in the kicker's colour, as wide as the patch painted | Small shake |
+| A place revealed in the finale | Pops onto its step, which takes its colour | Dust and a ring in its colour | Small shake |
+| The winner | Drops in, bigger than the rest, crowned, dancing | Spotlight, confetti from both sides, fireworks, the word VITÓRIA! | Colour returns, closes in and circles |
 | A knockout | Shatters into cubes in its colours | Confetti, points fly to the scorer | Slow motion for the deciding ones |
 
 A new effect goes on this ladder next to something of the same weight, and is no louder than it.
@@ -182,11 +198,12 @@ A new effect goes on this ladder next to something of the same weight, and is no
   | Main menu | `title` |
   | Lobby, and the results | `lobby`, which picks up where it left off |
   | A match | `battle-a` and `battle-b`, taking turns one match each, from the top |
-  | The last round, which counts double | `rio-rumble`, from that round's countdown |
+  | The last round, which counts double | `rio-rumble`, from that round's roulette |
+  | The winner, and the table after | `title`, from the top: the game's own theme is the victory lap |
 
 - One track fades into the next; nothing cuts. Music sits under the effects, ducks for big moments (a gacha, an explosion) and goes muffled in slow motion.
 - If a track's file is missing, a synthesised tune stands in, so the game is never silent.
-- **The announcer is a stadium voice, and the loudest thing in the game.** His lines are recorded (`strings.announcer`, `pnpm voice`) and played deeper than recorded, doubled, pushed into grit, squashed flat and thrown into a big hall with an echo after it; the big lines land with a low boom, and the music gets out of the way. He speaks only at the moments the whole room should look up: the countdown, the final round, the end of a round and of the match, a SUPER and its curse, the revenge swap, a chain of explosions. A new line has to be one of those moments, or he becomes noise.
+- **The announcer is a stadium voice, and the loudest thing in the game.** His lines are recorded (`strings.announcer`, `pnpm voice`) and played deeper than recorded, doubled, pushed into grit, squashed flat and thrown into a big hall with an echo after it; the big lines land with a low boom, and the music gets out of the way. He speaks only at the moments the whole room should look up: the next game and its name, the countdown, the final round, the end of a round and of the match, the winner, a SUPER and its curse, the revenge swap, a chain of explosions. A new line has to be one of those moments, or he becomes noise.
 - Sound follows size: a bigger charge whooshes longer and louder, a bigger blast booms longer, and each link of a chain reaction thumps higher.
 - Every event that matters is heard as well as seen. S mutes.
 
@@ -197,8 +214,9 @@ A new effect goes on this ladder next to something of the same weight, and is no
 3. It pops in and squishes out. Nothing appears, moves or leaves without animation, and no particle fades.
 4. A player is shown as colour and shape together.
 5. The effect is as big as what happened, and no bigger than its neighbours on the ladder above.
-6. Anything that can hurt is drawn on the floor before it lands.
+6. Anything that can hurt is announced before it lands: on the floor where it will be, or on the thing itself where everyone can watch it.
 7. No full-screen flash, and nothing pulses faster than `alarm`.
-8. On the phone: it works without looking, a held thumb is not dropped, the control says what it will do, and nothing overlaps on any phone shape in the browser tests.
+8. On the phone: it works without looking, a held thumb is not dropped (not by a new game, not by its card), a button is drawn only in a game that uses it and says what it does there, and nothing overlaps on any phone shape in the browser tests.
 9. It was opened and looked at, on the TV and on a phone-sized screen. Passing tests do not show that it looks right.
 10. Every pet can still be found at a glance: checked with a pale pet, a charcoal pet and all six seat colours, in a six-player round with everyone spread out, and nothing in the HUD covers a pet's name tag. Nothing recolours a pet's ring or name tag.
+11. A new map: its floor is pale, its palette is its own block in `tokens.ts`, its props are plain shapes in the toy look, and it has a row in the table of maps.

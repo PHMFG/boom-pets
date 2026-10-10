@@ -45,6 +45,10 @@ export const LIMITS = {
   /** Knockouts a SUPER should make each time it runs: under the low end it is not worth getting, over the high end it decides the round alone. */
   superKnockouts: { low: 0.4, high: 2 },
   roundSeconds: { low: 12, high: 60 },
+  /** A round of any other game: under the low end it is over before it is understood, over the high end it drags. */
+  gameSeconds: { low: 10, high: 62 },
+  /** Share of a game's rounds one person may win before that game has a trick. */
+  gameWinShare: 0.75,
   /** Share of rounds that may run out the clock. */
   clockShare: 0.3,
   idleShare: 0.2,
@@ -82,7 +86,9 @@ function measure(logs: ReadLog[]) {
   const counted = logs.filter(log => log.detail !== 'basic').flatMap(log => log.players.filter(player => !player.bot));
   const causes: Record<string, number> = {};
   for (const log of logs) for (const [cause, times] of Object.entries(log.eliminationsByCause)) causes[cause] = (causes[cause] ?? 0) + times;
-  const rounds = logs.flatMap(log => log.roundStats);
+  // The brawl's own numbers (round length, first knockout, the clock) are read from brawl rounds only.
+  const everyRound = logs.flatMap(log => log.roundStats.map(round => ({ ...round, people: log.players.filter(player => !player.bot).map(player => player.seat) })));
+  const rounds = everyRound.filter(round => round.mode === 'brawl');
   const dashes = sum(counted, player => player.a.taps + player.a.charged);
   return {
     people,
@@ -90,6 +96,7 @@ function measure(logs: ReadLog[]) {
     counted,
     causes,
     knockouts: total(Object.values(causes)),
+    everyRound,
     rounds,
     roundSeconds: mean(rounds.map(round => round.seconds)),
     firstKnockout: mean(rounds.flatMap(round => (round.firstKnockoutAt === null ? [] : [round.firstKnockoutAt]))),
@@ -253,6 +260,34 @@ export function analyse(raws: unknown[], options: { build?: string; folder?: str
       if (m.roundSeconds !== null && m.roundSeconds < LIMITS.roundSeconds.low) warnings.push(`Rounds last ${seconds(m.roundSeconds)} on average (under ${LIMITS.roundSeconds.low} s): they are over before anything develops.`);
       if (m.roundSeconds !== null && m.roundSeconds > LIMITS.roundSeconds.high) warnings.push(`Rounds last ${seconds(m.roundSeconds)} on average (over ${LIMITS.roundSeconds.high} s): they drag.`);
       if (byClock / m.rounds.length > LIMITS.clockShare) warnings.push(`${share(byClock, m.rounds.length)} of rounds ran out the clock: pets are not being knocked out fast enough.`);
+    }
+
+    // The games, one row each: how often it came up, how long it lasts, how it ends and who wins it.
+    const modes = [...new Set(m.everyRound.map(round => round.mode))];
+    if (modes.length > 1 || modes[0] !== 'brawl') {
+      out.push('', '### The games', '');
+      out.push(
+        table(
+          ['Game', 'Rounds', 'Average length', 'Ended by the clock', 'Different winners'],
+          modes.map(mode => {
+            const played = m.everyRound.filter(round => round.mode === mode);
+            const winners = new Set(played.flatMap(round => round.winners));
+            return [mode, played.length, seconds(mean(played.map(round => round.seconds)) ?? 0), share(played.filter(round => round.endedBy === 'time').length, played.length), winners.size];
+          }),
+        ),
+      );
+      for (const mode of modes) {
+        if (mode === 'brawl') continue;
+        const played = m.everyRound.filter(round => round.mode === mode);
+        const length = mean(played.map(round => round.seconds)) ?? 0;
+        if (played.length >= 3 && length < LIMITS.gameSeconds.low) warnings.push(`A round of "${mode}" lasts ${seconds(length)} on average (under ${LIMITS.gameSeconds.low} s): it is over before it is understood.`);
+        if (played.length >= 3 && length > LIMITS.gameSeconds.high) warnings.push(`A round of "${mode}" lasts ${seconds(length)} on average (over ${LIMITS.gameSeconds.high} s): it drags.`);
+        // One person winning a game nearly every time it comes up, among people.
+        const wins = new Map<number, number>();
+        for (const round of played) for (const seat of round.winners) if (round.people.includes(seat)) wins.set(seat, (wins.get(seat) ?? 0) + 1);
+        const most = Math.max(0, ...wins.values());
+        if (played.length >= 5 && most / played.length > LIMITS.gameWinShare) warnings.push(`One player won ${most} of the ${played.length} rounds of "${mode}": the game may have a trick only they know.`);
+      }
     }
 
     // Powers and luck.

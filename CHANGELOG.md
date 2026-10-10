@@ -6,12 +6,19 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ### Added
 
+- **Every round is a different game.** A roulette draws the game for each round from a bag, so every game comes up once before any comes round again. The brawl (Bate-Bate) is one of them. There is no brawl-only match any more.
+- **Pinta o Chão**, the first of the simple games: the tile under your pet turns your colour, others paint over it, buckets of paint drop and splash a whole patch for whoever kicks them over, and after 40 seconds the most tiles wins. The count is hidden for the last 8. Joystick only; nobody is knocked out. It is played on a sheet of paper taped to a desk, among giant pencils.
+- **The phone is the game being played.** It shows only the buttons that game uses, with a word under A for what it does there. Between games the next game's card sits over the pad, and as a simple game starts its one line stays on the pad for a few seconds. The winner's phone turns gold.
+- Each player's card on the TV shows the game's own number where it has one (tiles painted), and "?" while it is kept secret.
+- The match log says which game each round was and each player's number in it. `pnpm report` has a row for each game (how long it lasts, how it ends, how many different winners) and warns when one drags, is over too soon, or is always won by the same person. `pnpm balance` prints the same for bots, and `--mode=` plays one game only. `?modes=paint,brawl` in the address bar plays those games in that order.
+
 - **A screen between games.** Before every round a roulette of game pictures spins, stops, and the game that came up is shown on a card: its picture, its name, the one line that says what to do, and what each control does. The announcer names it. On the last round the card wears a "VALE DOBRADO!" tag.
 - **A winner's moment.** After the last round the colour drains, the drums roll under "E o campeão é…", third place and then second step onto a podium whose steps stay plain until then, and then the winner drops in under a spotlight with a crown, bigger than the rest, to confetti from both sides, fireworks, the game's theme and "Temos um campeão!". The winner's name fills a banner in their colour and their phone buzzes. Everyone who missed the podium watches from the sides. Only then does the table appear.
 - **A loading screen.** While the pets load at start-up there is a bar that fills, the six player shapes hopping in turn and a tip that changes, instead of the word "Carregando…".
 
 ### Changed
 
+- Phones that still have an older copy of the pad reload themselves once: the pad and the game screen now talk about which game is being played.
 - A press made while waiting for GO is forgotten. Before, every button pressed during the countdown fired the moment the round began.
 
 - **One points table for every game.** Where a player finishes pays 6, 4, 3, 2 and 1 (it was 5, 3, 1), and in the brawl a knockout, a ghost's swap back in and knocking out the leader add 1 each (they were 3, 2 and 2, with 1 more for a throw). Rounds are about to become different games, and no game should weigh more than another.

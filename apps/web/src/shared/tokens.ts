@@ -15,11 +15,21 @@ export const colors = {
   smoke: '#B9B2C6',
   steel: '#8B8794',
   danger: '#FF5A1F',
+  /** "Go", "safe": the opposite of danger. On the phone when a game says run. */
+  go: '#7BE06A',
   gold: '#FFC400',
   tierCommon: '#DCE6F5',
   tierRare: '#29C4FF',
   tierCursed: '#8B2BFF',
   tierCursedAccent: '#B6FF3B',
+} as const;
+
+/**
+ * What each game's map is made of. Whatever pets walk on is pale, so they stay easy to find; the theme is
+ * in what surrounds the floor. The brawl uses `floor`, `floorDark` and `cloud` above.
+ */
+export const maps = {
+  paint: { paper: '#FFFFFF', paperDark: '#F1F3F7', tape: '#F2DFA0', desk: '#C99A66', pencil: '#F4B63F', wood: '#E9C99A', lead: '#3A3550', eraser: '#F28FB0', bucket: '#9AA3B8' },
 } as const;
 
 export type SeatShape = 'circle' | 'triangle' | 'square' | 'star' | 'diamond' | 'cross';

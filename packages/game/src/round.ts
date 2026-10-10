@@ -197,6 +197,11 @@ export class Round implements RoundCore {
     return 0;
   }
 
+  /** The brawl has no number of its own: its card shows the score. */
+  metric(): null {
+    return null;
+  }
+
   isFloor(x: number, z: number): boolean {
     const column = Math.floor(x + HALF);
     const row = Math.floor(z + HALF);
@@ -972,7 +977,7 @@ export class Round implements RoundCore {
       this.hooks.emit({ t: 'revengeSwap', ghost: avenger.seat, victim: seat });
     }
     const cooldown = avenger ? meteorTune.cooldownAfterSwap : 1.5;
-    this.ghosts.push({ seat, x: clamp(x, -CURSOR_LIMIT, CURSOR_LIMIT), z: clamp(z, -CURSOR_LIMIT, CURSOR_LIMIT), cooldown, cooldownTotal: cooldown });
+    this.ghosts.push({ seat, x: clamp(x, -CURSOR_LIMIT, CURSOR_LIMIT), z: clamp(z, -CURSOR_LIMIT, CURSOR_LIMIT), cooldown, cooldownTotal: cooldown, cursor: true });
     this.hooks.emit({ t: 'ghost', seat, x, z });
   }
 

@@ -53,6 +53,7 @@ export function GameScreen() {
   const timeLeft = useStore(hud, state => state.timeLeft);
   const roundCap = useStore(hud, state => state.roundCap);
   const intro = useStore(hud, state => state.intro);
+  const gameMode = useStore(hud, state => state.gameMode);
   const finale = useStore(hud, state => state.finale);
   const loadProgress = useStore(hud, state => state.loadProgress);
   // What these screens last showed, so they still show it while they squish out.
@@ -420,7 +421,7 @@ export function GameScreen() {
         {() => (
           <div ref={strip} className="seat-strip">
             {(inLobby ? seatTokens.map((_, index) => index) : players.map(player => player.seat)).map(seat => (
-              <SeatCard key={`${seat}-${cards.has(seat) ? 'taken' : 'free'}`} seat={seat} player={cards.get(seat)} lobby={inLobby || phase === 'matchEnd'} />
+              <SeatCard key={`${seat}-${cards.has(seat) ? 'taken' : 'free'}`} seat={seat} player={cards.get(seat)} lobby={inLobby || phase === 'matchEnd'} brawl={gameMode === 'brawl'} />
             ))}
           </div>
         )}
@@ -461,7 +462,7 @@ function Who({ who }: { who: FeedWho }) {
 }
 
 /** One player in the strip along the bottom: who they are, their score, luck and current power. */
-function SeatCard({ seat, player, lobby }: { seat: number; player: PlayerCard | undefined; lobby: boolean }) {
+function SeatCard({ seat, player, lobby, brawl }: { seat: number; player: PlayerCard | undefined; lobby: boolean; brawl: boolean }) {
   const token = seatTokens[seat % seatTokens.length]!;
   const classes = ['seat-card', 'sticker'];
   if (!player) classes.push('is-free');
@@ -487,7 +488,13 @@ function SeatCard({ seat, player, lobby }: { seat: number; player: PlayerCard | 
       )}
       <span className="seat-text">
         <span className="seat-name">{player ? player.name : strings.lobby.freeSeat}</span>
-        {player && !lobby && (
+        {player && !lobby && player.metric && (
+          <span key={player.metric.text} className="seat-metric">
+            {player.metric.icon} {player.metric.text}
+          </span>
+        )}
+        {/* Luck pips count Mystery Cube rolls, which only the brawl has. */}
+        {player && !lobby && brawl && !player.metric && (
           <span className="seat-pity" aria-hidden="true">
             {Array.from({ length: tuning.cube.pity }, (_, index) => (
               <i key={index} className={index < player.pity ? 'is-on' : ''} />

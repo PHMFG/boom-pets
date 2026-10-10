@@ -20,6 +20,6 @@ const pets = join(raw, 'cube-pets/Models/GLB format');
 const models = copyFiles(pets, join(pub, 'models/pets'), name => name.endsWith('.glb'));
 // The GLBs reference this texture by relative path, so it must sit beside them.
 const textures = copyFiles(join(pets, 'Textures'), join(pub, 'models/pets/Textures'), name => name.endsWith('.png'));
-const skies = copyFiles(join(raw, 'skyboxes/Skyboxes'), join(pub, 'skyboxes'), name => /^skybox-(day|morning|night)\.png$/.test(name));
+const skies = copyFiles(join(raw, 'skyboxes/Skyboxes'), join(pub, 'skyboxes'), name => /^skybox-(day|morning|night|alien|space)\.png$/.test(name));
 
 console.log(`Copied ${models} pet models, ${textures} texture, ${skies} skyboxes into apps/web/public`);

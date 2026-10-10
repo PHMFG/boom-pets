@@ -56,6 +56,13 @@ function makeRound(seats: number, mode: 'lobby' | 'match' = 'match') {
 
 beforeAll(() => initPhysics());
 
+/** The round being played, as the brawl it must be. */
+function brawlOf(game: Game): Round {
+  if (game.round.gameMode !== 'brawl') throw new Error(`Expected a brawl, got ${game.round.gameMode}.`);
+  return game.round;
+}
+const BRAWL = { modes: ['brawl'] } as const;
+
 describe('odds', () => {
   it('rolls each tier at its configured chance, within 2 points', () => {
     for (const rank of ['middle', 'last', 'leader'] as const) {
@@ -627,7 +634,7 @@ describe('gacha', () => {
   function startGacha(seed: number) {
     const game = new Game(seed);
     const seen: GameEvent[] = [];
-    game.startMatch({ rounds: 1, bots: true, petPool: PETS, botName: index => `Bot ${index + 1}` });
+    game.startMatch({ rounds: 1, bots: true, petPool: PETS, botName: index => `Bot ${index + 1}`, ...BRAWL });
     const tick = (count: number) => {
       for (let index = 0; index < count; index++) {
         game.tick(() => idle);
@@ -636,7 +643,7 @@ describe('gacha', () => {
     };
     while (game.phase !== 'play') tick(1);
     const pet = game.round.pets[0]!;
-    game.round.superPending = { seat: pet.seat, pet: pet.id, power: 'kaiju' };
+    brawlOf(game).superPending = { seat: pet.seat, pet: pet.id, power: 'kaiju' };
     tick(1);
     return { game, pet, seen, tick };
   }
@@ -660,7 +667,7 @@ describe('gacha', () => {
     expect(reveal).toBeDefined();
     tick(60);
     expect(game.gacha).toBeNull();
-    expect(game.round.chargeFrozen).toBe(false);
+    expect(brawlOf(game).chargeFrozen).toBe(false);
     const power = reveal?.t === 'gachaReveal' && reveal.cursed ? 'pinata' : 'kaiju';
     if (game.round.petById(pet.id)) expect(pet.power).toBe(power);
     expect(seen.filter(event => event.t === 'gachaStart' || event.t === 'gachaLever' || event.t === 'gachaReveal' || event.t === 'gachaEnd').map(event => event.t)).toEqual(['gachaStart', 'gachaLever', 'gachaReveal', 'gachaEnd']);
@@ -681,7 +688,7 @@ function playBotMatch(seed: number) {
   const trail: number[] = [];
   const seen = new Set<string>();
   const finale: Extract<GameEvent, { t: 'finale' }>[] = [];
-  game.startMatch({ rounds: 2, bots: true, petPool: PETS, botName: index => `Bot ${index + 1}` });
+  game.startMatch({ rounds: 2, bots: true, petPool: PETS, botName: index => `Bot ${index + 1}`, ...BRAWL });
   let ticks = 0;
   const limit = (2 * (match.introRoulette + match.introCardFirst + match.countdown + match.roundCap + match.roundEnd) + match.finale + 5) * 60;
   while (game.phase !== 'matchEnd' && ticks < limit) {
@@ -703,7 +710,7 @@ function makeDuelMatch(rounds: number) {
   const inputs = new Map<number, SampledInput>();
   const seen: GameEvent[] = [];
   game.setLobbySeats([seat(0), seat(1)]);
-  game.startMatch({ rounds, bots: false, petPool: PETS, botName: index => `Bot ${index + 1}` });
+  game.startMatch({ rounds, bots: false, petPool: PETS, botName: index => `Bot ${index + 1}`, ...BRAWL });
   // Starting a match already says something (the first intro), before any tick.
   seen.push(...game.events);
   const tick = (count: number) => {
@@ -788,10 +795,10 @@ describe('match', () => {
     expect(game.phase).toBe('intro');
     // The roulette spins over the lobby: the game is not drawn yet and the lobby round is still on stage.
     expect(game.revealed).toBe(false);
-    expect(game.round.mode).toBe('lobby');
+    expect(brawlOf(game).mode).toBe('lobby');
     tick(Math.round(match.introRoulette / STEP) + 1);
     expect(game.revealed).toBe(true);
-    expect(game.round.mode).toBe('match');
+    expect(brawlOf(game).mode).toBe('match');
     // How long each card stayed up: ticks from a reveal to the countdown after it.
     const cards: number[] = [];
     let revealedAt = 0;

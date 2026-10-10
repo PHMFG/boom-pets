@@ -82,6 +82,7 @@ export const strings = {
   controls: {
     move: 'Anda',
     dash: 'Investida',
+    meteor: 'Meteoro',
     grab: 'Agarra e joga',
     power: 'Usa o poder',
     shove: 'Empurra',
@@ -216,6 +217,7 @@ export const strings = {
     waitNext: 'Você entra na próxima partida',
     iosHint: 'Dica: em Compartilhar, toque em “Adicionar à Tela de Início” para jogar em tela cheia.',
     place: (place: number) => `${place}º lugar`,
+    won: 'VOCÊ VENCEU!',
     namePlaceholder: 'Seu apelido',
     roomPlaceholder: 'Código',
     join: 'Entrar',

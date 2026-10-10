@@ -20,7 +20,7 @@ export const AWARD_ICON: Record<AwardId, string> = {
 };
 
 /** How a knockout happened, for the event feed. */
-export const CAUSE_ICON: Record<Cause, string> = { dash: '💥', barrel: '🛢️', throw: '🤾', meteor: '☄️', overcharge: '💣', power: '✨', fall: '🕳️' };
+export const CAUSE_ICON: Record<Cause, string> = { dash: '💥', barrel: '🛢️', throw: '🤾', meteor: '☄️', overcharge: '💣', power: '✨', fall: '🕳️', lava: '🌋', bomb: '💣' };
 
 /** The main menu's buttons. */
 export const MENU_ICON = { play: '🎮', how: '❓', pets: '🐾' } as const;

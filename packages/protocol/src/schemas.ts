@@ -21,6 +21,11 @@ const status = z.object({
   cooldownMs: z.number().min(0).max(60_000),
   place: z.number().int().nullable(),
   award: z.object({ icon: label, name: label }).nullable(),
+  a: z.object({ icon: label, label: label, charge: z.boolean() }).nullable(),
+  bOn: z.boolean(),
+  card: z.object({ icon: label, name: label, line: z.string().max(80) }).nullable(),
+  alert: z.object({ text: label, tone: z.enum(['go', 'stop', 'danger', 'info']), color: label.nullable() }).nullable(),
+  won: z.boolean(),
 });
 
 export const phoneHelloSchema: z.ZodType<PhoneHello> = z.object({

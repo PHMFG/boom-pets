@@ -1073,6 +1073,13 @@
 }
 
 /* Luck meter: six pips; the seventh roll after six without a SUPER is guaranteed. */
+/* The round's own number in a game that has one: what the player has painted or eaten so far. */
+.seat-metric {
+  font: 400 calc(26 * var(--u)) / 1 var(--font-display);
+  white-space: nowrap;
+  animation: punch var(--count) var(--ease-pop, ease-out);
+}
+
 .seat-pity {
   display: flex;
   gap: calc(4 * var(--u));

@@ -170,6 +170,23 @@ export const supers = {
   showerSafe: 2.5,
 } as const;
 
+/** Pinta o Chão. */
+export const paint = {
+  cap: 40,
+  columns: 14,
+  rows: 12,
+  /** For the last seconds nobody is shown the count. */
+  hideLast: 8,
+  /** Seconds before the first bucket of paint drops, and between buckets after it. */
+  bucketFirst: 6,
+  bucketEvery: 7,
+  /** Seconds a bucket takes to come down: its spot is marked on the floor meanwhile. */
+  bucketDrop: 1.2,
+  pickupRadius: 0.95,
+  /** A kicked bucket paints every tile this close to it. */
+  splashRadius: 2.3,
+} as const;
+
 export const gacha = {
   /** Game speed while the sequence plays. */
   dilation: 0.1,

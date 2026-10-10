@@ -1,11 +1,11 @@
 // Runs the game on the host: the fixed-rate loop, who sits where, when a match starts and ends,
 // and keeping the stage, the sound, the HUD and every phone in step with the simulation.
 import { Game, initPhysics, InputBuffer, PLAYABLE_MODES, POWERS, tuning, type BotStyle, type GameEvent, type GameMode, type SeatSetup } from '@boom/game';
-import { MAX_SEATS, type PhoneMode, type PhoneStatus, type PowerCard, type SeatInfo } from '@boom/protocol';
+import { MAX_SEATS, type PadButton, type PhoneMode, type PhoneStatus, type PowerCard, type SeatInfo } from '@boom/protocol';
 import { motion } from '../../shared/motion';
 import { PET_IDS, type PetId } from '../../shared/pets';
 import { AWARD_ICON, CAUSE_ICON, EMOTES, POWER_ICON, TIER_COLOR } from '../../shared/powers';
-import { GAME_LINE } from '../../shared/games';
+import { GAME_A, GAME_ICON, GAME_LINE } from '../../shared/games';
 import { strings } from '../../shared/strings.pt-BR';
 import { AudioEngine } from '../audio/AudioEngine';
 import type { Nameplates } from '../hud/Nameplates';
@@ -25,6 +25,8 @@ const MENU_LOOKS = ['👀', '👋', '😎', '🤔'];
 const POWER_NOTE_MS = 4500;
 /** Seconds between "everyone is ready" and the match starting, so a slip of the thumb can be undone. */
 const AUTO_START = 3;
+/** Seconds into a round of a simple game that the phone still shows the game's one line. */
+const REMIND_SECONDS = 4;
 const HUD_EVERY_MS = 180;
 /** How long a line stays in the event feed. Matches the feed's enter-and-leave animation. */
 const FEED_MS = motion.feed.ms;
@@ -70,6 +72,8 @@ export class Session {
   private banner: { seat: number; text: string } | null = null;
   private powerNote: (PowerNote & { until: number }) | null = null;
   private matchesStarted = 0;
+  /** The seats that won the match, once the finale has named them. */
+  private champions = new Set<number>();
   /** The games to play, in order, when the address bar names them (`?modes=lava,race`). For tests and for trying one game. */
   private readonly forcedModes: GameMode[] | undefined;
 
@@ -169,7 +173,8 @@ export class Session {
     this.autoStartAt = null;
     for (const choice of this.choices.values()) choice.ready = false;
     this.seed = (this.seed * 48271) % 0x7fffffff || 1;
-    game.startMatch({ rounds: options.rounds, bots: options.bots, petPool: PET_IDS, botName: index => `Robô ${index + 1}`, modes: this.forcedModes });
+    // A list of games in the address bar is played once through, whatever the rounds option says.
+    game.startMatch({ rounds: this.forcedModes?.length ?? options.rounds, bots: options.bots, petPool: PET_IDS, botName: index => `Robô ${index + 1}`, modes: this.forcedModes });
     this.log.begin(game, this.seed);
     // Starting a match already says something (the first intro) before any tick, and it must be heard.
     for (const event of game.events) this.onEvent(event);
@@ -430,6 +435,8 @@ export class Session {
       case 'finale':
         if (event.place !== 1) break;
         hud.set({ finale: { winners: event.seats.map(seat => this.who(seat)) } });
+        this.champions = new Set(event.seats);
+        this.syncPhones();
         for (const seat of event.seats) this.socket?.send(seat, { t: 'haptic', pattern: 'win' });
         // The game's own theme is the victory lap.
         this.audio.setSong('title', true);
@@ -451,6 +458,7 @@ export class Session {
         } else if (event.phase === 'countdown') hud.set({ intro: null });
         else if (event.phase === 'finale') {
           hud.set({ finale: { winners: [] } });
+          this.champions = new Set();
           this.audio.setSong(null);
         }
         if (event.phase === 'play' && event.round === 1 && game.gameMode === 'brawl' && !localStorage.getItem(TUTORIAL_KEY)) {
@@ -497,8 +505,10 @@ export class Session {
   private syncHud(now: number): void {
     const game = this.game!;
     const connected = new Map(this.roster.map(seat => [seat.seat, seat.connected]));
+    const inRound = game.phase === 'countdown' || game.phase === 'play' || game.phase === 'roundEnd';
     const players: PlayerCard[] = game.seats.filter(seat => game.phase !== 'lobby' || seat.bot === null).map(seat => {
       const pet = game.round.petOfSeat(seat.seat);
+      const metric = game.round.metric(seat.seat);
       return {
         seat: seat.seat,
         name: seat.name,
@@ -512,6 +522,7 @@ export class Session {
         held: pet?.held ? { icon: POWER_ICON[pet.held], color: TIER_COLOR[POWERS[pet.held].tier] } : null,
         bounty: game.bounty === seat.seat,
         ghost: game.round.ghosts.some(ghost => ghost.seat === seat.seat),
+        metric: inRound && metric !== null ? { icon: GAME_ICON[game.gameMode], text: metric === 'hidden' ? '?' : String(metric) } : null,
       };
     });
     const names = new Map(game.seats.map(seat => [seat.seat, seat]));
@@ -540,6 +551,32 @@ export class Session {
         award: entry.award ? { icon: AWARD_ICON[entry.award], name: strings.awards[entry.award] } : null,
       })),
     });
+  }
+
+  /** What A is on a phone right now. The brawl (and the lobby, which is one) has its dash and its ghost's meteor; every other game says its own. */
+  private padA(game: Game, alive: boolean, ghost: boolean): PadButton | null {
+    if (game.phase === 'lobby') return { icon: 'A', label: '', charge: true };
+    if (game.gameMode === 'brawl') return ghost ? { icon: '☄️', label: strings.controls.meteor, charge: false } : { icon: 'A', label: strings.controls.dash, charge: true };
+    const button = GAME_A[game.gameMode];
+    return button && alive ? { icon: button.icon, label: strings.controls[button.text], charge: false } : null;
+  }
+
+  /** A word across the pad for a moment of the game. Every simple game starts by repeating its one line: there may be no button to read. */
+  private padAlert(game: Game): PhoneStatus['alert'] {
+    if (game.gameMode === 'brawl' || (game.phase !== 'countdown' && game.phase !== 'play')) return null;
+    if (game.phase === 'countdown' || game.round.time < REMIND_SECONDS) return { text: strings.games[game.gameMode].line, tone: 'info', color: null };
+    return null;
+  }
+
+  /** The card over a phone's pad between games and before the winner is named. */
+  private padCard(game: Game, seat: number): PhoneStatus['card'] {
+    if (game.phase === 'intro') {
+      if (!game.revealed) return { icon: '🎲', name: strings.intro.next, line: '' };
+      return { icon: GAME_ICON[game.gameMode], name: strings.games[game.gameMode].name, line: strings.games[game.gameMode].line };
+    }
+    if (game.phase !== 'finale') return null;
+    if (this.champions.size === 0) return { icon: '🥁', name: strings.finale.drum, line: '' };
+    return this.champions.has(seat) ? { icon: '🏆', name: strings.controller.won, line: '' } : null;
   }
 
   /** Tells each phone what to show. A message goes out only when something in it changed. */
@@ -576,6 +613,11 @@ export class Session {
         cooldownMs: ghost ? Math.ceil(ghost.cooldown * 2) * 500 : pet && pet.dashCooldown > 0 ? Math.round(pet.dashCooldownTotal * 1000) : 0,
         place: standing?.place ?? null,
         award: standing?.award ? { icon: AWARD_ICON[standing.award], name: strings.awards[standing.award] } : null,
+        a: this.padA(game, pet !== undefined, ghost !== undefined),
+        bOn: game.gameMode === 'brawl',
+        card: this.padCard(game, seat),
+        alert: this.padAlert(game),
+        won: game.phase === 'matchEnd' && standing?.place === 1,
       };
       const encoded = JSON.stringify(status);
       if (this.sent.get(seat) === encoded) continue;

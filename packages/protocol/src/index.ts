@@ -1,7 +1,7 @@
 // Messages and constants shared by the phone, the relay and the host.
 // No dependencies: the phone bundle imports this file. Validation lives in ./schemas.
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 export const MAX_SEATS = 6;
 /** Default relay port. Override with the BOOM_RELAY_PORT environment variable if another program uses it. */
 export const RELAY_PORT = 47821;
@@ -89,7 +89,23 @@ export type PhoneStatus = {
   /** Results: final place and award. */
   place: number | null;
   award: { icon: string; name: string } | null;
+  /**
+   * What A does in the game being played: the picture on the button, the word under it, and whether
+   * holding it charges (only the brawl's dash does). Null when the game does not use A: the button is not drawn.
+   */
+  a: PadButton | null;
+  /** Whether the game being played uses B at all. */
+  bOn: boolean;
+  /** Between games: the next game's picture, name and the line that says what to do, shown over the pad. */
+  card: { icon: string; name: string; line: string } | null;
+  /** A word across the pad for a moment of the game ("Parado!", the colour to run to). `color` paints it; null uses the tone's own. */
+  alert: { text: string; tone: PadTone; color: string | null } | null;
+  /** Results: this player won the match. */
+  won: boolean;
 };
+export type PadButton = { icon: string; label: string; charge: boolean };
+/** What an alert on the pad is telling the player to do. */
+export type PadTone = 'go' | 'stop' | 'danger' | 'info';
 export type HostToPhone = { t: 'haptic'; pattern: HapticPattern } | PhoneStatus;
 
 // ── Relay to phone ───────────────────────────────────────────────────────────

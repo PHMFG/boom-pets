@@ -1,4 +1,6 @@
 // Every kind of round the game can be playing. Readers check `gameMode` before touching what only one kind has.
+import type { Field } from './minis/field';
+import type { AnyRules } from './minis';
 import type { Round } from './round';
 
-export type AnyRound = Round;
+export type AnyRound = Round | Field<AnyRules>;

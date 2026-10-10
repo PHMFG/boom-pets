@@ -335,6 +335,111 @@ body {
   position: relative;
 }
 
+/* What A does in this game, in a word, on a tag under the button. */
+.pad-does {
+  position: absolute;
+  top: calc(100% - 3vmin);
+  left: 50%;
+  padding: 0.6vmin 2.4vmin;
+  border: 3px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--cream);
+  font-size: 4.4vmin;
+  line-height: 1.1;
+  white-space: nowrap;
+  translate: -50% 0;
+}
+
+.pad-does:empty {
+  display: none;
+}
+
+/* Luck pips count Mystery Cube rolls, which only the brawl has: the game with B. */
+.pad[data-b='off'] .pad-pity {
+  display: none;
+}
+
+/* A button the game does not use is not drawn, but keeps its place, so the other one does not move. */
+.pad[data-a='off'] .pad-a,
+.pad[data-b='off'] .pad-b {
+  visibility: hidden;
+}
+
+/* Between games: the next game, over the middle of the pad. Touches pass through it. */
+.pad-next {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  justify-items: center;
+  gap: 1vmin;
+  width: max-content;
+  max-width: 86%;
+  padding: 3vmin 6vmin 4vmin;
+  border: var(--outline) solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--cream);
+  box-shadow: 0 var(--shadow) 0 var(--ink);
+  text-align: center;
+  translate: -50% -50%;
+  rotate: -2deg;
+  pointer-events: none;
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad-next-icon {
+  font-size: 20vmin;
+  line-height: 1.05;
+}
+
+.pad-next-name {
+  font-size: 10vmin;
+  line-height: 1;
+}
+
+.pad-next-line {
+  font-size: 5.2vmin;
+  line-height: 1.15;
+}
+
+/* A word for a moment of the game: stop, go, the colour to run to. */
+.pad-alert {
+  --alert: var(--cream);
+
+  position: absolute;
+  top: 16vmin;
+  left: 50%;
+  z-index: 2;
+  padding: 1.4vmin 6vmin;
+  border: var(--outline) solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--alert);
+  box-shadow: 0 var(--shadow) 0 var(--ink);
+  font-size: 11vmin;
+  line-height: 1.1;
+  white-space: nowrap;
+  translate: -50% 0;
+  pointer-events: none;
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad-alert[data-tone='stop'],
+.pad-alert[data-tone='danger'] {
+  --alert: var(--danger);
+
+  color: var(--white);
+}
+
+.pad-alert[data-tone='go'] {
+  --alert: var(--go);
+}
+
+.pad-next[hidden],
+.pad-alert[hidden] {
+  display: none;
+}
+
 @keyframes pop-in {
   from {
     transform: scale(0);
@@ -717,6 +822,17 @@ body {
   flex-direction: column;
   gap: 2.5vmin;
   background: var(--seat);
+}
+
+/* The winner's phone is gold. */
+.pad-results.is-won {
+  background: var(--gold);
+}
+
+.pad-won {
+  font-size: 11vmin;
+  line-height: 1;
+  rotate: -3deg;
 }
 
 .pad-place {

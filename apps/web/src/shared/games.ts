@@ -21,6 +21,18 @@ export const GAME_CONTROLS: Record<GameMode, readonly Control[]> = {
   frita: [STICK],
 };
 
+/** What A is on the phone in each game: its picture and the word under it. Null where the game does not use A. */
+export const GAME_A: Record<GameMode, { icon: string; text: keyof typeof strings.controls } | null> = {
+  brawl: { icon: 'A', text: 'dash' },
+  lava: { icon: '👊', text: 'shove' },
+  grow: { icon: '😋', text: 'bite' },
+  race: { icon: '⤴️', text: 'jump' },
+  color: null,
+  potato: null,
+  paint: null,
+  frita: null,
+};
+
 /** The announcer's line for each game's name. */
 export const GAME_LINE: Record<GameMode, keyof typeof strings.announcer> = {
   brawl: 'gameBrawl', lava: 'gameLava', grow: 'gameGrow', race: 'gameRace', color: 'gameColor', potato: 'gamePotato', paint: 'gamePaint', frita: 'gameFrita',

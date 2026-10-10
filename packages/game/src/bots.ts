@@ -2,7 +2,9 @@
 // cannot tell them apart. Each decides ten times a second and acts a quarter second late, like a person.
 import type { ButtonEdge, SampledInput } from './input';
 import type { Rng } from './rng';
+import { miniPlan } from './minis/bots';
 import type { Round } from './round';
+import type { AnyRound } from './rounds';
 import { arena, bot as botTune, dash, grab, STEP } from './tuning';
 import { TILE, type BotStyle, type Pet } from './types';
 
@@ -15,6 +17,8 @@ type Plan = {
   /** Press the power button. */
   tapC: boolean;
   mash: boolean;
+  /** One press of A, for the games where A is a tap (a jump, a shove, a bite). */
+  tapA?: boolean;
 };
 
 const REST: Plan = { x: 0, z: 0, charge: 0, tapB: false, tapC: false, mash: false };
@@ -34,6 +38,7 @@ export class BotBrain {
   private a = false;
   private b = false;
   private c = false;
+  private aRest = 0;
   private bRest = 0;
   private cRest = 0;
   /** Seconds it has been holding a power without using it. */
@@ -58,18 +63,21 @@ export class BotBrain {
   }
 
   /** `gachaWinner` is the seat pulling the lever while a gacha plays, or null. */
-  input(round: Round, gachaWinner: number | null): SampledInput {
+  input(round: AnyRound, gachaWinner: number | null): SampledInput {
     this.clock++;
     this.thinkIn -= STEP;
     if (this.thinkIn <= 0) {
       this.thinkIn = botTune.think;
-      this.pending.push({ at: this.clock + REACTION_STEPS, plan: this.decide(round) });
+      // Each game is played its own way. What does not change is the pace: ten decisions a second, a quarter second late.
+      const plan = round.gameMode === 'brawl' ? this.decide(round) : { ...REST, ...miniPlan(round, this.seat, this.rng) };
+      this.pending.push({ at: this.clock + REACTION_STEPS, plan });
     }
     while (this.pending[0] && this.pending[0].at <= this.clock) this.plan = this.pending.shift()!.plan;
 
     let a = false;
     let b = false;
     let c = false;
+    this.aRest = Math.max(0, this.aRest - 1);
     this.bRest = Math.max(0, this.bRest - 1);
     this.cRest = Math.max(0, this.cRest - 1);
     let x = this.plan.x;
@@ -96,6 +104,10 @@ export class BotBrain {
         a = true;
       }
       // B and the power button are taps: down for one step, then a rest, so a held plan does not grab and throw in the same breath.
+      if (this.plan.tapA && this.aRest === 0 && !a) {
+        a = true;
+        this.aRest = TAP_REST;
+      }
       b = this.plan.tapB && this.bRest === 0;
       c = this.plan.tapC && this.cRest === 0;
       if (b) this.bRest = TAP_REST;

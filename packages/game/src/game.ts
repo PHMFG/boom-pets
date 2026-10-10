@@ -5,7 +5,10 @@ import { BotBrain } from './bots';
 import type { ButtonEdge, SampledInput } from './input';
 import { pickPower, rollTier, SUPER_CURSE } from './odds';
 import { createRng, type Rng } from './rng';
+import { Field } from './minis/field';
+import { makeRules } from './minis';
 import { Round } from './round';
+import type { AnyRound } from './rounds';
 import { assignAwards, emptyStats, placementPoints, rankOf, standings, type SeatStats } from './scoring';
 import { gacha as gachaTune, match, STEP } from './tuning';
 import type { BotStyle, GachaView, GameEvent, GameMode, Phase, PowerId, SeatSetup, Standing } from './types';
@@ -13,7 +16,7 @@ import type { BotStyle, GachaView, GameEvent, GameMode, Phase, PowerId, SeatSetu
 const BOT_STYLES: readonly BotStyle[] = ['coward', 'kamikaze', 'thrower'];
 const NEUTRAL: SampledInput = { x: 0, y: 0, a: false, b: false, stale: true, edges: [] };
 /** The games a match can draw. A game joins this list when it can be played from start to finish. */
-export const PLAYABLE_MODES: readonly GameMode[] = ['brawl'];
+export const PLAYABLE_MODES: readonly GameMode[] = ['brawl', 'paint'];
 
 export type MatchOptions = {
   rounds: number;
@@ -28,7 +31,7 @@ export type MatchOptions = {
 
 export class Game {
   phase: Phase = 'lobby';
-  round: Round;
+  round: AnyRound;
   /** 1 for the first round of a match; 0 in the lobby. */
   roundIndex = 0;
   rounds: number = match.rounds;
@@ -71,6 +74,8 @@ export class Game {
   private readonly latest = new Map<number, SampledInput>();
   private readonly edges = new Map<number, ButtonEdge[]>();
   private gachaPet = 0;
+  /** The brawl round a gacha is playing in. */
+  private gachaRound: Round | null = null;
   private slowLeft = 0;
   private slowScale = 1;
   private sinceSlow = Infinity;
@@ -103,7 +108,7 @@ export class Game {
     // Bots in the lobby are the brawl behind the title screen. Each keeps its brain for as long as it stays.
     for (const seat of [...this.brains.keys()]) if (!seats.some(wanted => wanted.seat === seat && wanted.bot)) this.brains.delete(seat);
     for (const seat of seats) if (seat.bot && !this.brains.has(seat.seat)) this.brains.set(seat.seat, new BotBrain(seat.seat, seat.bot, this.botRng));
-    this.round.syncSeats(seats);
+    if (this.round.gameMode === 'brawl') this.round.syncSeats(seats);
   }
 
   startMatch(options: MatchOptions): void {
@@ -188,22 +193,27 @@ export class Game {
     while (this.stepFraction >= 1) {
       this.stepFraction -= 1;
       this.round.step(seat => this.inputFor(seat));
-      if (this.round.superPending && !this.gacha) this.startGacha();
+      if (this.round.gameMode === 'brawl' && this.round.superPending && !this.gacha) this.startGacha(this.round);
       if (this.phase === 'play' && this.round.finished) this.endRound();
     }
   }
 
   // ── Rounds ─────────────────────────────────────────────────────────────────
 
-  private newRound(mode: 'lobby' | 'match'): Round {
+  private newRound(mode: 'lobby' | 'match'): AnyRound {
     // A different stream for every round of every match, so a rematch does not repeat its maps.
     this.spawns = createRng(this.seed + this.roundIndex * 7919 + Math.max(0, this.matches - 1) * 104_729, 'spawns');
+    const firstId = 1 + this.roundsMade++ * 100_000;
+    // The lobby is always the brawl's platform. In a match, each game brings its own kind of round.
+    if (mode === 'match' && this.gameMode !== 'brawl') {
+      return new Field(makeRules(this.gameMode), this.seats, this.spawns, { emit: event => this.emit(event) }, firstId);
+    }
     return new Round(mode, this.seats, this.spawns, {
       emit: event => this.emit(event),
       roll: seat => this.roll(seat),
       freeCommon: () => pickPower(this.rolls, 'common'),
       blastBonus: seat => (this.phase !== 'lobby' && rankOf(this.scores, seat) === 'last' ? match.underdogRadius : 1),
-    }, 1 + this.roundsMade++ * 100_000);
+    }, firstId);
   }
 
   /**
@@ -287,8 +297,11 @@ export class Game {
       const pet = this.round.petOfSeat(seat);
       this.addScore(seat, points, 'place', pet?.x ?? null, pet?.z ?? null);
     }
-    for (const seat of groups[0] ?? []) {
-      if ((this.roundKills.get(seat) ?? 0) === 0) this.stat(seat, 'accident', 1);
+    // Winning a brawl without knocking anyone out is its own kind of luck.
+    if (this.round.gameMode === 'brawl') {
+      for (const seat of groups[0] ?? []) {
+        if ((this.roundKills.get(seat) ?? 0) === 0) this.stat(seat, 'accident', 1);
+      }
     }
     this.emit({ t: 'roundWinner', seats: groups[0] ?? [] });
 
@@ -410,16 +423,18 @@ export class Game {
 
   private roll(seat: number): { tier: 'common' | 'rare' | 'cursed' | 'super'; power: PowerId; pity: number } {
     // Only one SUPER at a time: a gacha in progress or a SUPER power still running blocks another.
-    const superBusy = this.gacha !== null || this.round.superPending !== null || this.round.pets.some(pet => pet.power === 'kaiju' || pet.power === 'meteorShower' || pet.slot?.tier === 'super');
+    const brawl = this.round.gameMode === 'brawl' ? this.round : null;
+    const superBusy = this.gacha !== null || (brawl?.superPending ?? null) !== null || this.round.pets.some(pet => pet.power === 'kaiju' || pet.power === 'meteorShower' || pet.slot?.tier === 'super');
     const result = rollTier(this.rolls, rankOf(this.scores, seat), this.pity.get(seat) ?? 0, superBusy);
     this.pity.set(seat, result.pity);
     return { tier: result.tier, power: pickPower(this.rolls, result.tier), pity: result.pity };
   }
 
-  private startGacha(): void {
-    const pending = this.round.superPending!;
-    this.round.superPending = null;
-    this.round.chargeFrozen = true;
+  private startGacha(round: Round): void {
+    const pending = round.superPending!;
+    round.superPending = null;
+    round.chargeFrozen = true;
+    this.gachaRound = round;
     this.gachaPet = pending.pet;
     this.gacha = { seat: pending.seat, time: 0, lever: 0, pulled: false, jinx: 0, cursed: null, power: pending.power };
     this.emit({ t: 'gachaStart', seat: pending.seat, pet: pending.pet });
@@ -457,8 +472,11 @@ export class Game {
     }
     if (gacha.time < gachaTune.duration) return;
     this.gacha = null;
-    this.round.chargeFrozen = false;
-    this.round.applyPower(this.gachaPet, gacha.power);
+    if (this.gachaRound) {
+      this.gachaRound.chargeFrozen = false;
+      this.gachaRound.applyPower(this.gachaPet, gacha.power);
+      this.gachaRound = null;
+    }
     this.emit({ t: 'gachaEnd', seat: gacha.seat });
   }
 }

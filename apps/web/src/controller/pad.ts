@@ -68,6 +68,12 @@ export class Pad {
   /** The two buttons under the right thumb. The power button is a control of its own. */
   private readonly buttons: Record<ThumbButton, HTMLElement>;
   private readonly letter: HTMLElement;
+  private readonly does: HTMLElement;
+  private readonly next: HTMLElement;
+  private readonly nextIcon: HTMLElement;
+  private readonly nextName: HTMLElement;
+  private readonly nextLine: HTMLElement;
+  private readonly alert: HTMLElement;
   private readonly bFace: HTMLElement;
   private readonly use: HTMLElement;
   private readonly useIcon: HTMLElement;
@@ -94,6 +100,9 @@ export class Pad {
   private warnTimer = 0;
   private faceTimer = 0;
   private cooldownMs = 0;
+  /** What A shows when it is not being held, and whether holding it charges. Both come from the game. */
+  private aIcon = 'A';
+  private charges = true;
   private jinxTaps = 0;
 
   constructor(parent: HTMLElement, name: string, events: PadEvents) {
@@ -138,6 +147,18 @@ export class Pad {
     element('pad-gauge', this.buttons.a);
     element('pad-cooldown', this.buttons.a);
     this.letter = element('pad-letter', this.buttons.a, 'A');
+    // What A does in the game being played, in a word, under the button.
+    this.does = element('pad-does', this.buttons.a);
+
+    // Between games: the next game's card. It only covers the middle; thumbs stay where they are.
+    this.next = element('pad-next', this.root);
+    this.nextIcon = element('pad-next-icon', this.next);
+    this.nextName = element('pad-next-name', this.next);
+    this.nextLine = element('pad-next-line', this.next);
+    this.next.hidden = true;
+    // A word for a moment of the game: stop, go, the colour to run to.
+    this.alert = element('pad-alert', this.root);
+    this.alert.hidden = true;
 
     // A power waits here until the player wants it. The card above says what it does.
     this.card = element('pad-card', this.root);
@@ -229,7 +250,7 @@ export class Pad {
     // through a grab steers again the moment the pet is free. Only A's charge face starts over.
     const covered = (mode: PhoneMode | undefined) => mode === 'lever' || mode === 'jinx';
     if (status.screen !== previous?.screen || covered(status.mode) !== covered(previous?.mode)) this.releaseAll();
-    else if (status.mode !== previous?.mode) this.showCharge(status.mode === 'alive' && this.buttons.a.classList.contains('is-down'));
+    else if (status.mode !== previous?.mode) this.showCharge(status.mode === 'alive' && (status.a?.charge ?? false) && this.buttons.a.classList.contains('is-down'));
     if (status.mode === 'jinx' && previous?.mode !== 'jinx') this.jinxTaps = 0;
     // A longer wait than last time means a dash just ended or a meteor was just dropped: restart the ring.
     if (status.cooldownMs > this.cooldownMs) {
@@ -300,8 +321,17 @@ export class Pad {
 
     this.crown.hidden = !status?.bounty;
     this.pity.forEach((pip, index) => pip.classList.toggle('is-on', index < (status?.pity ?? 0)));
+    // A is whatever the game says it is: its picture, a word for what it does, or not there at all.
+    // In the lobby and with no word from the game yet, it is the brawl's dash.
+    const a = status ? status.a : { icon: 'A', label: '', charge: true };
+    const playing = screen === 'play' || screen === 'lobby';
+    this.aIcon = a?.icon ?? 'A';
+    this.charges = a?.charge ?? false;
+    this.root.dataset.a = a || !playing ? 'on' : 'off';
+    this.root.dataset.b = (status?.bOn ?? true) || !playing ? 'on' : 'off';
+    this.does.textContent = a?.label ?? '';
     // While A is held it shows the charging face; that is left alone until release.
-    if (!this.buttons.a.classList.contains('is-charging')) this.letter.textContent = mode === 'ghost' ? '☄️' : 'A';
+    if (!this.buttons.a.classList.contains('is-charging')) this.letter.textContent = this.aIcon;
 
     // B says what it would do: nothing in reach, a hand when something is, a throw when carrying.
     // The lobby is where B is tried for the first time, so it explains itself there too.
@@ -329,12 +359,30 @@ export class Pad {
     this.readyButton.textContent = status?.ready ? text.ready : text.notReady;
     this.readyButton.classList.toggle('is-on', status?.ready ?? false);
 
+    // The next game's card, and a word for a moment of the game.
+    const card = screen === 'play' ? (status?.card ?? null) : null;
+    this.next.hidden = card === null;
+    if (card) {
+      this.nextIcon.textContent = card.icon;
+      this.nextName.textContent = card.name;
+      this.nextLine.textContent = card.line;
+    }
+    const alert = screen === 'play' && !card ? (status?.alert ?? null) : null;
+    this.alert.hidden = alert === null;
+    if (alert) {
+      this.alert.textContent = alert.text;
+      this.alert.dataset.tone = alert.tone;
+      this.alert.style.setProperty('--alert', alert.color ?? '');
+    }
+
     const message = this.linkBanner ?? (screen === 'wait' ? text.waitNext : mode === 'carried' ? text.mash : null);
     this.banner.hidden = message === null;
     this.banner.textContent = message ?? '';
 
     if (screen === 'results' && status) {
       this.results.replaceChildren();
+      this.results.classList.toggle('is-won', status.won);
+      if (status.won) element('pad-won', this.results, text.won);
       if (status.place !== null) element('pad-place', this.results, text.place(status.place));
       if (status.award) {
         element('pad-award-icon', this.results, status.award.icon);
@@ -396,9 +444,13 @@ export class Pad {
       this.base.classList.add('is-active');
       return;
     }
-    // The whole right half is a hit area: a touch presses whichever button is nearer.
+    // The whole right half is a hit area: a touch presses whichever button is nearer. A button the game
+    // does not use is not there to be pressed: with one left, the whole half is that one; with none, nothing.
+    const aOn = this.root.dataset.a !== 'off';
+    const bOn = this.root.dataset.b !== 'off';
+    if (!aOn && !bOn) return;
     const distance = (button: HTMLElement) => Math.hypot(u - (button.offsetLeft + button.offsetWidth / 2), v - (button.offsetTop + button.offsetHeight / 2));
-    const button: ThumbButton = distance(this.buttons.a) <= distance(this.buttons.b) ? 'a' : 'b';
+    const button: ThumbButton = !bOn || (aOn && distance(this.buttons.a) <= distance(this.buttons.b)) ? 'a' : 'b';
     this.presses.set(event.pointerId, button);
     this.setPressed(button, true);
   };
@@ -441,7 +493,8 @@ export class Pad {
     this.events.onButton(button, down);
     if (button !== 'a') return;
     window.clearTimeout(this.restTimer);
-    const alive = this.root.dataset.mode === 'alive' && this.root.dataset.screen !== 'results';
+    // Only a button that charges fills its gauge and warns: a jump or a shove is just a press.
+    const alive = this.charges && this.root.dataset.mode === 'alive' && this.root.dataset.screen !== 'results';
     const rest = this.restUntil - performance.now();
     // While A rests after a dash the game ignores it. A thumb still down when the rest ends starts charging then.
     if (down && alive && rest > 0) {
@@ -459,7 +512,7 @@ export class Pad {
     window.clearTimeout(this.faceTimer);
     this.root.classList.remove('is-warning');
     this.buttons.a.classList.toggle('is-charging', charging);
-    this.letter.textContent = charging ? '😬' : this.root.dataset.mode === 'ghost' ? '☄️' : 'A';
+    this.letter.textContent = charging ? '😬' : this.aIcon;
     if (charging) {
       this.faceTimer = window.setTimeout(() => (this.letter.textContent = '😨'), WARN_AFTER_MS / 2);
       this.warnTimer = window.setTimeout(() => {

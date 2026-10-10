@@ -3,10 +3,10 @@
 import type { PhoneConnection } from '@boom/protocol';
 
 /** Goes up when a field is added or changes meaning. `readLog` still reads every older log. */
-export const LOG_FORMAT = 3;
+export const LOG_FORMAT = 4;
 
 /** How a pet can be knocked out, in the order reports list them. */
-export const CAUSES = ['dash', 'throw', 'barrel', 'meteor', 'power', 'fall', 'overcharge'] as const;
+export const CAUSES = ['dash', 'throw', 'barrel', 'meteor', 'power', 'fall', 'overcharge', 'lava', 'bomb'] as const;
 export type CauseName = (typeof CAUSES)[number];
 export type ByCause = Partial<Record<CauseName, number>>;
 
@@ -42,7 +42,18 @@ export type PlayerStats = {
   swaps: number;
 };
 
-export type RoundStats = { round: number; seconds: number; firstKnockoutAt: number | null; endedBy: 'knockout' | 'time'; winners: number[]; knockouts: number };
+export type RoundStats = {
+  round: number;
+  /** Which game the round was (from format 4 on; every round before that was the brawl). */
+  mode: string;
+  seconds: number;
+  firstKnockoutAt: number | null;
+  endedBy: 'knockout' | 'time';
+  winners: number[];
+  knockouts: number;
+  /** The game's own number for each seat when the round ended (tiles painted, food eaten), in games that have one. */
+  metric: Record<number, number>;
+};
 
 export type MatchLog = {
   format: number;
@@ -126,7 +137,7 @@ export function readLog(raw: unknown): ReadLog {
     seed: log.seed ?? 0,
     rounds: log.rounds ?? 0,
     players,
-    roundStats: log.roundStats ?? [],
+    roundStats: (log.roundStats ?? []).map(round => ({ ...round, mode: round.mode ?? 'brawl', metric: round.metric ?? {} })),
     eliminations,
     eliminationsByCause: log.eliminationsByCause ?? {},
     rolls: log.rolls ?? [],

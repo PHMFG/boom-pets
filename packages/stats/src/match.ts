@@ -111,9 +111,10 @@ export function summariseMatch(raw: unknown): string {
     out.push('', '## Rounds', '');
     out.push(
       table(
-        ['Round', 'Length', 'First knockout', 'Ended by', 'Won by', 'Knockouts'],
+        ['Round', 'Game', 'Length', 'First knockout', 'Ended by', 'Won by', 'Knockouts'],
         log.roundStats.map(round => [
           round.round,
+          round.mode,
           seconds(round.seconds),
           round.firstKnockoutAt === null ? '—' : seconds(round.firstKnockoutAt),
           round.endedBy === 'time' ? 'the clock' : 'the last knockout',

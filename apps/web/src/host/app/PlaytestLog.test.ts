@@ -1,4 +1,4 @@
-import { Game, initPhysics, type SampledInput } from '@boom/game';
+import { Game, initPhysics, type GameMode, type SampledInput } from '@boom/game';
 import { LOG_FORMAT, readLog, summariseMatch } from '@boom/stats';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { PlaytestLog } from './PlaytestLog';
@@ -10,12 +10,13 @@ const count = (by: Record<string, number | undefined>) => sum(Object.values(by).
 beforeAll(() => initPhysics());
 
 /** A whole bot match, with every event fed to the log the way the game screen feeds it. */
-function playAndLog(seed: number, rounds: number) {
+function playAndLog(seed: number, rounds: number, modes: readonly GameMode[] = ['brawl']) {
   const game = new Game(seed);
   const log = new PlaytestLog();
-  game.startMatch({ rounds, bots: true, petPool: ['fox', 'cat', 'dog', 'pig'], botName: index => `Bot ${index + 1}` });
+  game.startMatch({ rounds, bots: true, petPool: ['fox', 'cat', 'dog', 'pig'], botName: index => `Bot ${index + 1}`, modes });
   log.begin(game, seed);
-  for (let tick = 0; tick < rounds * 100 * 60 && game.phase !== 'matchEnd'; tick++) {
+  for (const event of game.events) log.handle(event, game);
+  for (let tick = 0; tick < rounds * 110 * 60 && game.phase !== 'matchEnd'; tick++) {
     game.tick(() => idle);
     for (const event of game.events) log.handle(event, game);
   }
@@ -61,6 +62,24 @@ describe('the match log', () => {
       expect(round.seconds).toBeGreaterThan(0);
       if (round.firstKnockoutAt !== null) expect(round.firstKnockoutAt).toBeLessThanOrEqual(round.seconds);
     }
+  });
+
+  it('says which game each round was, with the game\'s own numbers, and keeps the brawl\'s counts to the brawl', () => {
+    const log = playAndLog(5, 2, ['paint', 'brawl']);
+    expect(log.roundStats.map(round => round.mode)).toEqual(['paint', 'brawl']);
+    const [paint, brawl] = log.roundStats;
+    // Every seat painted something, nobody was knocked out, and the clock ended it.
+    expect(Object.keys(paint!.metric)).toHaveLength(4);
+    expect(Object.values(paint!.metric).every(tiles => tiles > 0)).toBe(true);
+    expect(paint!.knockouts).toBe(0);
+    expect(paint!.endedBy).toBe('time');
+    expect(brawl!.metric).toEqual({});
+    expect(log.eliminations.every(entry => entry.round === 2)).toBe(true);
+    // Points from both games add up to the score, as ever.
+    for (const player of log.players) expect(player.points.kill + player.points.place + player.points.swap + player.points.bounty).toBe(player.score);
+    const summary = summariseMatch(log);
+    expect(summary).toContain('| paint');
+    expect(readLog(JSON.parse(JSON.stringify(log))).roundStats[0]).toMatchObject({ mode: 'paint' });
   });
 
   it('is the same log every time for the same seed', () => {

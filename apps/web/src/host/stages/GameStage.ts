@@ -30,6 +30,7 @@ import { Renderer } from '../render/Renderer';
 import { Word3D } from '../render/Text3D';
 import { DANGER, HOT, INK, random, SMOKE, syncViews, WHITE, type MapView, type SkyId, type StageKit } from './kit';
 import { BrawlMap } from './maps/BrawlMap';
+import { PaintMap } from './maps/PaintMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
 const HALF = tuning.arena.size / 2;
@@ -675,6 +676,8 @@ export class GameStage {
   /** The world of a game. `final` is the last round's look, for a map that has one. */
   private makeMap(mode: GameMode, final: boolean): MapView {
     switch (mode) {
+      case 'paint':
+        return new PaintMap(this.kit);
       default:
         return new BrawlMap(this.kit, { night: final, ripple: true });
     }
@@ -797,7 +800,7 @@ export class GameStage {
     for (const ghost of game.round.ghosts) {
       points.push({ x: Math.min(maxX + GHOST_PULL, Math.max(minX - GHOST_PULL, ghost.x)), z: Math.min(maxZ + GHOST_PULL, Math.max(minZ - GHOST_PULL, ghost.z)) });
     }
-    if (game.round.cube) points.push(game.round.cube);
+    if (game.round.gameMode === 'brawl' && game.round.cube) points.push(game.round.cube);
     return points;
   }
 

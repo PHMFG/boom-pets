@@ -87,6 +87,9 @@ export class PlaytestLog {
 
     const time = game.round.time;
     const round = game.roundIndex;
+    // How the buttons were used is counted for the brawl only: in another game a press of A is a different move,
+    // and would be read as a tap that hit nothing.
+    const brawl = game.gameMode === 'brawl';
     /** The player behind a pet. Clones do not count as their owner's moves. */
     const of = (pet: number): Seat | undefined => {
       const found = game.round.petById(pet);
@@ -95,6 +98,7 @@ export class PlaytestLog {
 
     switch (event.t) {
       case 'dash': {
+        if (!brawl) break;
         const seat = of(event.pet);
         if (!seat) break;
         seat.stats.a[event.charge < tuning.dash.shoveBelow ? 'taps' : 'charged']++;
@@ -103,16 +107,19 @@ export class PlaytestLog {
         break;
       }
       case 'dashEnd': {
+        if (!brawl) break;
         const seat = of(event.pet);
         if (seat) seat.stats.a[event.hit ? 'hits' : 'misses']++;
         break;
       }
       case 'tired': {
+        if (!brawl) break;
         const seat = of(event.pet);
         if (seat) seat.stats.a.whileResting++;
         break;
       }
       case 'grab': {
+        if (!brawl) break;
         const seat = of(event.pet);
         if (seat) seat.stats.b[event.kind === 'pet' ? 'grabs' : 'barrelGrabs']++;
         const victim = event.kind === 'pet' ? of(event.target) : undefined;
@@ -120,21 +127,25 @@ export class PlaytestLog {
         break;
       }
       case 'grabMiss': {
+        if (!brawl) break;
         const seat = of(event.pet);
         if (seat) seat.stats.b.misses++;
         break;
       }
       case 'throw': {
+        if (!brawl) break;
         const seat = of(event.pet);
         if (seat) seat.stats.b[event.kind === 'pet' ? 'throws' : 'barrelThrows']++;
         break;
       }
       case 'throwHit': {
+        if (!brawl) break;
         const seat = event.seat === null ? undefined : this.seats.get(event.seat);
         if (seat) seat.stats.b.throwHits++;
         break;
       }
       case 'escape': {
+        if (!brawl) break;
         const seat = of(event.pet);
         if (seat) seat.stats.b.escapes++;
         break;
@@ -279,8 +290,15 @@ export class PlaytestLog {
       if (seat.aliveSince !== null) seat.stats.aliveSeconds = round2(seat.stats.aliveSeconds + length - seat.aliveSince);
       seat.aliveSince = null;
     }
+    const metric: Record<number, number> = {};
+    for (const seat of this.seats.keys()) {
+      const value = game.round.metric(seat);
+      if (typeof value === 'number') metric[seat] = value;
+    }
     this.roundStats.push({
       round: game.roundIndex,
+      mode: game.gameMode,
+      metric,
       seconds: round2(length),
       firstKnockoutAt: this.current.firstKnockoutAt,
       endedBy: length >= game.round.cap - tuning.STEP ? 'time' : 'knockout',

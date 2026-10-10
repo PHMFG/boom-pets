@@ -20,7 +20,7 @@ export const POWERS = {
 } as const satisfies Record<string, { tier: Tier; duration: number }>;
 export type PowerId = keyof typeof POWERS;
 
-export type Cause = 'fall' | 'dash' | 'barrel' | 'throw' | 'meteor' | 'overcharge' | 'power';
+export type Cause = 'fall' | 'dash' | 'barrel' | 'throw' | 'meteor' | 'overcharge' | 'power' | 'lava' | 'bomb';
 
 /** The games a round can be. `brawl` is the original; the others are the simple games played on a `Field`. */
 export const GAME_MODES = ['brawl', 'lava', 'grow', 'race', 'color', 'potato', 'paint', 'frita'] as const;
@@ -140,7 +140,15 @@ export type Meteor = {
   owner: number;
   fromGhost: boolean;
 };
-export type Ghost = { seat: number; x: number; z: number; cooldown: number; cooldownTotal: number };
+export type Ghost = {
+  seat: number;
+  x: number;
+  z: number;
+  cooldown: number;
+  cooldownTotal: number;
+  /** True in the brawl, where a ghost aims meteors. False for one that only watches. */
+  cursor: boolean;
+};
 
 /**
  * What every kind of round offers, whatever game it is. The game, the screen, the logs and the tools read a
@@ -171,6 +179,8 @@ export interface RoundCore {
   floorY(x: number, z: number): number;
   /** Places for scoring, best first. Seats in one group tied. */
   ranking(): number[][];
+  /** The round's number for a seat's card (tiles painted, food eaten), `hidden` while it is kept secret, or null in a game without one. */
+  metric(seat: number): number | 'hidden' | null;
 }
 
 /** Tile states, one per tile in a size-by-size grid (index = column * size + row). */
@@ -208,6 +218,12 @@ export type GameEvent =
   | { t: 'reveal'; mode: GameMode; round: number; final: boolean; first: boolean }
   /** The finale shows one place: third, then second, then the winner. Seats sharing a place are shown together. */
   | { t: 'finale'; place: 1 | 2 | 3; seats: number[] }
+  /** A pet that fell is back on the floor. It is the same pet, and nothing counts it as knocked out. */
+  | { t: 'respawn'; pet: number; seat: number; x: number; z: number }
+  | { t: 'jump'; pet: number }
+  /** Pinta o Chão: a bucket of paint is coming down, and one was kicked over. */
+  | { t: 'bucket'; id: number; x: number; z: number; delay: number }
+  | { t: 'splash'; seat: number; x: number; z: number; radius: number }
   | { t: 'spawn'; pet: number; seat: number }
   | { t: 'dash'; pet: number; charge: number; x: number; z: number; dx: number; dz: number }
   | { t: 'dashHit'; pet: number; seat: number; x: number; y: number; z: number; charge: number; radius: number; victims: number[] }

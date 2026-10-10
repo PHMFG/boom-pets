@@ -16,7 +16,7 @@ function match(change: (players: PlayerStats[], log: MatchLog) => void = () => u
   });
   const log: MatchLog = {
     format: LOG_FORMAT, version, startedAt: `2026-10-11T10:00:0${Math.floor(Math.random() * 9)}.000Z`, seconds: 150, seed: 1, rounds: 5, players,
-    roundStats: [1, 2, 3, 4, 5].map(round => ({ round, seconds: 30, firstKnockoutAt: 9, endedBy: 'knockout' as const, winners: [round === 1 ? 0 : round % 4], knockouts: 4 })),
+    roundStats: [1, 2, 3, 4, 5].map(round => ({ round, mode: 'brawl', metric: {}, seconds: 30, firstKnockoutAt: 9, endedBy: 'knockout' as const, winners: [round === 1 ? 0 : round % 4], knockouts: 4 })),
     eliminations: [],
     eliminationsByCause: { dash: 12, throw: 4, fall: 4 },
     rolls: [{ round: 1, seat: 0, tier: 'common', power: 'rocket', rank: 'middle' }],
@@ -88,6 +88,26 @@ describe('the report', () => {
     expect(warnings.some(warning => warning.includes('"throw" is 85% of knockouts'))).toBe(true);
     expect(warnings.some(warning => warning.includes('of throws ended in a knockout'))).toBe(true);
     expect(warnings.some(warning => warning.includes('of grabs missed'))).toBe(true);
+  });
+
+  it('gives each game its own row, and keeps a timed game from tripping the brawl\'s limits', () => {
+    const mixed = (winner: (round: number) => number, length = 40) =>
+      match((_, log) => {
+        log.roundStats = [1, 2, 3, 4, 5].map(round => ({ round, mode: round % 2 === 0 ? 'brawl' : 'paint', metric: (round % 2 === 0 ? {} : { 0: 30, 1: 20 }) as Record<number, number>, seconds: round % 2 === 0 ? 30 : length, firstKnockoutAt: round % 2 === 0 ? 9 : null, endedBy: round % 2 === 0 ? ('knockout' as const) : ('time' as const), winners: [winner(round)], knockouts: round % 2 === 0 ? 4 : 0 }));
+      });
+    const report = analyse([mixed(round => round % 4), mixed(round => (round + 1) % 4)]);
+    expect(report.text).toContain('### The games');
+    expect(report.text).toMatch(/\| paint\s+\| 6\s+\| 40\.0 s\s+\| 100%/);
+    expect(report.text).toMatch(/\| brawl\s+\| 4\s+\| 30\.0 s\s+\| 0%/);
+    // Three in five rounds ended by the clock, but those are the timed game: no warning about the brawl dragging.
+    expect(report.warnings.some(warning => warning.includes('ran out the clock'))).toBe(false);
+    expect(report.warnings.some(warning => warning.includes('"paint"'))).toBe(false);
+    // A game that is over in seconds, and a game one person always wins, are both called out.
+    expect(analyse([mixed(round => round % 4, 6)]).warnings.some(warning => warning.includes('A round of "paint" lasts'))).toBe(true);
+    expect(analyse([mixed(() => 0), mixed(() => 0)]).warnings.some(warning => warning.includes('rounds of "paint"'))).toBe(true);
+    // A log from before rounds had a game reads as all brawl, with no games section.
+    const old = analyse([match((_, log) => { log.format = 3; for (const round of log.roundStats) delete (round as Partial<typeof round>).mode; })]);
+    expect(old.text).not.toContain('### The games');
   });
 
   it('says so when a SUPER is not worth getting, and when it decides rounds by itself', () => {

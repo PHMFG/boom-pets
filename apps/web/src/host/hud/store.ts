@@ -50,6 +50,8 @@ export type PlayerCard = {
   held: { icon: string; color: string } | null;
   bounty: boolean;
   ghost: boolean;
+  /** The round's own number in a game that has one (tiles painted, food eaten): its picture and the number, or "?" while it is kept secret. */
+  metric: { icon: string; text: string } | null;
 };
 
 export type FeedWho = { seat: number; name: string };
