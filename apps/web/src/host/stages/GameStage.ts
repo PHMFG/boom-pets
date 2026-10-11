@@ -40,6 +40,8 @@ import { RaceMap } from './maps/RaceMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
 const HALF = tuning.arena.size / 2;
+/** What a pet's bubble shows as a round ends. */
+const ROUND_FACES = { won: '🥳', lost: ['😤', '😭', '🙄', '😵‍💫', '🫠', '😑'] } as const;
 /** The first look at a new world: how far off for its size, how low (degrees), from which side it starts (radians) and how fast it drifts round. */
 const ESTABLISH = { near: 9, perMetre: 1.25, pitch: 27, from: -0.3, spin: 0.14 };
 /** Where the camera looks at the podium: over the winner's head, which leaves the top of the picture to the banner that names them. */
@@ -520,6 +522,7 @@ export class GameStage {
       isFloor: (x, z) => round.isFloor(x, z),
       floorY: (x, z) => round.floorY(x, z),
       winner: false,
+      loser: false,
       asleep: false,
       dust: (x, z, count) => this.dust(x, z, count),
       steam: (x, y, z) => this.particles.puff({ x: x + random(-0.3, 0.3), y, z: z + random(-0.3, 0.3), vy: random(1.5, 3), life: 0.45, size: 0.16, sizeEnd: 0.34, color: WHITE }),
@@ -541,6 +544,7 @@ export class GameStage {
         else if (game.phase === 'lobby' && !this.title && !pet.decoy) view.emote('👋', 1.3);
       }
       context.winner = game.phase === 'roundEnd' && this.winners.has(pet.seat);
+      context.loser = game.phase === 'roundEnd' && this.winners.size > 0 && !context.winner;
       context.asleep = this.asleep.has(pet.seat) && !pet.decoy;
       view.update(pet, context);
       this.petExtras(pet, view, worldDt, context.winner);
@@ -686,6 +690,8 @@ export class GameStage {
         this.rig.look({ at: () => ({ x: winner.feet.x, y: Math.max(0, winner.feet.y) + 0.7, z: winner.feet.z }), distance: 12.5, seconds: tuning.match.roundEnd + tuning.match.introRoulette, pitch: 30, sway: 0.4 });
         this.confetti(winner.feet.x, 3.5, winner.feet.z, [new Color(seatColor(winner.seat)), WHITE, new Color(colors.gold)], 60);
       }
+      // Everyone left standing says how they feel about it.
+      for (const view of this.pets.values()) view.emote(this.winners.has(view.seat) ? ROUND_FACES.won : ROUND_FACES.lost[view.seat % ROUND_FACES.lost.length]!, 2.2);
     } else if (phase === 'finale' || (phase === 'matchEnd' && !keepPodium)) {
       // A whole, clean platform at night is the stage for the podium. Colour drains while the drums roll.
       this.words.clear();

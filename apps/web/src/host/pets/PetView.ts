@@ -60,6 +60,8 @@ export type PetContext = {
   floorY(x: number, z: number): number;
   /** Dancing because it won the round. */
   winner: boolean;
+  /** Shaking its head because someone else did. */
+  loser: boolean;
   /** Its phone dropped: it sleeps where it stands. */
   asleep: boolean;
   dust(x: number, z: number, count: number): void;
@@ -324,6 +326,7 @@ export class PetView {
     if (speed > 3.2) return 'run';
     if (speed > 0.5) return 'walk';
     if (context.winner) return 'dance';
+    if (context.loser) return 'gesture-negative';
     return 'idle';
   }
 
