@@ -40,6 +40,8 @@ import { RaceMap } from './maps/RaceMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
 const HALF = tuning.arena.size / 2;
+/** How far over the winner's feet the camera looks as a round ends: over its head, so its bubble clears the banner that names it. */
+const HERO_ABOVE = 1.6;
 /** What a pet's bubble shows as a round ends. */
 const ROUND_FACES = { won: '🥳', lost: ['😤', '😭', '🙄', '😵‍💫', '🫠', '😑'] } as const;
 /** The first look at a new world: how far off for its size, how low (degrees), from which side it starts (radians) and how fast it drifts round. */
@@ -687,7 +689,7 @@ export class GameStage {
       const winner = [...this.pets.values()].find(view => this.winners.has(view.seat));
       if (winner) {
         // A hero's shot: down at its eye level, close, staying with it wherever it dances off to.
-        this.rig.look({ at: () => ({ x: winner.feet.x, y: Math.max(0, winner.feet.y) + 0.7, z: winner.feet.z }), distance: 12.5, seconds: tuning.match.roundEnd + tuning.match.introRoulette, pitch: 30, sway: 0.4 });
+        this.rig.look({ at: () => ({ x: winner.feet.x, y: Math.max(0, winner.feet.y) + HERO_ABOVE, z: winner.feet.z }), distance: 13, seconds: tuning.match.roundEnd + tuning.match.introRoulette, pitch: 30, sway: 0.4 });
         this.confetti(winner.feet.x, 3.5, winner.feet.z, [new Color(seatColor(winner.seat)), WHITE, new Color(colors.gold)], 60);
       }
       // Everyone left standing says how they feel about it.
