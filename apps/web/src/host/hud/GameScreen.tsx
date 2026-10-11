@@ -18,6 +18,8 @@ import './game.css';
 const NETWORK_NAME_KEY = 'boom.networkName';
 /** How long the lobby waits with nobody joined before suggesting the network is the problem. */
 const HINT_AFTER_MS = 20_000;
+/** When the timer turns urgent in a game that has no moment of its own for it (the brawl's is when explosions start breaking the floor). */
+const LAST_SECONDS = 10;
 /** The main menu, left to right. */
 const MENU = ['play', 'how', 'pets'] as const;
 type MenuItem = (typeof MENU)[number];
@@ -367,7 +369,7 @@ export function GameScreen() {
                 </span>
               ))}
             </div>
-            <div className={`round-timer${timeLeft <= tuning.arena.explosionsBreakTilesInLast ? ' is-late' : ''}`} style={{ '--left': roundCap > 0 ? timeLeft / roundCap : 0 } as CSSProperties}>
+            <div className={`round-timer${timeLeft <= (gameMode === 'brawl' ? tuning.arena.explosionsBreakTilesInLast : LAST_SECONDS) ? ' is-late' : ''}`} style={{ '--left': roundCap > 0 ? timeLeft / roundCap : 0 } as CSSProperties}>
               <span key={timeLeft <= 10 ? timeLeft : 'calm'}>{timeLeft}</span>
             </div>
           </div>

@@ -108,6 +108,8 @@ export const strings = {
     lava: 'LAVA!',
     /** Cor Certa: the four colours, as flavours, in the order of `FLAVORS`. */
     flavors: ['Laranja', 'Limão', 'Uva', 'Menta'],
+    /** As a round ends: the player's own place in it and what it paid them. */
+    roundPlace: (place: number, points: number) => `${place}º lugar · +${points}`,
     /** Batata Quente: for whoever holds the bomb, and for everyone else. */
     potatoHold: 'PASSE A BATATA!',
     potatoRun: 'FUJA!',

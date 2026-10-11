@@ -469,6 +469,7 @@ export class Session {
           return group.map(seat => ({ seat, name: this.who(seat).name, place: shared, points: this.gained.get(seat) ?? 0 }));
         });
         hud.set({ roundResult: { mode: game.gameMode, double: game.isFinalRound && game.rounds > 1, rows } });
+        this.syncPhones();
         break;
       }
       case 'bounty':
@@ -669,6 +670,11 @@ export class Session {
 
   /** A word across the pad for a moment of the game. Every simple game starts by repeating its one line: there may be no button to read. */
   private padAlert(game: Game, seat: number): PhoneStatus['alert'] {
+    // As a round ends every phone says how its own player did: nobody has to find their row on the TV.
+    if (game.phase === 'roundEnd') {
+      const row = hud.get().roundResult?.rows.find(candidate => candidate.seat === seat);
+      return row ? { text: strings.alerts.roundPlace(row.place, row.points), tone: row.place === 1 ? 'go' : 'info', color: null } : null;
+    }
     if (game.gameMode === 'brawl' || (game.phase !== 'countdown' && game.phase !== 'play')) return null;
     const round = game.round;
     // Two games cannot wait for the reminder to pass: who has the bomb, and whether the cat is looking.

@@ -11,6 +11,8 @@ type Sample = (typeof SAMPLES)[number];
 type Wave = 'sine' | 'square' | 'sawtooth' | 'triangle';
 
 const NOTE = (semitonesFromA4: number) => 440 * 2 ** (semitonesFromA4 / 12);
+/** How many of a round's last seconds are ticked off out loud. */
+const LAST_TICKS = 5;
 /** The stand-in tunes: two eight-step bass lines and leads, in semitones from A4. Null is a rest. */
 const SONGS = {
   lobby: { tempo: 104, bass: [-24, null, -17, null, -21, null, -17, -19], lead: [3, null, 7, 10, null, 7, 3, null, 2, null, 5, 8, null, 5, 2, null] },
@@ -101,6 +103,8 @@ export class AudioEngine {
   private nextTick = 0;
   /** How many players are in the match: the list of a round's places has that many rows to count out. */
   private rows = 4;
+  /** The whole seconds left of the round when last looked at, to tick once as each of the last ones starts. */
+  private lastSecond = 0;
 
   get running(): boolean {
     return this.context?.state === 'running';
@@ -225,6 +229,12 @@ export class AudioEngine {
       this.whine.gain.gain.setTargetAtTime(charge > 0 ? 0.03 + charge * 0.06 : 0, context.currentTime, 0.03);
     }
     this.rows = game.seats.length;
+    // The last seconds of any round are counted out loud, each tick higher than the one before.
+    const left = game.phase === 'play' && Number.isFinite(game.timeLeft) ? Math.ceil(game.timeLeft) : 0;
+    if (left !== this.lastSecond) {
+      this.lastSecond = left;
+      if (left >= 1 && left <= LAST_TICKS) this.tone(NOTE(12 + (LAST_TICKS - left) * 2), 0.09, 'square', 0.11);
+    }
     // Batata Quente: the bomb ticks, faster and higher as its fuse burns down.
     const round = game.round;
     if (game.phase === 'play' && round.gameMode === 'potato' && round.rules.holder !== null && context.currentTime >= this.nextTick) {
