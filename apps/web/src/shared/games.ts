@@ -42,6 +42,9 @@ export const FLAVORS = [
   { icon: '🌿', color: maps.color.mint, line: 'flavor3' },
 ] as const;
 
+/** What goes after the number a game counts, where the number alone would not say what it is: a share of the way. */
+export const COUNT_SUFFIX: Partial<Record<GameMode, string>> = { race: '%', frita: '%' };
+
 /** Pictures for the card that says what is happening right now: who has the bomb, what the cat is doing, where the lava is. */
 export const CALL_ICON = { bomb: '💣', sing: '🎵', watch: '👀', lavaWarn: '⛰️', lava: '🌋' } as const;
 

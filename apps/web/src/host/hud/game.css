@@ -719,6 +719,19 @@
   font-size: calc(46 * var(--u));
 }
 
+/* A game that counts something gets a wider list, with what it counted between the name and the points. */
+.round-results.is-counted {
+  width: calc(640 * var(--u));
+}
+
+.round-count {
+  min-width: calc(130 * var(--u));
+  font-size: calc(34 * var(--u));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .intro-card {
   position: relative;
   display: grid;

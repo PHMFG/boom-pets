@@ -63,7 +63,12 @@ export type PowerNote = { id: number; who: FeedWho; state: 'ready' | 'on' | 'cur
 
 export type ResultRow = { seat: number; name: string; portrait: string; score: number; place: number; award: { icon: string; name: string } | null };
 /** A round's outcome for the list shown as it ends. `points` is everything the round paid that player. */
-export type RoundResult = { mode: GameMode; double: boolean; rows: { seat: number; name: string; place: number; points: number }[] };
+export type RoundResult = {
+  mode: GameMode;
+  double: boolean;
+  /** `count` is what the game itself counted for that player (tiles painted, food eaten, how far along the way), where it counts anything. */
+  rows: { seat: number; name: string; place: number; points: number; count: number | null }[];
+};
 export type Options = { rounds: number; bots: boolean; reduced: boolean; muted: boolean };
 
 export type HudState = {

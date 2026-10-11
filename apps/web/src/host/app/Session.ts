@@ -5,7 +5,7 @@ import { MAX_SEATS, type PadButton, type PhoneMode, type PhoneStatus, type Power
 import { motion } from '../../shared/motion';
 import { PET_IDS, type PetId } from '../../shared/pets';
 import { AWARD_ICON, CAUSE_ICON, EMOTES, POWER_ICON, TIER_COLOR } from '../../shared/powers';
-import { CALL_ICON, FLAVORS, GAME_A, GAME_ICON, GAME_LINE } from '../../shared/games';
+import { CALL_ICON, COUNT_SUFFIX, FLAVORS, GAME_A, GAME_ICON, GAME_LINE } from '../../shared/games';
 import { strings } from '../../shared/strings.pt-BR';
 import { colors, seats } from '../../shared/tokens';
 import { AudioEngine } from '../audio/AudioEngine';
@@ -466,7 +466,10 @@ export class Session {
         const rows = game.round.ranking().flatMap(group => {
           const shared = place;
           place += group.length;
-          return group.map(seat => ({ seat, name: this.who(seat).name, place: shared, points: this.gained.get(seat) ?? 0 }));
+          return group.map(seat => {
+            const count = game.round.metric(seat);
+            return { seat, name: this.who(seat).name, place: shared, points: this.gained.get(seat) ?? 0, count: typeof count === 'number' ? count : null };
+          });
         });
         hud.set({ roundResult: { mode: game.gameMode, double: game.isFinalRound && game.rounds > 1, rows } });
         this.syncPhones();
@@ -631,7 +634,7 @@ export class Session {
         held: pet?.held ? { icon: POWER_ICON[pet.held], color: TIER_COLOR[POWERS[pet.held].tier] } : null,
         bounty: game.bounty === seat.seat,
         ghost: game.round.ghosts.some(ghost => ghost.seat === seat.seat),
-        metric: inRound && metric !== null ? { icon: GAME_ICON[game.gameMode], text: metric === 'hidden' ? '?' : String(metric) } : null,
+        metric: inRound && metric !== null ? { icon: GAME_ICON[game.gameMode], text: metric === 'hidden' ? '?' : `${metric}${COUNT_SUFFIX[game.gameMode] ?? ''}` } : null,
       };
     });
     const names = new Map(game.seats.map(seat => [seat.seat, seat]));

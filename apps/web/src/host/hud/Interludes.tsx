@@ -2,7 +2,7 @@
 // winner's banner at the end of a match. Each is shown and timed by the simulation's phases.
 import { PLAYABLE_MODES, tuning, type GameMode } from '@boom/game';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { GAME_CONTROLS, GAME_ICON } from '../../shared/games';
+import { COUNT_SUFFIX, GAME_CONTROLS, GAME_ICON } from '../../shared/games';
 import { seatShapeSvg } from '../../shared/glyphs';
 import { motion } from '../../shared/motion';
 import { strings } from '../../shared/strings.pt-BR';
@@ -111,10 +111,29 @@ export function Iris({ closed }: { closed: boolean }) {
   return <div className={closed ? 'iris is-closed' : 'iris'} aria-hidden="true" />;
 }
 
-/** As a round ends: every player's place in it and what it paid them, best first. */
+/** A number that counts up from nothing once its row has arrived, so the room watches it being added up. */
+function CountUp({ to, wait }: { to: number; wait: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const start = performance.now() + wait;
+    const step = (now: number) => {
+      const t = Math.min(1, Math.max(0, (now - start) / motion.roundResults.countMs));
+      // Fast at first, slowing into the final number.
+      setShown(Math.round(to * (1 - (1 - t) ** 3)));
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [to, wait]);
+  return <>{shown}</>;
+}
+
+/** As a round ends: every player's place in it, what the game counted for them, and what the round paid them, best first. */
 export function RoundResults({ result }: { result: RoundResult }) {
+  const counted = result.rows.some(row => row.count !== null);
   return (
-    <section className="round-results sticker">
+    <section className={counted ? 'round-results is-counted sticker' : 'round-results sticker'}>
       <h3>
         <span className="round-results-icon">{GAME_ICON[result.mode]}</span>
         {strings.games[result.mode].name}
@@ -128,6 +147,12 @@ export function RoundResults({ result }: { result: RoundResult }) {
               <span className="round-place">{strings.hud.place(row.place)}</span>
               <span className="round-shape" dangerouslySetInnerHTML={{ __html: seatShapeSvg(token.shape, token.color) }} />
               <span className="round-name">{row.name}</span>
+              {counted && (
+                <span className="round-count">
+                  {GAME_ICON[result.mode]} <CountUp to={row.count ?? 0} wait={motion.roundResults.delayMs + motion.popIn.ms + index * motion.roundResults.staggerMs} />
+                  {COUNT_SUFFIX[result.mode]}
+                </span>
+              )}
               <span className="round-points">+{row.points}</span>
             </li>
           );

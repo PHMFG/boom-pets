@@ -30,8 +30,8 @@ export const motion = {
   landing: { ms: 380 },
   /** The curtain that closes to a point before the world changes behind it, and opens again. */
   iris: { ms: 420, css: 'cubic-bezier(0.65, 0, 0.35, 1)' },
-  /** The end of a round: how long the winner has the screen before the places are listed, and the gap between rows. */
-  roundResults: { delayMs: 1100, staggerMs: 150 },
+  /** The end of a round: how long the winner has the screen before the places are listed, the gap between rows, and how long a row's number takes to count up. */
+  roundResults: { delayMs: 1100, staggerMs: 150, countMs: 700 },
   /** How long a line of the event feed stays. */
   feed: { ms: 3600 },
   /** A line that waits for the player ("press any key", "ENTER to start"): one slow swell, back and forth. */

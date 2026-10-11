@@ -536,6 +536,11 @@ test('two phones play a round of every game: each pad shows that game\'s buttons
     // As the round ends, everyone's place in it and what it paid them: two phones and two bots.
     await expect(page.locator('.round-results .round-row'), `the places of ${game} are listed`).toHaveCount(4);
     await expect(page.locator('.round-results .round-row.is-first').first()).toContainText('+');
+    // A game that counts something says what it counted for each player.
+    await expect(page.locator('.round-results .round-count'), `${game} shows what it counted`).toHaveCount(['paint', 'grow', 'race', 'frita'].includes(game) ? 4 : 0);
+    // Every phone says how its own player did.
+    for (const phone of session.phones) await expect(phone.tab.locator('.pad-alert'), `${phone.model.name} is told its place in ${game}`).toContainText('lugar');
+    await shot(session.phones[0]!.tab, `${game}-phone-round-end`);
   }
 
   // The finale names a winner, then the table.
