@@ -1631,4 +1631,9 @@
   .game * {
     animation: none !important;
   }
+
+  /* The curtain still hides the change of world; it just shuts and opens at once. */
+  .iris {
+    transition: none;
+  }
 }

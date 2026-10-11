@@ -122,8 +122,9 @@ export class CameraRig {
       this.goal.set(at.x, at.y ?? 0.6, at.z);
       this.goalDistance = hold.distance;
       if (hold.pitch !== undefined) pitch = MathUtils.degToRad(hold.pitch);
-      // Swinging keeps to the front of the thing; circling goes all the way round it.
-      if (hold.sway) this.yaw += (Math.sin(this.time * 0.6) * hold.sway - this.yaw) * damp(2, dt);
+      // Swinging keeps to the front of the thing; circling goes all the way round it. With "less shake" on, it does neither.
+      if (this.shakeScale < 1) this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3, dt);
+      else if (hold.sway) this.yaw += (Math.sin(this.time * 0.6) * hold.sway - this.yaw) * damp(2, dt);
       else this.yaw += (hold.spin ?? 0) * dt;
       if (hold.left <= 0) this.hold = null;
     } else {
