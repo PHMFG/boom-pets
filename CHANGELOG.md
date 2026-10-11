@@ -7,6 +7,8 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 ### Added
 
 - **Worlds modelled in Blender.** Every map's scenery used to be built in code from boxes, cones and cylinders. It is now modelled in Blender by a script per map (`pnpm models`), as chunky toys with rounded edges, painted by the game from its own colours, and much of it moves:
+  - **Bate-Bate**, which is also the title screen and the lobby: floating islands with a windmill and a cottage, hot-air balloons, gulls and three layers of sculpted cloud; at night, lit windows and paper lanterns rising. The barrel is a toy keg with a fuse and a bang on its lid, the Mystery Cube is gold with a question mark and comes down under a parachute, the meteor has glowing craters and a tail of fire, and the capsule machine has a glass globe full of capsules.
+  - **The winner's stage:** a velvet rug, a podium with 1, 2 and 3 on its steps, lamp towers whose beams search the stage and then chase round the winner, bunting, a trophy, balloons and two confetti cannons that kick back as they fire.
   - **Batata Quente:** the pan has a rolled rim and a riveted handle and sits on a cast-iron grate over teardrop flames, on a stove with knobs, a pot, a wooden spoon and a salt shaker.
   - **Come e Cresce:** a picnic on a table of planks, giant beside the pets: a wicker basket, half a watermelon, a cake with a slice out, juice, a teapot that steams, a jelly that wobbles, a bee round the jam and ants marching. The food itself is modelled, and each kind is held up to the camera the way that shows its shape.
   - **Pinta o Chão:** the paper is taped to a cutting mat on an artist's desk, among a ruler, a lamp, crayons, a palette and brushes in a glass. Each player's tin of paint jumps and spills when they kick a bucket over. A drinking bird dips into the glass.
@@ -21,12 +23,13 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 ### Changed
 
 - **The roulette stops on the game that is played.** The reel used to stop on the same picture every time and a different game's card would then appear. It is wider now, shows the pictures passing under two gold pointers, slows, and stops on the game to come a moment before its card. Phones still learn the game only when the reel stops.
-- **The round's winner gets the camera.** As a round ends the camera comes down to the winner's eye level, close, and stays with it; it used to circle a spot the winner had already walked away from. The winner dances, the others shake their heads, and every pet's bubble says how it feels. The podium is seen from the front, like an audience, instead of from above.
+- **The round's winner gets the camera.** As a round ends the camera comes down to the winner's eye level, close, and stays with it; it used to circle a spot the winner had already walked away from. The winner dances, the others shake their heads, and every pet's bubble says how it feels. The podium is seen from the front, like an audience, instead of from above, and the winner's moment has two beats: the word VITÓRIA! over the crown, then the banner with the winner's name. Those who missed the podium stand beside it, in the picture.
 - The line over a game's card says which round of the match it is ("Rodada 2 de 5") once the game is known.
 - The reel's last tick is a bright note, the curtain closes with a rush of air, and each row of a round's places arrives with a rising tick.
 
 ### Fixed
 
+- A player knocked out of a simple game floats over it as a ghost. The target ring of the brawl's meteor was drawn under that ghost too, where it meant nothing; it is only drawn in the brawl now.
 - On the phone, the word under the A button that says what it does in the game being played ("Pula", "Empurra", "Morde") was cut off by the button's own circle.
 
 ## [0.6.0] - 2026-10-10

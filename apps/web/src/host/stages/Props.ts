@@ -202,10 +202,13 @@ export class GhostView {
     this.body.position.y = 2.6 + Math.sin(time * 2.4 + this.seat) * 0.25;
     this.body.rotation.y = Math.sin(time * 1.3 + this.seat) * 0.5;
     this.body.scale.setScalar(this.age < 0.3 ? backOut(this.age / 0.3) : 1);
+    // The target on the floor is the brawl's: where this ghost's meteor will land. A ghost that only watches has none.
+    const [, ring, dot] = this.group.children;
+    ring!.visible = dot!.visible = ghost.cursor;
     // The ring is small while the meteor recharges and full size, turning, when it is ready.
     const ready = ghost.cooldown === 0;
     const charge = ghost.cooldownTotal > 0 ? 1 - ghost.cooldown / ghost.cooldownTotal : 1;
-    this.group.children[1]!.scale.setScalar(ready ? 1 + Math.sin(time * 6) * 0.06 : 0.35 + 0.65 * charge);
+    ring!.scale.setScalar(ready ? 1 + Math.sin(time * 6) * 0.06 : 0.35 + 0.65 * charge);
   }
 
   /** Where the name tag goes. */
