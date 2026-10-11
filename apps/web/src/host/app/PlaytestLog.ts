@@ -253,6 +253,9 @@ export class PlaytestLog {
       case 'lava':
         if (event.phase === 'flood') this.tally('waves', null);
         break;
+      case 'furniture':
+        if (event.phase === 'land') this.tally('furniture', null);
+        break;
       case 'colorCall':
         this.tally('calls', null);
         break;

@@ -308,22 +308,25 @@ export const grow = {
 
 /** O Chão é Lava. */
 export const lava = {
-  cap: 90,
+  /** Pets are out in this game, so its cap stays with the other games that have someone watching (see "What a new game has to be", item 4). */
+  cap: 75,
   columns: 20,
   rows: 16,
   /** How high a piece of furniture stands (never more than 0.3, or a pet could not step up onto it). */
   height: 0.3,
   /**
-   * The furniture that falls from the sky: how many pets each piece holds, and the part of its top a pet is
-   * safe on (a circle's radius, or a rectangle's width and depth). The safe part is sized so that exactly
-   * that many pets fit, and is a little smaller than the piece is drawn, so a pet that looks on it is on it.
+   * The furniture that falls from the sky: how many pets each piece is meant for, and the part of its top a
+   * pet is safe on (a circle's radius, or a rectangle's width and depth). The safe part is a little smaller
+   * than the piece is drawn, so a pet that looks on it is on it. `seats` is what a wave is counted in and
+   * where bots stand; it is not a limit. Pets that keep still can squeeze more onto a piece than it seats,
+   * and one shove undoes that: the squeeze and the shove are the game.
    */
   pieces: {
-    pouf: { seats: 1, radius: 0.5, width: 0, depth: 0 },
-    armchair: { seats: 1, radius: 0.5, width: 0, depth: 0 },
-    table: { seats: 2, radius: 0, width: 1.7, depth: 0.9 },
-    sofa: { seats: 3, radius: 0, width: 2.7, depth: 0.9 },
-    bed: { seats: 4, radius: 0, width: 1.45, depth: 1.45 },
+    pouf: { seats: 1, radius: 0.6, width: 0, depth: 0 },
+    armchair: { seats: 1, radius: 0.6, width: 0, depth: 0 },
+    table: { seats: 2, radius: 0, width: 2.05, depth: 1.1 },
+    sofa: { seats: 3, radius: 0, width: 3.25, depth: 1.1 },
+    bed: { seats: 4, radius: 0, width: 1.75, depth: 1.75 },
   },
   /** Pieces never land closer together than this, edge to edge, or nearer the wall than this. */
   gap: 1.8,
@@ -336,6 +339,8 @@ export const lava = {
   calmMin: 1.2,
   /** For this many waves at the start there is a seat for every pet: the first to learn on, the second with less time, and nobody has to be left out of either. After that there is one too few. */
   spareWaves: 2,
+  /** From this wave on there are two seats too few (never fewer than one seat): a room that has learnt to squeeze up is thinned all the same. */
+  scarceFrom: 5,
   /** Seconds the alarm sounds before the lava is up, and seconds it stays up. */
   alarm: 3,
   flood: 2,

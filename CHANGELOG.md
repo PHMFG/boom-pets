@@ -4,7 +4,17 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-Nothing yet.
+From the owner, after playing 1.1.0: make the maps bigger, the race could be bigger too, and O Chão é Lava is very short and could have furniture falling from the sky to climb on before the lava comes.
+
+### Changed
+
+- **O Chão é Lava is a new game: furniture falls from the sky.** Instead of rocks rising out of the floor, each wave drops furniture onto it, one piece after another, each marked in gold where it will land: a pouf and an armchair hold one pet, a low table two, a sofa three, a bed four. Get up on a piece before the lava covers the floor; a piece that lands on you lifts you. There is never one piece for everybody, so the room always splits. The first two waves have room for everyone, then there is one place too few and the shove matters, and from the fifth wave two too few. When the lava goes, the furniture tips and sinks, and new pieces fall somewhere else. The floor is 20 by 16 (it was 14 by 12) and a round with four bots lasts about 40 seconds, twice what it did in the build the owner called short. Each piece whistles down and lands with a thud, heavier for a sofa than for a pouf.
+- **Corrida Maluca is two thirds longer.** The track folds back a third time: four lanes, 127 metres and twelve obstacles, against 76 metres and nine. With bots a race takes about 54 seconds. The card between rounds shows the whole of it.
+- **Every other floor is about a quarter bigger each way**, so there is room to run and to get away: Pinta o Chão's paper is 18 by 15, Come e Cresce's blanket 20 by 15, Cor Certa's floor 16 by 16 (each patch four tiles a side), Batata Quente's pan 7.5 metres to the rim, Batatinha Frita's lane 32 by 11. What depends on distance moved with them: more food at once, buckets a little more often and splashing wider, a longer count before a colour drops, a bomb holder a touch faster. The picnic, the desk, the stage, the park and the kitchen were scaled to their new floors; spectators kept their size. Bate-Bate keeps its 16 by 16, because its size is what its knockouts are paced by.
+
+### Fixed
+
+- Bots in Cor Certa walked to where a patch of the old size would have been, and fell with the floor.
 
 ## [1.1.0] - 2026-10-11
 

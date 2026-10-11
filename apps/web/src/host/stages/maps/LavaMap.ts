@@ -39,7 +39,7 @@ const fit = (x: number, z: number) => ({ x: x * FIT.x, z: z * FIT.z });
  * Furniture comes out of the sky: for how long it is seen falling and from how high, how long it takes to sink
  * when its wave is over, how it squashes as it lands, and how wide a mark each kind leaves on the floor beforehand.
  */
-const FURNITURE = { fall: 0.65, height: 22, sink: 0.35, squash: 0.28, settle: 0.3, mark: { pouf: 0.8, armchair: 0.95, table: 1.3, sofa: 1.9, bed: 1.6 } };
+const FURNITURE = { fall: 0.65, height: 22, sink: 0.35, squash: 0.28, settle: 0.3, mark: { pouf: 0.95, armchair: 1.15, table: 1.55, sofa: 2.3, bed: 1.9 } };
 /** Bubbles swelling out of the lava at any moment. */
 const BUBBLES = 9;
 /** Where the volcano stands and how high its mouth is, for what it throws. */

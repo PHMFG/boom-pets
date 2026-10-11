@@ -287,6 +287,20 @@ describe('O Chão é Lava', () => {
     field.free();
   });
 
+  it('has two seats too few from the late waves on, however many have squeezed through', () => {
+    const { field, run } = makeField('lava', 5);
+    const rules = field.rules;
+    run(1);
+    // Straight to the end of the flood before the first scarce wave, with all five still in.
+    rules.wave = lava.scarceFrom - 1;
+    rules.phase = 'flood';
+    rules.left = 0;
+    run(1);
+    expect(rules.wave).toBe(lava.scarceFrom);
+    expect(seatsIn(field)).toHaveLength(3);
+    field.free();
+  });
+
   it('lets a shove push a pet off its seat, and rests A after', () => {
     const lavaField = makeField('lava', 2);
     const { field, run, set, of } = lavaField;

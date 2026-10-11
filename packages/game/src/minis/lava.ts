@@ -132,12 +132,14 @@ export class LavaRules implements MiniRules {
 
   /**
    * What is left of the last wave's furniture sinks, and new pieces are picked: between them one seat fewer than
-   * there are pets, so somebody has to be left out. The first wave is kinder, with a seat for everyone: it is the
-   * one to learn on. Each piece's spot is known from now, and they land one after another.
+   * there are pets, so somebody has to be left out, and two fewer in the late waves. The first waves are kinder,
+   * with a seat for everyone: they are the ones to learn on. Each piece's spot is known from now, and they land
+   * one after another.
    */
   private startWave(field: Field): void {
     this.wave++;
-    let seats = Math.max(1, field.alive().length - (this.wave <= lava.spareWaves ? 0 : 1));
+    const short = this.wave <= lava.spareWaves ? 0 : this.wave < lava.scarceFrom ? 1 : 2;
+    let seats = Math.max(1, field.alive().length - short);
     // Never one piece for everybody: with two or more to seat there are at least two places to run to.
     const most = Math.max(1, seats - 1);
     const pieces: Furniture[] = [];

@@ -483,8 +483,15 @@ group('perches')['spots'] = [round(number, 2) for perch in perches for number in
 TOP = 0.3
 
 
+# Every piece is built at the size it was first drawn and then widened by this, without getting taller: the
+# floor grew, and the furniture with it. Its top stays at TOP, which is as high as a pet can step.
+WIDER = 1.2
+
+
 def furniture(name, *pieces):
-    return part(tag(settle(join(name, *pieces)), outline=0.045))
+    whole = settle(join(name, *pieces))
+    whole.data.transform(Matrix.Diagonal((WIDER, WIDER, 1, 1)))
+    return part(tag(whole, outline=0.045))
 
 
 # A pouf: one seat, round.

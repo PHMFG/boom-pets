@@ -11,6 +11,8 @@ type Sample = (typeof SAMPLES)[number];
 type Wave = 'sine' | 'square' | 'sawtooth' | 'triangle';
 
 const NOTE = (semitonesFromA4: number) => 440 * 2 ** (semitonesFromA4 / 12);
+/** How heavy each piece of furniture sounds when it falls into the lava game, 0 to 1. */
+const FURNITURE_WEIGHT = { pouf: 0.2, armchair: 0.5, table: 0.6, sofa: 0.9, bed: 1 } as const;
 /** How many of a round's last seconds are ticked off out loud. */
 const LAST_TICKS = 5;
 /** The stand-in tunes: two eight-step bass lines and leads, in semitones from A4. Null is a rest. */
@@ -352,6 +354,19 @@ export class AudioEngine {
           this.tone(70, 0.9, 'sine', 0.45, 45);
         }
         return;
+      }
+      case 'furniture': {
+        const context = this.context;
+        if (!context) return;
+        // The bigger the piece, the heavier it sounds.
+        const weight = FURNITURE_WEIGHT[event.kind];
+        if (event.phase === 'fall') {
+          // It whistles down over its last moment, which is when it is seen falling.
+          const whistle = Math.min(0.6, event.seconds);
+          return this.tone(1250 - weight * 250, whistle, 'sine', 0.07, 320, undefined, context.currentTime + event.seconds - whistle);
+        }
+        this.sample(['wood1', 'wood2'], 0.3 + weight * 0.3);
+        return this.tone(150 - weight * 50, 0.24, 'sine', 0.2 + weight * 0.2, 50);
       }
       case 'colorShow':
         return this.arpeggio([12, 16, 19], 0.05, 'triangle', 0.1);
