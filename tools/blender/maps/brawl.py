@@ -1,8 +1,18 @@
 # Bate-Bate: a white platform of tiles high over a sea of clouds. The tiles are the game's, and they fall, so
-# nothing here touches the platform: the world is what floats round it and far below it. The camera looks
-# down from the front, so whatever is near the front (low Y) hangs well below the floor, and height is built
-# at the back and the sides. The props the brawl plays with (barrel, Mystery Cube, meteor, capsule machine,
-# the case of the slot reels) and what the game moves itself (clouds, gulls, lanterns) are templates.
+# nothing here touches the platform: the world is what floats round it and far below it. In a round the
+# camera looks down from the front, so whatever is near the front (low Y) hangs well below the floor, and
+# height is built at the back and the sides. Between rounds it comes down low and looks across the platform,
+# from the front and a little to either side: what it sees then is the far back, so the back has a distance
+# to it (far islands, a balloon, a bank of cloud at the horizon). It never goes below the floor, so nothing
+# here has an underside worth modelling. Far below it all lies a land of fields, a river and a town, seen
+# through the gaps in the clouds: the platform is high over somewhere.
+# The game stands pets that came to watch on the islands and in the balloons' baskets, so each has room for
+# them. The props the brawl plays with (barrel, Mystery Cube, meteor, capsule machine, the case of the slot
+# reels) and what the game moves itself (clouds, gulls, lanterns, a plane, a kite, a flock, the windmill's
+# sails) are templates, or pieces it finds by name.
+#
+# A piece costs the game one drawing for each colour it has, and another for each if it is outlined: so a
+# piece that stands far off or is drawn many times over keeps its colours few.
 import glob
 import os
 
@@ -122,15 +132,24 @@ def burst(name, outer, inner, points, depth, color, at=(0, 0, 0), rot=(0, 0, 0))
 # Three cumulus shapes. The game lays them out in layers at several depths and lets each layer drift at its
 # own pace, so the sea moves. They have no outline: an outline is for things, and this is weather.
 
-def cloud(name, puffs):
-    """`puffs` is a list of (x, y, radius): fat balls sitting on one level, pressed a little flat."""
-    balls = [ball('%s_%d' % (name, index), radius, 'cloud', at=(x, y, radius * 0.42), scale=(1, 1, 0.72), detail=2, smooth=80) for index, (x, y, radius) in enumerate(puffs)]
-    return part(tag(centred(join(name, *balls)), outline=0, shadow=False))
+def cloud(name, puffs, fine=1.45):
+    """
+    `puffs` is a list of (x, y, radius): fat balls sitting on one level, pressed a little flat. Only the big
+    ones (`fine` metres or more) are made truly round: a cloud is drawn dozens of times.
+    """
+    balls = [ball('%s_%d' % (name, index), radius, 'cloud', at=(x, y, radius * 0.42), scale=(1, 1, 0.72), detail=2 if radius >= fine else 1, smooth=80) for index, (x, y, radius) in enumerate(puffs)]
+    return part(tag(centred(join(name, *balls)), outline=0, shadow=False, receive=False))
 
 
 cloud('cloud_a', [(0, 0, 2.2), (-2.6, 0.3, 1.7), (2.5, -0.2, 1.8), (-4.6, 0, 1.1), (4.5, 0.2, 1.2), (0.6, 1.6, 1.5), (-1.2, -1.5, 1.4)])
 cloud('cloud_b', [(0, 0, 2.0), (1.9, 0.8, 1.5), (-1.8, 0.6, 1.4), (0.3, -1.6, 1.3), (-0.6, 1.9, 1.1)])
-cloud('cloud_c', [(0, 0, 1.3), (1.5, 0.1, 1.0), (-1.4, -0.1, 0.9)])
+cloud('cloud_c', [(0, 0, 1.3), (1.5, 0.1, 1.0), (-1.4, -0.1, 0.9)], fine=1.2)
+# A long low bank: the sea of clouds as it looks far off, where the low shots between rounds see it. It is
+# drawn many times as big as the others, so its puffs are domes turned on a lathe: round to the eye at any
+# size, with a fraction of a ball's faces, and no underside, which nothing ever sees.
+domes = [lathe('cloud_bank_%d' % index, [(radius * 0.8, -radius * 0.3), (radius, 0), (radius * 0.94, radius * 0.3), (radius * 0.76, radius * 0.56), (radius * 0.45, radius * 0.74), (0, radius * 0.8)], 'cloud', at=(x, y, radius * 0.2), sides=14, smooth=80)
+         for index, (x, y, radius) in enumerate([(0, 0, 2.0), (-3.0, 0.2, 1.7), (3.1, -0.1, 1.8), (-6.0, 0, 1.4), (6.2, 0.1, 1.5), (-8.6, 0.1, 1.0), (8.8, 0, 1.1)])]
+part(tag(centred(join('cloud_bank', *domes)), outline=0, shadow=False, receive=False))
 
 
 # ── Floating islands ─────────────────────────────────────────────────────────
@@ -169,19 +188,28 @@ ground = island('mill_island', 4.4, 6.2, seed=3)
 tower = lathe('mill_tower', [(0, 0), (1.05, 0), (1.0, 0.25), (0.7, 2.7), (0.78, 2.85), (0, 2.85)], 'cream', at=(0.4, 0.5, 0.15), sides=10)
 cap = cone('mill_cap', 1.0, 1.15, 'roof', at=(0.4, 0.5, 3.55), sides=10)
 door = box('mill_door', (0.5, 0.2, 0.85), 'wood', at=(0.4, -0.52, 0.58), bevel=0.06)
-porthole = cylinder('mill_porthole', 0.2, 0.2, 'rockDark', at=(0.4, -0.3, 1.9), rot=(90, 0, 0), sides=10)
-greens = tree('mill_tree_a', (-2.4, 0.6, 0.1), 1.5, 0.85) + tree('mill_tree_b', (2.7, 1.4, 0.1), 1.2, 0.7, 'leafDark') + pine('mill_pine', (-1.3, 2.2, 0.1), 2.3)
+porthole = cylinder('mill_porthole', 0.2, 0.2, 'wood', at=(0.4, -0.3, 1.9), rot=(90, 0, 0), sides=10)
+greens = tree('mill_tree_a', (-2.4, 0.6, 0.1), 1.5, 0.85) + tree('mill_tree_b', (2.7, 1.4, 0.1), 1.2, 0.7) + pine('mill_pine', (-1.3, 2.2, 0.1), 2.3, 'leaf')
 stones = [pebble('mill_pebble_a', (2.4, -1.6, 0.25), 0.5, 4), pebble('mill_pebble_b', (-2.9, -1.4, 0.2), 0.38, 5)]
-mill_body = join('mill_body', *ground, tower, cap, door, porthole, *greens, *stones)
-# The sails: four boards on a hub, facing the camera, turning for ever.
+# A path from the door to a gap in the fence along the island's front, where those who came to watch stand.
+path = slab('mill_path', [(-0.34, -3.3), (0.42, -3.3), (0.7, -0.6), (0.1, -0.6)], 0.08, 'earth', at=(0.0, 0.0, 0.2), bevel=0.02)
+fence = []
+for index, turn in enumerate((-64, -48, -32, -16, 16, 32, 48, 64)):
+    angle = math.radians(turn - 90)
+    fence.append(box('mill_post_%d' % index, (0.16, 0.16, 0.62), 'wood', at=(math.cos(angle) * 3.55, math.sin(angle) * 3.55, 0.42), bevel=0.04, segments=1))
+for index, (start, end) in enumerate(((-64, -16), (16, 64))):
+    rail = [(math.cos(math.radians(turn - 90)) * 3.55, math.sin(math.radians(turn - 90)) * 3.55, 0.56) for turn in range(start, end + 1, 16)]
+    fence.append(pipe('mill_rail_%d' % index, rail, 0.06, 'wood', sides=5))
+mill_body = join('mill_body', *ground, tower, cap, door, porthole, *greens, *stones, path, *fence)
+# The sails: four boards on a hub, facing the camera. The game turns them, and races them when something goes off.
 hub = cylinder('sails_hub', 0.22, 0.6, 'wood', rot=(90, 0, 0), sides=8)
 blades = []
 for index in range(4):
     turn = math.radians(index * 90 + 12)
-    arm = box('sail_arm_%d' % index, (0.14, 0.12, 2.1), 'wood', at=(math.sin(turn) * 1.05, -0.05, math.cos(turn) * 1.05), rot=(0, math.degrees(turn), 0), bevel=0.04)
-    cloth = box('sail_cloth_%d' % index, (0.62, 0.08, 1.5), 'cream', at=(math.sin(turn) * 1.3 + math.cos(turn) * 0.32, -0.05, math.cos(turn) * 1.3 - math.sin(turn) * 0.32), rot=(0, math.degrees(turn), 0), bevel=0.03)
+    arm = box('sail_arm_%d' % index, (0.14, 0.12, 2.1), 'wood', at=(math.sin(turn) * 1.05, -0.05, math.cos(turn) * 1.05), rot=(0, math.degrees(turn), 0), bevel=0.04, segments=1)
+    cloth = box('sail_cloth_%d' % index, (0.62, 0.08, 1.5), 'cream', at=(math.sin(turn) * 1.3 + math.cos(turn) * 0.32, -0.05, math.cos(turn) * 1.3 - math.sin(turn) * 0.32), rot=(0, math.degrees(turn), 0), bevel=0.03, segments=1)
     blades += [arm, cloth]
-sails = spin(place(centred(join('mill_sails', hub, *blades)), at=(0.4, -0.62, 2.55)), seconds=7, axis=1)
+sails = place(centred(join('mill_sails', hub, *blades)), at=(0.4, -0.62, 2.55))
 lit = tag(cylinder('night_mill_window', 0.15, 0.24, 'window', at=(0.4, -0.3, 1.9), rot=(90, 0, 0), sides=10), glow=1.7, outline=0, shadow=False)
 tag(bob(group('mill', mill_body, sails, lit, at=(-18.5, 12.5, -3.2), rot=(0, 0, 14)), height=0.45, seconds=7), outline=0.07, shadow=False)
 tag(lit, outline=0)
@@ -190,13 +218,18 @@ tag(lit, outline=0)
 ground = island('home_island', 3.4, 5.0, seed=11, sides=9)
 walls = box('home_walls', (1.9, 1.5, 1.2), 'cream', at=(-0.3, 0.3, 0.7), bevel=0.1)
 gable = slab('home_roof', [(-1.25, 0), (1.25, 0), (0, 1.15)], 1.9, 'roof', at=(-0.3, 0.3, 1.25), rot=(90, 0, 0), bevel=0.08)
-chimney = box('home_chimney', (0.34, 0.34, 0.8), 'rockDark', at=(0.35, 0.6, 2.0), bevel=0.06)
+chimney = box('home_chimney', (0.34, 0.34, 0.8), 'rock', at=(0.35, 0.6, 2.0), bevel=0.06)
 door = box('home_door', (0.42, 0.14, 0.72), 'wood', at=(-0.7, -0.44, 0.5), bevel=0.05)
-pane = box('home_pane', (0.46, 0.14, 0.42), 'rockDark', at=(0.15, -0.44, 0.78), bevel=0.05)
-greens = tree('home_tree', (1.9, 0.9, 0.1), 2.1, 1.0) + pine('home_pine', (-2.2, 1.2, 0.1), 1.9)
+pane = box('home_pane', (0.46, 0.14, 0.42), 'wood', at=(0.15, -0.44, 0.78), bevel=0.05)
+greens = tree('home_tree', (1.9, 0.9, 0.1), 2.1, 1.0, 'leafDark') + pine('home_pine', (-2.2, 1.2, 0.1), 1.9)
 stones = [pebble('home_pebble', (1.5, -1.6, 0.2), 0.42, 9)]
 pole = cylinder('home_pole', 0.07, 2.4, 'wood', at=(-2.3, -1.0, 1.3), sides=6)
-home_body = join('home_body', *ground, walls, gable, chimney, door, pane, *greens, *stones, pole)
+# Washing on a line from the flag's pole to a post.
+post = cylinder('home_post', 0.07, 1.5, 'wood', at=(0.9, -2.2, 0.85), sides=6)
+line = pipe('home_line', arc((-2.3, -1.0, 1.55), (0.9, -2.2, 1.55), -0.16, steps=6), 0.03, 'wood', sides=4)
+washing = [box('home_washing_%d' % index, (0.5, 0.06, height), color, at=(-2.3 + 3.2 * share, -1.0 - 1.2 * share, 1.46 - height / 2), rot=(0, 0, -20.5), bevel=0)
+           for index, (share, height, color) in enumerate(((0.25, 0.5, 'cream'), (0.5, 0.66, 'roof'), (0.75, 0.44, 'cream')))]
+home_body = join('home_body', *ground, walls, gable, chimney, door, pane, *greens, *stones, pole, post, line, *washing)
 flag = sway(place(slab('home_flag', [(0, 0.3), (0, -0.3), (0.95, 0)], 0.08, 'balloonSun', bevel=0.02), at=(-2.25, -1.0, 2.2), rot=(90, 0, 0)), degrees=14, seconds=2.6, axis=2)
 lit = tag(box('night_home_window', (0.36, 0.1, 0.32), 'window', at=(0.15, -0.5, 0.78), bevel=0.03), glow=1.7, outline=0, shadow=False)
 tag(bob(group('home', home_body, flag, lit, at=(18.5, -2.0, -4.6), rot=(0, 0, -20)), height=0.38, seconds=6), outline=0.07, shadow=False)
@@ -204,16 +237,20 @@ tag(lit, outline=0)
 
 # Two small ones: a lone tree low at the front left, and a rock with pines far at the back.
 ground = island('lone_island', 2.2, 3.6, seed=21, sides=8)
-lone_body = join('lone_body', *ground, *tree('lone_tree', (0.2, 0.1, 0.1), 1.9, 1.05), pebble('lone_pebble', (-1.2, -0.7, 0.2), 0.36, 22))
+bench = [box('lone_bench_seat', (1.1, 0.34, 0.1), 'wood', at=(0.95, -0.2, 0.52), rot=(0, 0, 25), bevel=0.03, segments=1)] + [
+    box('lone_bench_leg_%d' % index, (0.1, 0.3, 0.34), 'wood', at=(0.95 + side * 0.4, -0.2 + side * 0.19, 0.35), rot=(0, 0, 25), bevel=0) for index, side in enumerate((-1, 1))]
+lone_body = join('lone_body', *ground, *tree('lone_tree', (0.2, 0.1, 0.1), 1.9, 1.05), pebble('lone_pebble', (-1.2, -0.7, 0.2), 0.36, 22), *bench)
 tag(bob(group('lone', lone_body, at=(-15.5, -6.5, -7.5)), height=0.5, seconds=5), outline=0.07, shadow=False)
 
 ground = island('far_island', 2.8, 4.4, seed=31, sides=9)
-far_body = join('far_body', *ground, *pine('far_pine_a', (-0.8, 0.2, 0.1), 2.6), *pine('far_pine_b', (0.9, 0.6, 0.1), 2.0, 'leaf'), *pine('far_pine_c', (0.2, -1.1, 0.1), 1.6))
+far_body = join('far_body', *ground, *pine('far_pine_a', (-0.8, 0.2, 0.1), 2.6), *pine('far_pine_b', (0.9, 0.6, 0.1), 2.0), *pine('far_pine_c', (0.2, -1.1, 0.1), 1.6))
 tag(bob(group('far', far_body, at=(11.0, 24.0, -6.5)), height=0.4, seconds=8), outline=0.07, shadow=False)
 
-# Loose stones that hang in the air near the islands, each on its own slow bob.
-for index, (x, y, z, size) in enumerate([(-12.2, 14.6, -4.6, 0.8), (-21.5, 6.8, -5.4, 0.6), (13.4, 3.2, -6.6, 0.7), (22.4, -6.4, -7.0, 0.5), (-12.6, -9.2, -9.4, 0.5)]):
-    tag(bob(place(rock('drift_rock_%d' % index, size, 'rock', seed=40 + index, rough=0.24, scale=(1, 1, 0.85)), at=(x, y, z)), height=0.3, seconds=3.4 + index * 0.6), outline=0.06, shadow=False)
+# Loose stones that hang in the air near the islands. They are one piece and bob together, at a pace that is
+# none of the islands': five pebbles each on a bob of its own were ten drawings for a move nobody could see.
+stones = [rock('drift_rock_%d' % index, size, 'rock', at=(x, y, z), seed=40 + index, rough=0.24, scale=(1, 1, 0.85))
+          for index, (x, y, z, size) in enumerate([(-12.2, 14.6, -4.6, 0.8), (-21.5, 6.8, -5.4, 0.6), (13.4, 3.2, -6.6, 0.7), (22.4, -6.4, -7.0, 0.5), (-12.6, -9.2, -9.4, 0.5)])]
+tag(bob(centred(join('drift_rocks', *stones)), height=0.3, seconds=4.3), outline=0.06, shadow=False)
 
 
 # ── Hot-air balloons ─────────────────────────────────────────────────────────
@@ -221,10 +258,13 @@ for index, (x, y, z, size) in enumerate([(-12.2, 14.6, -4.6, 0.8), (-21.5, 6.8, 
 def balloon(name, color, at, size, seconds):
     envelope = striped(name + '_envelope', [(0, 0.08), (0.46, 0.0), (0.56, 0.12), (1.0, 0.95), (1.42, 1.75), (1.52, 2.35), (1.38, 2.9), (0.95, 3.3), (0.45, 3.48), (0, 3.52)], [color, 'cream'], sides=24, stripe=2, smooth=60)
     skirt = lathe(name + '_skirt', [(0.4, -0.1), (0.52, -0.1), (0.6, 0.14), (0.44, 0.14)], 'wood', sides=12)
-    basket = box(name + '_basket', (0.62, 0.62, 0.5), 'wood', at=(0, 0, -1.0), bevel=0.1)
-    brim = box(name + '_brim', (0.74, 0.74, 0.14), 'wood', at=(0, 0, -0.76), bevel=0.05)
-    ropes = [pipe('%s_rope_%d' % (name, i), [(sx * 0.3, sy * 0.3, -0.78), (sx * 0.4, sy * 0.4, -0.05)], 0.045, 'wood', sides=5) for i, (sx, sy) in enumerate(((-1, -1), (1, -1), (1, 1), (-1, 1)))]
-    rig = join(name + '_rig', skirt, basket, brim, *ropes)
+    # The basket is open, with a floor and four walls: the game stands a passenger in it.
+    # The basket is open, with a floor and four low walls: the game stands a passenger in it, who looks out over the rim.
+    basket = [box(name + '_floor', (0.84, 0.84, 0.1), 'wood', at=(0, 0, -1.3), bevel=0.04, segments=1)]
+    basket += [box('%s_wall_%d' % (name, i), (0.84 if sy else 0.1, 0.1 if sy else 0.84, 0.3), 'wood', at=(sx * 0.37, sy * 0.37, -1.15), bevel=0.04, segments=1) for i, (sx, sy) in enumerate(((-1, 0), (1, 0), (0, -1), (0, 1)))]
+    brim = pipe(name + '_brim', [(-0.4, -0.4, -1.0), (0.4, -0.4, -1.0), (0.4, 0.4, -1.0), (-0.4, 0.4, -1.0)], 0.07, 'wood', sides=6, closed=True)
+    ropes = [pipe('%s_rope_%d' % (name, i), [(sx * 0.38, sy * 0.38, -1.0), (sx * 0.42, sy * 0.42, -0.05)], 0.045, 'wood', sides=5) for i, (sx, sy) in enumerate(((-1, -1), (1, -1), (1, 1), (-1, 1)))]
+    rig = join(name + '_rig', skirt, *basket, brim, *ropes)
     flame = throb(tag(lathe(name + '_flame', [(0, -0.42), (0.16, -0.36), (0.2, -0.2), (0.1, 0.02), (0, 0.16)], 'flame', sides=8, smooth=70), glow=1.7, outline=0, shadow=False), amount=0.25, seconds=0.9)
     holder = group(name, envelope, rig, flame, at=at)
     holder.scale = (size, size, size)
@@ -233,42 +273,190 @@ def balloon(name, color, at, size, seconds):
     return bob(holder, height=0.7, seconds=seconds)
 
 
-balloon('balloon_warm', 'balloonWarm', (12.8, 11.5, -6.5), 1.5, 6.5)
+balloon('balloon_warm', 'balloonWarm', (17.5, 14.5, -9.0), 1.6, 6.5)
 balloon('balloon_cool', 'balloonCool', (-13.6, -1.0, -9.6), 1.25, 8.0)
-balloon('balloon_sun', 'balloonSun', (-6.5, 25.0, 1.5), 1.4, 7.2)
+balloon('balloon_sun', 'balloonSun', (-10.0, 33.0, -10.0), 2.1, 7.2)
+
+
+# ── Far off ──────────────────────────────────────────────────────────────────
+# Two islands a long way behind the platform: a crag with pines on each. They are what the low shots between
+# rounds have at the back of the picture. They have no outline and do not bob: at that distance a line would
+# only shimmer. Both are one piece.
+def crag(name, at, size, seed):
+    x, y, z = at
+    lawn = wobble(lathe(name + '_lawn', [(0, -0.5), (size, -0.5), (size * 1.03, -0.1), (size * 0.9, 0.15), (0, 0.3)], 'grass', sides=9, smooth=50), seed)
+    stone = wobble(lathe(name + '_stone', [(0, -size * 1.5), (size * 0.2, -size * 1.2), (size * 0.6, -size * 0.6), (size * 0.92, -0.4), (0, -0.4)], 'rock', sides=9, smooth=28), seed)
+    peak = rock(name + '_peak', size * 0.5, 'rock', at=(size * 0.25, size * 0.2, size * 0.42), seed=seed, rough=0.2, scale=(1, 1, 1.5))
+    pines = []
+    for index, (px, py, height) in enumerate(((-0.55, 0.1, 0.9), (-0.25, -0.5, 0.7), (0.6, -0.35, 0.6))):
+        pines += [cone('%s_pine_%d_%d' % (name, index, tier), size * height * (0.3 - tier * 0.08), size * height * 0.5, 'leafDark', at=(px * size, py * size, 0.2 + size * height * (0.25 + tier * 0.26)), sides=7) for tier in range(2)]
+    pieces = [lawn, stone, peak, *pines]
+    for piece in pieces:
+        piece.location = (piece.location.x + x, piece.location.y + y, piece.location.z + z)
+    return pieces
+
+
+tag(centred(join('distant', *crag('crag_left', (-44, 62, -15), 6.0, 51), *crag('crag_right', (41, 74, -17), 7.5, 52))), outline=0, shadow=False, receive=False)
+
+
+# ── Far below ────────────────────────────────────────────────────────────────
+# A land under the clouds: a patchwork of fields with a river through it to a sea, and a town on the river.
+# It is drawn in the colours of distance, close to the sky's and to each other, so it sits behind everything
+# and takes no eye from the floor. Its fields and houses are toy sized: it lies only 80 m down, since the camera cannot see
+# farther than 400 m, and small things read as far away. By night the town's windows are lit.
+DEPTH = -80.0
+FIELD = 15.0
+land_rng = random.Random(77)
+
+
+def plates(name, quads, color, z):
+    """Flat four-cornered pieces lying at height `z`, facing up, as one object. `quads` is a list of four (x, y) corners, counter-clockwise."""
+    bm = bmesh.new()
+    for corners in quads:
+        bm.faces.new([bm.verts.new((x, y, z)) for x, y in corners])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for face in bm.faces:
+        if face.normal.z < 0:
+            face.normal_flip()
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.materials.append(mat(color))
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
+def turned(x, y, degrees=24, middle=95.0):
+    """
+    From the fields' own measure to the world's. The fields lie askew to the platform, the way land never lines
+    up with what flies over it, and their middle is well behind it: looking down past the platform from the
+    front, what lies 80 m below is seen 60 m and more beyond it.
+    """
+    angle = math.radians(degrees)
+    return (x * math.cos(angle) - y * math.sin(angle), x * math.sin(angle) + y * math.cos(angle) + middle)
+
+
+def river_x(y):
+    """Where the river runs, in the fields' own measure."""
+    return -38 + math.sin(y / 46.0) * 30 + math.sin(y / 17.0) * 6
+
+
+def coast_x(y):
+    return 86 + math.sin(y / 38.0) * 14
+
+
+fields = {'land': [], 'landPale': [], 'landGold': []}
+reach = int(170 / FIELD)
+for i in range(-reach, reach + 1):
+    for j in range(-reach, reach + 1):
+        x, y = i * FIELD, j * FIELD
+        if math.hypot(x, y) > 164 or x > coast_x(y) - 4 or abs(x - river_x(y)) < 7.5:
+            continue
+        # Neighbours often share a crop, and no hedge is drawn between them, so the patches are of several sizes
+        # and shapes: a regular grid down there would be a second chequered floor.
+        tone = random.Random((i // 3) * 131 + (j // 2) * 17 + 5).choice(sorted(fields)) if land_rng.random() < 0.7 else land_rng.choice(sorted(fields))
+        fields[tone].append([turned(x, y), turned(x + FIELD, y), turned(x + FIELD, y + FIELD), turned(x, y + FIELD)])
+pieces = [plates('ground_' + tone, quads, tone, DEPTH) for tone, quads in fields.items()]
+# Under the fields, the colour of everything too far off to make out.
+rim = [(math.cos(2 * math.pi * i / 24) * 445, math.sin(2 * math.pi * i / 24) * 445) for i in range(24)]
+pieces.append(plates('ground_haze', [[(0, 0), rim[i], rim[(i + 1) % 24]] for i in range(24)], 'haze', DEPTH - 0.5))
+# The river, and the sea it runs to.
+banks = [(river_x(y), y) for y in range(-200, 201, 10)]
+pieces.append(plates('ground_river', [[turned(ax - 4.5, ay), turned(ax + 4.5, ay), turned(bx + 4.5, by), turned(bx - 4.5, by)] for (ax, ay), (bx, by) in zip(banks, banks[1:])], 'water', DEPTH - 0.2))
+shore = [(coast_x(y), y) for y in range(-240, 241, 12)]
+pieces.append(plates('ground_sea', [[turned(ax, ay), turned(ax + 330, ay), turned(bx + 330, by), turned(bx, by)] for (ax, ay), (bx, by) in zip(shore, shore[1:])], 'water', DEPTH - 0.3))
+# The town: little houses along the river, a square tower among them.
+houses, windows = [], []
+for index in range(18):
+    y = -30 + land_rng.uniform(-30, 30)
+    x = river_x(y) + land_rng.choice((-1, 1)) * land_rng.uniform(9, 30)
+    wide, tall = land_rng.uniform(1.5, 2.3), land_rng.uniform(1.1, 1.8)
+    hx, hy = turned(x, y)
+    turn = 24 + land_rng.choice((0, 90))
+    houses.append(box('town_walls_%d' % index, (wide, wide * 0.8, tall), 'town', at=(hx, hy, DEPTH + tall / 2), rot=(0, 0, turn), bevel=0))
+    houses.append(slab('town_roof_%d' % index, [(-wide * 0.62, 0), (wide * 0.62, 0), (0, wide * 0.5)], wide * 0.86, 'townRoof', at=(hx, hy, DEPTH + tall), rot=(90, 0, turn), bevel=0))
+    # Not every house is awake.
+    if index % 2 == 0:
+        windows.append(box('town_window_%d' % index, (0.7, 0.7, 0.4), 'window', at=(hx, hy, DEPTH + tall + wide * 0.5 + 0.5), bevel=0))
+tx, ty = turned(river_x(-30) + 16, -30)
+houses.append(box('town_tower', (2.0, 2.0, 5.0), 'town', at=(tx, ty, DEPTH + 2.5), rot=(0, 0, 24), bevel=0))
+houses.append(cone('town_spire', 1.8, 2.4, 'townRoof', at=(tx, ty, DEPTH + 6.2), sides=4, rot=(0, 0, 69)))
+windows.append(box('town_window_tower', (0.9, 0.9, 0.5), 'window', at=(tx, ty, DEPTH + 7.9), bevel=0))
+tag(centred(join('ground', *pieces, *houses)), outline=0, shadow=False, receive=False)
+tag(centred(join('night_town', *windows)), glow=1.8, outline=0, shadow=False)
+
+
+# ── Templates: what flies ────────────────────────────────────────────────────
+# A toy biplane that tows a string of pennants. It flies toward high Y. Its propeller and the three lengths
+# of its banner are pieces of their own, each hinged at its front end: the game turns the one and waves the
+# others. The game flies it in a wide ring round the platform, below the floor and well outside it.
+hull = ball('plane_hull', 0.5, 'roof', scale=(0.85, 2.6, 0.9), detail=2)
+nose = cylinder('plane_nose', 0.36, 0.3, 'cream', at=(0, 1.22, 0), rot=(90, 0, 0), sides=10)
+wings = [box('plane_wing_%d' % index, (3.6, 0.9, 0.14), 'cream', at=(0, 0.35, z), bevel=0.06) for index, z in enumerate((-0.28, 0.62))]
+struts = [cylinder('plane_strut_%d' % index, 0.05, 0.9, 'wood', at=(side * 1.3, 0.35, 0.17), sides=5) for index, side in enumerate((-1, 1))]
+fin = slab('plane_fin', [(0, 0), (0.75, 0), (0.15, 0.62), (0, 0.62)], 0.1, 'cream', at=(0, -1.25, 0.1), rot=(90, 0, 90), bevel=0.03)
+tailplane = box('plane_tail', (1.5, 0.5, 0.1), 'cream', at=(0, -1.05, 0.12), bevel=0.04)
+wheels = [cylinder('plane_wheel_%d' % index, 0.2, 0.12, 'wood', at=(side * 0.5, 0.5, -0.62), rot=(0, 90, 0), sides=8) for index, side in enumerate((-1, 1))]
+towline = pipe('plane_towline', [(0, -1.3, 0), (0, -2.6, 0)], 0.04, 'wood', sides=4)
+body = tag(centred(join('plane_body', hull, nose, *wings, *struts, fin, tailplane, *wheels, towline)), outline=0.06, shadow=False)
+blades = centred(join('plane_prop', box('plane_blade_a', (1.5, 0.08, 0.2), 'wood', bevel=0.03), box('plane_blade_b', (0.2, 0.08, 1.5), 'wood', bevel=0.03), ball('plane_spinner', 0.14, 'wood', at=(0, 0.06, 0), detail=1)))
+prop = tag(place(blades, at=(0, 1.42, 0)), outline=0.05, shadow=False)
+LENGTH = 2.0
+lengths = []
+for index in range(3):
+    # Five pennants to a length, hanging from a cord: gold and cream by turns.
+    cord = pipe('banner_cord_%d' % index, [(0, 0, 0), (0, -LENGTH, 0)], 0.035, 'cream', sides=4)
+    flags = [slab('banner_flag_%d_%d' % (index, flag), [(-0.17, 0), (0.17, 0), (0, -0.62)], 0.06, 'cream' if (index * 5 + flag) % 2 else 'balloonSun', at=(0, -0.2 - flag * 0.4, -0.02), rot=(90, 0, 90), bevel=0) for flag in range(5)]
+    lengths.append(tag(place(centred(join('banner_%d' % index, cord, *flags)), at=(0, -2.6 - index * LENGTH, 0)), outline=0, shadow=False))
+part(group('plane', body, prop, *lengths))
+
+# A kite, flown from the windmill's island on a line the game stretches to it. It stands upright, facing the camera.
+sail = slab('kite_sail', [(0, 0.95), (-0.62, 0.12), (0, -1.0), (0.62, 0.12)], 0.08, 'balloonCool', rot=(90, 0, 0), bevel=0.03)
+spars = [box('kite_spar_a', (0.07, 0.06, 1.9), 'cream', at=(0, -0.05, -0.02), bevel=0), box('kite_spar_b', (1.2, 0.06, 0.07), 'cream', at=(0, -0.05, 0.12), bevel=0)]
+tail = pipe('kite_tail', [(0, 0, -1.0), (0.1, 0, -1.5), (-0.1, 0, -2.0), (0.06, 0, -2.5)], 0.035, 'cream', sides=4)
+bows = [box('kite_bow_%d' % index, (0.4, 0.07, 0.18), 'balloonCool', at=((0.1, -0.1, 0.06)[index], 0, -1.5 - index * 0.5), rot=(0, (24, -24, 24)[index], 0), bevel=0) for index in range(3)]
+part(tag(centred(join('kite', sail, *spars, tail, *bows)), outline=0.045, shadow=False))
+# Its line: one metre of it, standing on its end. The game turns it and stretches it from hand to kite.
+part(tag(centred(cylinder('kite_line', 0.03, 1.0, 'cream', at=(0, 0, 0.5), sides=5)), outline=0, shadow=False))
+
+# A far bird, seen from above: a head, swept wings and a tail, flat and dark, as birds a long way off are.
+# A bare bent wing would do, but that is an arrow, and an arrow beside the floor would be read as a sign.
+# The game flies a skein of them in one drawing.
+part(tag(slab('bird', [(0, 0.46), (-0.1, 0.2), (-0.5, 0.1), (-0.95, -0.22), (-0.48, -0.1), (-0.12, -0.16), (0, -0.44), (0.12, -0.16), (0.48, -0.1), (0.95, -0.22), (0.5, 0.1), (0.1, 0.2)], 0.07, 'rockDark', bevel=0), outline=0, shadow=False))
 
 
 # ── Templates: a gull ────────────────────────────────────────────────────────
 # A few of them circle the platform, wide of it and below it. Its wings are pieces of their own, hinged at
 # the body, so the game can flap them. It flies toward high Y.
 body = ball('gull_body', 0.24, 'white', scale=(0.75, 1.7, 0.7), detail=1, smooth=50)
-beak = cone('gull_beak', 0.08, 0.22, 'balloonSun', at=(0, 0.46, 0), rot=(-90, 0, 0), sides=6)
 tail = slab('gull_tail', [(-0.13, -0.6), (0.13, -0.6), (0, -0.25)], 0.06, 'white', bevel=0.02)
 wings = [slab('gull_wing_%s' % side, [(0, -0.2), (0, 0.24), (sign * 0.5, 0.22), (sign * 0.95, -0.05), (sign * 0.5, -0.12)] if sign > 0 else [(0, 0.24), (0, -0.2), (sign * 0.5, -0.12), (sign * 0.95, -0.05), (sign * 0.5, 0.22)], 0.07, 'white', bevel=0.02)
          for side, sign in (('l', -1), ('r', 1))]
-part(tag(group('gull', join('gull_trunk', body, beak, tail), *wings), outline=0.035, shadow=False))
+part(tag(group('gull', join('gull_trunk', body, tail), *wings), outline=0.035, shadow=False))
 
 
 # ── Templates: what floats at night ──────────────────────────────────────────
-# A paper lantern: a pale glowing shade between two dark caps. The game sends a slow swarm of them up
+# A paper lantern: a pale glowing shade between two wooden caps. Neither has an outline, so the game can draw
+# the whole swarm in two goes. The game sends a slow swarm of them up
 # through the clouds on the last round. It is pale and warm, not gold: gold on this floor means a prize.
 shade = tag(lathe('lantern_shade', [(0, 0.02), (0.2, 0.02), (0.31, 0.14), (0.36, 0.38), (0.31, 0.6), (0.2, 0.7), (0, 0.7)], 'lantern', sides=10, smooth=60), glow=1.2, outline=0, shadow=False)
 caps = tag(join('lantern_caps',
                 lathe('lantern_foot', [(0, -0.06), (0.2, -0.06), (0.23, 0.0), (0.2, 0.06), (0, 0.06)], 'wood', sides=10),
                 lathe('lantern_head', [(0, 0.67), (0.2, 0.67), (0.22, 0.72), (0.14, 0.8), (0, 0.82)], 'wood', sides=10),
-                ring('lantern_loop', 0.09, 0.03, 'wood', at=(0, 0, 0.88), rot=(90, 0, 0), sides=10, around=5)), outline=0.035, shadow=False)
+                ring('lantern_loop', 0.09, 0.03, 'wood', at=(0, 0, 0.88), rot=(90, 0, 0), sides=10, around=5)), outline=0, shadow=False)
 part(group('lantern', shade, caps))
 
 
 # ── Templates: the barrel ────────────────────────────────────────────────────
-# A fat toy barrel in the danger colour with two ink hoops and a fuse. A comic-book bang with a "!" is on its
+# A fat toy barrel in the danger colour with two ink hoops and an ink fuse with a pale end. A comic-book bang with a "!" is on its
 # lid, which is the face the camera sees best, and on its front and back, so it says "explosive" from anywhere.
 # Its middle is the origin and it is as big as the rules say (0.42 by 0.9).
 body = lathe('barrel_body', [(0, -0.45), (0.33, -0.45), (0.37, -0.42), (0.43, -0.2), (0.45, 0), (0.43, 0.2), (0.37, 0.42), (0.35, 0.45), (0.32, 0.45), (0.32, 0.4), (0, 0.4)], 'danger', sides=18, smooth=50)
-fuse = pipe('barrel_fuse', [(0.24, 0.24, 0.44), (0.25, 0.25, 0.58), (0.3, 0.3, 0.67), (0.39, 0.38, 0.7)], 0.04, 'cream', sides=6)
 hoops = [lathe('barrel_hoop_%d' % index, [(0.36, z - 0.055), (0.46, z - 0.055), (0.47, z), (0.46, z + 0.055), (0.36, z + 0.055)], 'ink', sides=18) for index, z in enumerate((-0.27, 0.27))]
-bung = cylinder('barrel_bung', 0.075, 0.1, 'ink', at=(0.24, 0.24, 0.44), sides=8)
-tip = ball('barrel_fuse_tip', 0.058, 'ink', at=(0.4, 0.39, 0.7), detail=1)
+bung = cylinder('barrel_bung', 0.085, 0.1, 'ink', at=(0.24, 0.24, 0.44), sides=8)
+fuse = pipe('barrel_fuse', [(0.24, 0.24, 0.44), (0.25, 0.25, 0.58), (0.3, 0.3, 0.67), (0.39, 0.38, 0.7)], 0.065, 'ink', sides=6)
+tip = ball('barrel_fuse_tip', 0.085, 'cream', at=(0.42, 0.41, 0.7), detail=1)
 bangs = [burst('barrel_top_bang', 0.26, 0.18, 9, 0.03, 'cream', at=(-0.01, -0.01, 0.428))]
 marks = [
     burst('barrel_top_edge', 0.3, 0.215, 9, 0.03, 'ink', at=(-0.01, -0.01, 0.415)),
@@ -281,9 +469,10 @@ for index, turn in enumerate((0, 180)):
         burst('barrel_bang_edge_%d' % index, 0.32, 0.225, 9, 0.06, 'ink', at=(0, facing * 0.41, 0.01), rot=(90, 0, turn)),
         letter('barrel_mark_%d' % index, '!', 0.28, 0.05, 'ink', at=(0, facing * 0.468, 0.01), rot=(90, 0, turn)),
     ]
-staves = tag(join('barrel_staves', body, fuse, *bangs), outline=0.045)
-# Everything ink is one piece with no outline of its own: ink needs none, and a barrel is drawn six times over.
-irons = tag(centred(join('barrel_irons', *hoops, bung, tip, *marks)), outline=0)
+staves = tag(body, outline=0.045)
+# Everything on the staves is one piece with no outline and no shadow of its own: it is ink, or lies on ink,
+# and stays inside the barrel's shadow. A barrel is drawn six times over, so each piece counts six times.
+irons = tag(centred(join('barrel_irons', *hoops, bung, fuse, *marks, tip, *bangs)), outline=0, shadow=False)
 part(group('barrel', staves, irons))
 
 
@@ -292,7 +481,7 @@ body = box('cube_body', (0.85, 0.85, 0.85), 'gold', bevel=0.12, segments=2)
 faces = []
 for index, (rot, at) in enumerate([((90, 0, 0), (0, -1, 0)), ((90, 0, 90), (1, 0, 0)), ((90, 0, 180), (0, 1, 0)), ((90, 0, 270), (-1, 0, 0)), ((0, 0, 0), (0, 0, 1)), ((180, 0, 0), (0, 0, -1))]):
     x, y, z = at
-    faces.append(box('cube_plate_%d' % index, (0.6, 0.6, 0.05), 'cubeLight', at=(x * 0.415, y * 0.415, z * 0.415), rot=rot, bevel=0.02))
+    faces.append(box('cube_plate_%d' % index, (0.6, 0.6, 0.05), 'cubeLight', at=(x * 0.415, y * 0.415, z * 0.415), rot=rot, bevel=0.02, segments=1))
     faces.append(letter('cube_mark_%d' % index, '?', 0.44, 0.05, 'ink', at=(x * 0.452, y * 0.452, z * 0.452), rot=rot))
 part(tag(join('cube', body, *faces), outline=0.05))
 
