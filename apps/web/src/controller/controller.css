@@ -273,7 +273,6 @@ body {
   aspect-ratio: 1;
   border: var(--outline) solid var(--ink);
   border-radius: 50%;
-  overflow: hidden;
   background: var(--cream);
   box-shadow: 0 var(--shadow) 0 var(--ink);
   color: var(--ink);
@@ -319,14 +318,23 @@ body {
 }
 
 /* Holding A fills it like a gauge. It empties at once on release. */
+/* The gauge is cut to the button's circle by its own layer, so the tag under the button is not cut off with it. */
 .pad-gauge {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.pad-gauge::before {
   position: absolute;
   inset: auto 0 0;
   height: 0;
   background: var(--danger);
+  content: '';
 }
 
-.pad-a.is-charging .pad-gauge {
+.pad-a.is-charging .pad-gauge::before {
   height: 100%;
   transition: height var(--charge) linear;
 }

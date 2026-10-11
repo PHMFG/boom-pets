@@ -93,12 +93,16 @@ The `.sticker` class is the base of every panel: cream fill, `--outline` ink bor
 | `alarm` (380 ms) | Danger. This is the fastest anything may pulse |
 | `wobble` (180 ms) | "Do something!": the buttons of a carried player |
 | `buzz` (320 ms) | The border pulse on a phone that stands in for vibration |
-| `title`, `results`, `feed` | The few timed sequences: the title's letters, the rows of the results, how long a feed line stays |
+| `landing` (380 ms) | The roulette's reel stopped, and the picture it stopped on swelling, before the card takes its place |
+| `iris` (420 ms) | The curtain between worlds closing to a point, and opening |
+| `title`, `results`, `roundResults`, `feed` | The few timed sequences: the title's letters, the rows of the results, the places of a round, how long a feed line stays |
 
 Rules:
 
 - On the TV, wrap anything that can leave in `Presence` (`host/hud/Presence.tsx`) so it squishes out instead of vanishing.
 - Something that appears only when it matters (the power button, a hand over a pet in reach) is itself the message. Do not also leave a greyed-out copy on screen the rest of the time.
+- **One world is never seen snapping into another.** A curtain of ink closes to a point just before the map changes (as the roulette stops, before the podium, on a rematch and on the way back to the lobby) and opens once the new world has been drawn. It closes on the simulation's clock and opens on the stage's word, so a slow frame cannot show the join. It is slow and dark, which is why it is not a flash; the players' cards stay above it.
+- **The roulette keeps its promise.** The reel slows and stops on the game that will be played, a moment before that game's card. The game is drawn when the reel starts; phones are not told until it stops.
 - `prefers-reduced-motion` turns CSS animation off. The M key on the game screen reduces camera shake and glow. New effects must respect both.
 
 ## The TV
@@ -112,6 +116,7 @@ It is read from a sofa, by people who are mostly looking at their own pet.
 | Top left | One explanation at a time, over the sky: a first-play hint, or the card explaining a power |
 | Top right | The feed: who knocked out whom, and how |
 | Middle | The banner for who took the round. Between games, the roulette and then the next game's card: the one time something large may cover the middle, because nothing is being played |
+| Right, as a round ends | The round's places, best first, with what the round paid each player: shape, name and points, the winner's row in gold. It arrives a second after the round ends, so the winner has the screen first |
 | Top centre, at the end | "E o campeão é…" and then the winner's name in the winner's colour, over the podium. The camera frames the podium in what the banner leaves free |
 | Bottom | One card per player: shape, portrait, name, score, and under the name what the game being played counts: luck pips in the brawl, tiles or food in a game that has a number of its own ("?" while it is kept secret) |
 | Over each pet | Its name tag in the player's colour, pointing down at the pet, with a badge for a power it is holding and a hand when a player could grab it |
@@ -148,7 +153,7 @@ It is held without being looked at, so it must work by feel and explain itself i
 - **The floor speaks first** (`fx/Decals.ts`). A danger is always drawn on the floor before it lands: barrels, falling tiles, meteors, the cube. Shock rings on the floor show how far a blast reached.
 - **Words in 3D** (`render/Text3D.ts`) are for the few big moments: one or two capitals and an exclamation mark. New words go in `strings.words3d`, then `pnpm font`.
 - **Feelings are emoji in a bubble** over the pet. What a pet feels is shown this way, not in the HUD.
-- **Maps.** Each game has its own world (`stages/maps/`): its floor, what surrounds it, its sky and light, and its props. Every prop is built from plain shapes, toon shaded with an ink outline (`maps/toys.ts`), like the barrel and the gacha machine: nothing in a map is a downloaded model. What is on screen now:
+- **Maps.** Each game has its own world (`stages/maps/`): its floor, what surrounds it, its sky and light, and its props. The floor is the game's tiles. Everything round it is **modelled in Blender by a script** (`tools/blender/maps/<map>.py`, built with `pnpm models`): chunky toys with fat bevels, no thin parts and nothing realistic, because the game shades in three flat tones with a dark outline and what reads is the silhouette. Nothing is downloaded and nothing is modelled by hand, so every model can be rebuilt and reviewed as a diff. A model carries no colour of its own: each piece names a key of `maps.<map>` and is painted from the tokens. What the round itself moves (a bomb, food, a rock that rises) is a template the map's code places; what only has to look alive (a swing, a speaker, a flag) is animated in Blender and loops. `tools/blender/README.md` has the rules of the look. A map arrives: its floor ripples in from the middle and its scenery grows out from the middle to its places. What is on screen now:
 
   | Game | Floor | Around it | Sky |
   | --- | --- | --- | --- |
@@ -162,6 +167,8 @@ It is held without being looked at, so it must work by feel and explain itself i
   | Pinta o Chão | White paper; a painted tile is its player's colour, lightened | A desk, masking tape round the paper, giant pencils, a pot of paint for each player colour | Morning |
 
 - **Camera.** Tilted 52° down through a narrow lens. In a round it frames the living pets and nothing more (a ghost's cursor and a falling cube pull it a little), so it is as close as the fight allows and moves in and out with it: the platform's empty corners are not worth the pixels. The fit is exact: the farthest pet's name tag stays below the round counter and the nearest pet's ring above the players' cards (the HUD reports what it covers as insets). A map may ask for more to be kept in view (the race keeps the next few metres of track ahead of every pet). It looks a moment ahead along each pet's path, pulls back at once when someone is about to leave the picture and closes in gently, and never comes so close that a fight in the middle has no edge in view. It shakes with impacts in proportion to them and punches in on big moments. The numbers are at the top of `render/CameraRig.ts`.
+
+  Outside a round the camera may leave that angle for **a shot of one thing, from lower down**, the way a hero is shown: faces instead of the tops of heads. There are three, and no others without a reason as good: the round's winner as the round ends (close, following it, swinging a little from side to side so its face stays in view); a new world while its card is up (from far and low, drifting round it, so the place is seen before the round is); and the podium (from the front, like an audience). The countdown always brings the camera back up to where the game is played from before anyone has to steer.
 
 ### How big should an effect be?
 

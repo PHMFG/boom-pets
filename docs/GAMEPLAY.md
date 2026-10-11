@@ -60,7 +60,7 @@ Nothing takes a pet out without a warning the player could have read: a barrel s
 
 ### 7. Luck is loud, and has a safety net
 
-- **The roulette is the loudest luck of all:** which game comes next. Its net is the bag: every game comes up once before any comes round again, and never the same game twice running.
+- **The roulette is the loudest luck of all:** which game comes next. Its net is the bag: every game comes up once before any comes round again, and never the same game twice running. The game is drawn as the reel starts to turn, so the reel can stop on it; nobody can act on it before the round starts, and phones only learn it when the reel stops.
 - Every round pays from the same table, whatever the game: 6, 4, 3, 2 and 1 for the first five places. No game is worth more than another. In the brawl a knockout, a ghost's swap back in and knocking out the leader add a point each.
 - A Mystery Cube is a gamble everyone can see: the reels spin over the pet's head.
 - **Good powers wait** on the power button until the player wants them. **Curses start at once.** That is what makes a cube a gamble.
