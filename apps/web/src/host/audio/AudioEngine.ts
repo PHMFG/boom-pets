@@ -82,6 +82,8 @@ export class AudioEngine {
   private musicFilter!: BiquadFilterNode;
   private readonly buffers = new Map<Sample, AudioBuffer>();
   private readonly lines = new Map<Line, AudioBuffer>();
+  /** Lines whose recording could not be loaded at all. */
+  private readonly missing = new Set<Line>();
   /** Where a line goes in: the head of the announcer's effects. */
   private announcer!: GainNode;
   private announcerBusyUntil = 0;
@@ -134,7 +136,7 @@ export class AudioEngine {
         .then(response => response.arrayBuffer())
         .then(bytes => context.decodeAudioData(bytes))
         .then(buffer => this.lines.set(line, buffer))
-        .catch(() => undefined);
+        .catch(() => this.missing.add(line));
     }
     for (const name of SAMPLES) {
       void fetch(`/sounds/${name}.m4a`)
@@ -552,8 +554,13 @@ export class AudioEngine {
     const now = context.currentTime;
     if (QUIET_LINES.has(line) && now < this.announcerBusyUntil) return;
     const buffer = this.lines.get(line);
-    // No recording (the file is missing, or still loading): the computer's own voice says it, dry.
-    if (!buffer) return this.say(strings.announcer[line]);
+    // No recording yet. If the file is missing for good the computer's own voice says the line, dry. If it is
+    // only still loading (a match started the moment sound was allowed) the line is skipped: starting the
+    // computer's voice can hold the picture still for a second, and that is worse than one line unsaid.
+    if (!buffer) {
+      if (this.missing.has(line)) this.say(strings.announcer[line]);
+      return;
+    }
 
     const seconds = buffer.duration / ANNOUNCER.depth;
     this.announcerBusyUntil = now + seconds;
