@@ -489,6 +489,7 @@ test('two phones play a round of every game: each pad shows that game\'s buttons
     // Between games: the roulette, then this game's card, on the TV and on every phone.
     await expect.poll(() => page.evaluate(() => `${window.__BOOM__.game.phase} ${window.__BOOM__.game.revealed} ${window.__BOOM__.game.gameMode}`), { message: `the roulette lands on ${game}`, timeout: 30_000 }).toBe(`intro true ${game}`);
     await expect(page.locator('.intro-card'), 'the TV shows the game card').toContainText(strings.games[game].line);
+    await expect(page.locator('.intro-next'), 'and which round of the match it is').toContainText(strings.intro.round(GAMES.indexOf(game) + 1, GAMES.length));
     for (const phone of session.phones) {
       await expect(phone.tab.locator('.pad-next'), `${phone.model.name} sees the next game`).toContainText(strings.games[game].name);
       await expect(phone.tab.locator('.pad'), 'the card is over the play screen, so a resting thumb is not dropped').toHaveAttribute('data-screen', 'play');
@@ -497,6 +498,7 @@ test('two phones play a round of every game: each pad shows that game\'s buttons
     await shot(session.phones[0]!.tab, `${game}-phone-card`);
 
     await expect.poll(() => page.evaluate(() => window.__BOOM__.game.phase), { timeout: 20_000 }).toBe('play');
+    await expect(page.locator('.iris.is-closed'), 'the curtain between worlds is open while a round is played').toHaveCount(0);
     const button = GAME_A[game];
     for (const phone of session.phones) {
       const pad = phone.tab.locator('.pad');
@@ -525,6 +527,9 @@ test('two phones play a round of every game: each pad shows that game\'s buttons
       for (let guard = 0; guard < 200 && boom.game.phase === 'play'; guard++) boom.skip(1);
     });
     await expect.poll(() => page.evaluate(() => window.__BOOM__.game.phase), { message: `${game} ends by itself` }).not.toBe('play');
+    // As the round ends, everyone's place in it and what it paid them: two phones and two bots.
+    await expect(page.locator('.round-results .round-row'), `the places of ${game} are listed`).toHaveCount(4);
+    await expect(page.locator('.round-results .round-row.is-first').first()).toContainText('+');
   }
 
   // The finale names a winner, then the table.

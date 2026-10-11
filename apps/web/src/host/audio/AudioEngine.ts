@@ -97,6 +97,8 @@ export class AudioEngine {
   private lastBoom = 0;
   /** When the bomb of Batata Quente ticks next, on the audio clock. */
   private nextTick = 0;
+  /** How many players are in the match: the list of a round's places has that many rows to count out. */
+  private rows = 4;
 
   get running(): boolean {
     return this.context?.state === 'running';
@@ -220,6 +222,7 @@ export class AudioEngine {
       this.whine.oscillator.frequency.setTargetAtTime(160 + charge * 760, context.currentTime, 0.03);
       this.whine.gain.gain.setTargetAtTime(charge > 0 ? 0.03 + charge * 0.06 : 0, context.currentTime, 0.03);
     }
+    this.rows = game.seats.length;
     // Batata Quente: the bomb ticks, faster and higher as its fuse burns down.
     const round = game.round;
     if (game.phase === 'play' && round.gameMode === 'potato' && round.rules.holder !== null && context.currentTime >= this.nextTick) {
@@ -313,6 +316,7 @@ export class AudioEngine {
       case 'score':
         return this.tone(NOTE(12 + Math.min(12, event.points)), 0.1, 'triangle', 0.12);
       case 'roundWinner':
+        this.countRows(this.rows);
         return this.arpeggio([0, 4, 7, 12, 7, 12, 16], 0.11, 'square', 0.16);
       case 'phase':
         if (event.phase === 'roundEnd') this.announce('roundOver');
@@ -411,14 +415,28 @@ export class AudioEngine {
   private roulette(seconds: number): void {
     const context = this.context;
     if (!context) return;
-    // Each gap is longer than the last, and together they fill the spin.
+    // The reel stops a moment before the card: each tick's gap is longer than the last, and together they fill the spin up to there.
+    const landing = motion.landing.ms / 1000;
+    const spin = seconds - landing;
     const ticks = 16;
     const total = (ticks * (ticks + 1)) / 2;
-    let at = context.currentTime;
+    const start = context.currentTime;
+    let at = start;
     for (let index = 1; index <= ticks; index++) {
       this.tone(1100 - index * 22, 0.04, 'square', 0.08, undefined, undefined, at);
-      at += (seconds * index) / total;
+      at += (spin * index) / total;
     }
+    // It lands: a bright note on the picture it stopped on, and the curtain closing over the old world with a rush of air.
+    this.tone(NOTE(19), 0.22, 'triangle', 0.16, NOTE(24), undefined, start + spin);
+    this.noise(motion.iris.ms / 1000, 0.16, 500, 2600, 'bandpass', undefined, start + seconds - motion.iris.ms / 1000);
+  }
+
+  /** The places of a round coming up one after another: a tick each, rising, in step with the list on screen. */
+  private countRows(rows: number): void {
+    const context = this.context;
+    if (!context) return;
+    const first = context.currentTime + (motion.roundResults.delayMs + motion.popIn.ms) / 1000;
+    for (let index = 0; index < rows; index++) this.tone(NOTE(7 + index * 2), 0.08, 'triangle', 0.1, undefined, undefined, first + (index * motion.roundResults.staggerMs) / 1000);
   }
 
   /** A snare roll that swells for as long as the winner is kept secret. */
