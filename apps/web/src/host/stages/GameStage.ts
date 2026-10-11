@@ -223,7 +223,10 @@ export class GameStage {
     const scene = new Scene();
     const pet = createPet(model, colors.ink);
     pet.model.rotation.y = 0.5;
-    scene.add(pet.model, new HemisphereLight(0xffffff, colors.creamDark, 1.6), this.sun.clone());
+    // The same sun, without its shadow: a shadow map made for one small picture would be kept on the graphics card for good.
+    const sun = this.sun.clone();
+    sun.castShadow = false;
+    scene.add(pet.model, new HemisphereLight(0xffffff, colors.creamDark, 1.6), sun);
     const camera = new OrthographicCamera(-1.25, 1.25, 2.2, -0.3, 0.1, 20);
     camera.position.set(0, 1.4, 6);
     camera.lookAt(0, 0.9, 0);
@@ -245,6 +248,7 @@ export class GameStage {
     context.putImageData(image, 0, 0);
     const url = canvas.toDataURL('image/png');
     pet.dispose();
+    sun.dispose();
     target.dispose();
     this.portraits.set(model, url);
     return url;

@@ -17,6 +17,9 @@
 //                                        (the end of each round, the reel stopping and the world changing) tiled frame by frame
 //   pnpm look lava --perf                no pictures: how long frames take in a round of that game, on the graphics card
 //                                        and again with the processor slowed four times, with draw calls and triangles
+//   pnpm look --soak                     no pictures: three matches of every game twice over, fast-forwarded, counting what is
+//                                        held after each change of world (shapes, textures, things in the scene, memory):
+//                                        the numbers must stop growing, or something is never let go
 //   --name=before                        a word to put in the file names
 // A burst (--frames) and a flow are also tiled into one picture, sheet-*.png, to see the whole run at a glance (needs ffmpeg).
 import { spawn, spawnSync } from 'node:child_process';
@@ -52,7 +55,9 @@ type Boom = { game: { phase: string; revealed: boolean; round: { time: number };
 declare const window: { __BOOM__: Boom; location: { search: string } };
 // The few things of a page that the measuring code touches: this file is checked without the browser's types.
 type Counts = { render: { calls: number; triangles: number }; autoReset: boolean; reset(): void };
-declare const document: { querySelector(selector: string): { getContext(kind: string): { getExtension(name: string): { UNMASKED_RENDERER_WEBGL: number } | null; getParameter(name: number): unknown } | null } | null };
+type Held = { memory: { geometries: number; textures: number }; programs?: unknown[] };
+declare const performance: { now(): number };
+declare const document: { getElementsByTagName(name: string): { length: number }; querySelector(selector: string): { getContext(kind: string): { getExtension(name: string): { UNMASKED_RENDERER_WEBGL: number } | null; getParameter(name: number): unknown } | null } | null };
 declare const requestAnimationFrame: (step: (now: number) => void) => void;
 
 const reachable = async () => {
@@ -68,7 +73,7 @@ for (let tries = 0; tries < 120 && !(await reachable()); tries++) await new Prom
 
 mkdirSync(out, { recursive: true });
 // Measuring wants the real graphics card; pictures are the same either way.
-const browser = await chromium.launch(has('perf') ? { args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-frame-rate-limit', '--disable-gpu-vsync'] } : {});
+const browser = await chromium.launch(has('soak') ? { args: ['--js-flags=--expose-gc'] } : has('perf') ? { args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-frame-rate-limit', '--disable-gpu-vsync'] } : {});
 const filming = has('video');
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, ...(filming ? { recordVideo: { dir: out, size: { width: 1280, height: 720 } } } : {}) });
 const page = await context.newPage();
@@ -128,6 +133,53 @@ try {
       await page.waitForTimeout(2500);
     }
     await shoot(what);
+  } else if (has('soak')) {
+    const games = ['brawl', 'paint', 'lava', 'grow', 'race', 'color', 'potato', 'frita'];
+    const order = [...games, ...games];
+    const count = () =>
+      page.evaluate(async () => {
+        const stage = (window.__BOOM__.session as unknown as { stage: { renderer: Record<string, { info?: Held }>; scene: { traverse(visit: () => void): void } } }).stage;
+        const info = Object.values(stage.renderer).find(value => value?.info?.memory)?.info;
+        let things = 0;
+        stage.scene.traverse(() => things++);
+        (globalThis as unknown as { gc?: () => void }).gc?.();
+        await new Promise<void>(done => requestAnimationFrame(() => done()));
+        const heap = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0;
+        return { shapes: info?.memory.geometries ?? 0, textures: info?.memory.textures ?? 0, programs: info?.programs?.length ?? 0, things, heap: Math.round(heap / 1e6), nodes: document.getElementsByTagName('*').length };
+      });
+    /** Runs the simulation on to the next round being played, or to the end of the match. */
+    const toNext = () =>
+      page.evaluate(() => {
+        const { game, skip } = window.__BOOM__;
+        for (let guard = 0; guard < 6000 && game.phase === 'play'; guard++) skip(0.05);
+        for (let guard = 0; guard < 6000 && game.phase !== 'play' && game.phase !== 'matchEnd'; guard++) skip(0.05);
+        return game.phase;
+      });
+    await page.goto(`${base}/?solo&autostart&modes=${order.join(',')}`);
+    await waitFor('play');
+    const rows: Awaited<ReturnType<typeof count>>[] = [];
+    // Three matches: the first makes everything for the first time (and the podium at its end), so the second and third are the ones to compare.
+    for (let match = 1; match <= 3; match++) {
+      for (const [round, game] of order.entries()) {
+        // A few frames of the new world really drawn, so what it needs is really made.
+        await page.waitForTimeout(700);
+        const held = await count();
+        rows.push(held);
+        console.log(`match ${match} round ${String(round + 1).padStart(2)} ${game.padEnd(7)} shapes ${String(held.shapes).padStart(4)}  textures ${String(held.textures).padStart(3)}  programs ${String(held.programs).padStart(3)}  in the scene ${String(held.things).padStart(5)}  page nodes ${String(held.nodes).padStart(4)}  memory ${held.heap} MB`);
+        await toNext();
+      }
+      if (match < 3) {
+        // The podium, the table, and a rematch from it.
+        await page.waitForTimeout(1500);
+        await page.keyboard.press('Enter');
+        await waitFor('play');
+      }
+    }
+    // Each round of the third match against the same round of the second.
+    const first = rows.slice(16, 32);
+    const second = rows.slice(32, 48);
+    const grew = (key: 'shapes' | 'textures' | 'things' | 'heap' | 'nodes') => Math.max(...second.map((row, index) => row[key] - first[index]![key]));
+    console.log(`From one match to the next, at most: shapes ${grew('shapes') >= 0 ? '+' : ''}${grew('shapes')}, textures ${grew('textures') >= 0 ? '+' : ''}${grew('textures')}, things in the scene ${grew('things') >= 0 ? '+' : ''}${grew('things')}, page nodes ${grew('nodes') >= 0 ? '+' : ''}${grew('nodes')}, memory ${grew('heap') >= 0 ? '+' : ''}${grew('heap')} MB`);
   } else if (has('perf')) {
     // Frame times over five seconds of a round, as the page sees them, then the same with the processor slowed.
     const cdp = await context.newCDPSession(page);
