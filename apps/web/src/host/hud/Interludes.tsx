@@ -51,7 +51,7 @@ const REEL = 22;
  * that game's card takes its place: its picture, name, the one line that says what to do, and what each
  * control does.
  */
-export function ModeIntro({ mode, upcoming, final }: { mode: GameMode | null; upcoming: GameMode | null; final: boolean }) {
+export function ModeIntro({ mode, upcoming, final, round, rounds }: { mode: GameMode | null; upcoming: GameMode | null; final: boolean; round: number; rounds: number }) {
   // The games in their usual order, round and round, arranged so that the last picture is the one to stop on.
   const reel = useMemo(() => {
     const last = Math.max(0, PLAYABLE_MODES.indexOf(upcoming ?? 'brawl'));
@@ -61,7 +61,10 @@ export function ModeIntro({ mode, upcoming, final }: { mode: GameMode | null; up
   if (mode) shown.current = mode;
   return (
     <div className="intro">
-      <p className="intro-next">{strings.intro.next}</p>
+      {/* While the reel runs it promises a game; once the card is up it says which round of the match this is. */}
+      <p className="intro-next" key={mode === null ? 'next' : 'round'}>
+        {mode === null ? strings.intro.next : strings.intro.round(round, rounds)}
+      </p>
       <Presence show={mode === null}>
         {() => (
           <div className="intro-reel sticker" style={{ '--spin': `${tuning.match.introRoulette * 1000}ms`, '--count': reel.length } as CSSProperties}>

@@ -671,6 +671,29 @@ describe('a match of games', () => {
     expect(dealt.some((mode, index) => index > 0 && mode === dealt[index - 1])).toBe(false);
   });
 
+  it('knows the game to come as soon as the roulette starts, and plays that one', () => {
+    const game = new Game(21);
+    const promised: (GameMode | null)[] = [];
+    const played: GameMode[] = [];
+    const watch = () => {
+      for (const event of game.events) {
+        if (event.t === 'phase' && event.phase === 'intro') promised.push(game.upcoming);
+        if (event.t === 'reveal') played.push(event.mode);
+      }
+    };
+    game.startMatch({ rounds: 6, bots: true, petPool: PETS, botName: index => `Bot ${index + 1}` });
+    watch();
+    for (let ticks = 0; ticks < 6 * 100 * 60 && game.phase !== 'matchEnd'; ticks++) {
+      game.tick(() => idle);
+      watch();
+      // Once the card is up there is nothing left to come.
+      if (game.phase !== 'intro' || game.revealed) expect(game.upcoming).toBeNull();
+    }
+    game.round.free();
+    expect(played).toHaveLength(6);
+    expect(promised).toEqual(played);
+  });
+
   it('pays a game with no knockouts from the same table as any other', () => {
     const result = playBots(3, ['paint'], 1);
     const scores = result.scores.map(([, score]) => score).sort((a, b) => b - a);

@@ -330,7 +330,7 @@ export function GameScreen() {
       {/* The curtain is under the roulette and the card, and over everything of the round. */}
       <Iris closed={curtain} />
       <Presence show={!title && phase === 'intro' && intro !== null}>
-        {() => <ModeIntro mode={shownIntro.current?.mode ?? null} upcoming={shownIntro.current?.upcoming ?? null} final={shownIntro.current?.final ?? false} />}
+        {() => <ModeIntro mode={shownIntro.current?.mode ?? null} upcoming={shownIntro.current?.upcoming ?? null} final={shownIntro.current?.final ?? false} round={round} rounds={rounds} />}
       </Presence>
       <Presence show={!title && phase === 'roundEnd' && roundResult !== null}>{() => <RoundResults result={shownRoundResult.current ?? { mode: 'brawl', double: false, rows: [] }} />}</Presence>
       <Presence show={!title && phase === 'finale' && finale !== null}>

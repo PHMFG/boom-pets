@@ -119,6 +119,8 @@ export const strings = {
   /** The screen between games. */
   intro: {
     next: 'Próximo jogo…',
+    /** Over a game's card: which round of the match it is. */
+    round: (round: number, rounds: number) => `Rodada ${round} de ${rounds}`,
     double: 'VALE DOBRADO!',
   },
 

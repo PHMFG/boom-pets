@@ -42,8 +42,8 @@ import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './
 const HALF = tuning.arena.size / 2;
 /** The first look at a new world: how far off for its size, how low (degrees), from which side it starts (radians) and how fast it drifts round. */
 const ESTABLISH = { near: 9, perMetre: 1.25, pitch: 27, from: -0.3, spin: 0.14 };
-/** Where the camera looks at the podium: the middle step, at a pet's chest. */
-const PODIUM_SHOT = { x: 0, y: 1.3, z: 0.4 };
+/** Where the camera looks at the podium: over the winner's head, which leaves the top of the picture to the banner that names them. */
+const PODIUM_SHOT = { x: 0, y: 2.1, z: 0.4 };
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 /** Seconds ahead the camera looks along a pet's path, so a pet sent flying is still in the picture where it lands. */
 const LOOK_AHEAD = 0.2;
