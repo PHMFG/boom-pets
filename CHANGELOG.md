@@ -4,6 +4,10 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.2.0] - 2026-10-11
+
 From the owner, after playing (the copy open on their computer was still 1.0.0): make the maps bigger, the race could be bigger too, and O Chão é Lava is very short and could have furniture falling from the sky to climb on before the lava comes.
 
 ### Changed
