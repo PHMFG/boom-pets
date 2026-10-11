@@ -14,6 +14,11 @@ import { Crowd, type Spot } from './crowd';
 import { disposeToys, toy } from './toys';
 
 const RADIUS = tuning.potato.radius;
+/**
+ * The pan was modelled 6 m from its middle to its rim, and the arena has grown since: the whole kitchen is
+ * scaled so the rim is still the wall. A spot of the model is that many times farther out in the world.
+ */
+const FIT = RADIUS / 6;
 const BLAST = tuning.potato.blastRadius;
 const palette = maps.potato;
 const COOL = new Color(palette.bomb);
@@ -113,6 +118,8 @@ export class PotatoMap implements MapView {
 
   private readonly kit: StageKit;
   private readonly model = new Model('potato');
+  /** The kitchen as it was modelled, scaled by `FIT`. Spectators and the bomb stay out of it: they keep their size. */
+  private readonly world = new Group();
   private readonly bomb: Bomb;
   /** A broken ring that turns under whoever holds the bomb. Broken, so it is never taken for a seat's ring. */
   private readonly mark = new Group();
@@ -142,18 +149,20 @@ export class PotatoMap implements MapView {
     this.reach.scale.setScalar(0.001);
     const shell = this.model.part('bomb');
     this.bomb = new Bomb(shell, this.model.own(shell, 'bomb'));
-    this.group.add(this.model.scene, this.bomb.group, this.mark, this.reach);
+    this.world.scale.setScalar(FIT);
+    this.world.add(this.model.scene);
+    this.group.add(this.world, this.bomb.group, this.mark, this.reach);
 
     // Spectators stand wherever the model marks a seat (the lids of the tins, the pan's handle), facing the pan.
     const spots: Spot[] = [];
     for (let seat = this.model.node('seat_0'); seat; seat = this.model.node(`seat_${spots.length}`)) {
-      spots.push({ x: seat.position.x, y: seat.position.y, z: seat.position.z, turn: Math.atan2(-seat.position.x, -seat.position.z) });
+      spots.push({ x: seat.position.x * FIT, y: seat.position.y * FIT, z: seat.position.z * FIT, turn: Math.atan2(-seat.position.x, -seat.position.z) });
     }
     this.crowd = new Crowd(spots, { seed: 7 });
     this.group.add(this.crowd.group);
     for (const name of ['tin_0', 'tin_1', 'tin_2', 'tin_3', 'tin_4', 'timer', 'kettle', 'shaker', 'mill']) {
       const node = this.model.node(name);
-      if (node) this.loose.push({ node, rest: node.position.y, far: Math.hypot(node.position.x, node.position.z) });
+      if (node) this.loose.push({ node, rest: node.position.y, far: Math.hypot(node.position.x, node.position.z) * FIT });
     }
     this.hand = this.model.node('timer_hand');
 
@@ -162,10 +171,11 @@ export class PotatoMap implements MapView {
     for (let index = 0; index < count; index++) {
       const angle = (index / count) * Math.PI * 2;
       const flame = this.model.part(index % 2 === 0 ? 'flame_hot' : 'flame');
-      flame.position.set(Math.sin(angle) * (RADIUS + 1.2), -1.7, Math.cos(angle) * (RADIUS + 1.2));
+      // In the model's own measure: they are scaled with the burner they come out of.
+      flame.position.set(Math.sin(angle) * 7.2, -1.7, Math.cos(angle) * 7.2);
       flame.rotation.y = index * 2.4;
       this.flames.push(flame);
-      this.group.add(flame);
+      this.world.add(flame);
     }
   }
 

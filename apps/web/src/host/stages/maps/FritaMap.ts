@@ -12,18 +12,21 @@ import { strings } from '../../../shared/strings.pt-BR';
 import { colors, maps } from '../../../shared/tokens';
 import { createPet, INK_LINE, OUTLINE, type PetInstance } from '../../render/assets';
 import { Model } from '../../render/models';
-import { DANGER, WHITE, type MapView, type SkyId, type StageKit } from '../kit';
+import { DANGER, fitScenery, WHITE, type MapView, type SkyId, type StageKit } from '../kit';
 import { TileField } from '../TileField';
 import { Crowd, type Spot } from './crowd';
 
 const COLUMNS = tuning.frita.columns;
 const ROWS = tuning.frita.rows;
+/** The park was laid out round a lane of 26 by 9, and the lane has grown: see `fitScenery`. */
+const BUILT = { columns: 26, rows: 9 };
+const FIT = fitScenery(BUILT, COLUMNS, ROWS);
 const START_X = -COLUMNS / 2 + 1.9;
 const FINISH_X = COLUMNS / 2 - tuning.frita.finish;
 const palette = maps.frita;
 const GO = new Color(colors.go);
-/** The cat: how big, and where it sits. Behind the middle of the lane, so it is on screen wherever the pets are. */
-const CAT = { scale: 2.5, x: 0, z: -ROWS / 2 - 3.4 };
+/** The cat: how big, where it sits (in its sandbox, which is the model's) and how deep in the sand. Behind the middle of the lane, so it is on screen wherever the pets are. */
+const CAT = { scale: 2.5 * FIT.y, x: 0, y: -0.3 * FIT.y, z: (-BUILT.rows / 2 - 3.4) * FIT.z };
 /** Where the count and the cat's shout appear: at its feet, over the far edge of the lane, so its face stays clear. */
 const SHOUT = { x: CAT.x, y: 1.5, z: -ROWS / 2 - 0.9 };
 /** Facing away from the lane, and facing it. It turns by way of the finish line. */
@@ -41,7 +44,7 @@ const FANS: Spot[] = [
   { x: -8.8, y: 0.14, z: -15.5 },
   { x: -2.9, y: 0.14, z: -15.5 },
   { x: 6.6, y: 0.14, z: -15.5 },
-];
+].map(spot => ({ ...spot, ...FIT.at(spot) }));
 /** Who is riding what: the piece of the model each sits on, and where on that piece. They go where it goes. */
 const RIDERS: { on: string; spots: Spot[] }[] = [
   { on: 'swing_seat_0', spots: [{ x: 0, y: -2.23, z: 0 }] },
@@ -60,6 +63,8 @@ export class FritaMap implements MapView {
   private readonly kit: StageKit;
   private readonly tiles = new TileField(COLUMNS, ROWS, [palette.grass, palette.grassDark]);
   private readonly model = new Model('frita');
+  /** The park as it was modelled, scaled by `FIT`. */
+  private readonly world = new Group();
   /** What is painted on the lane: its lines and the chequered finish, every mark of them drawn in one go. */
   private readonly paint: InstancedMesh;
   /** One strip of light, laid along each edge of the lane. */
@@ -92,14 +97,18 @@ export class FritaMap implements MapView {
     this.cat.ink.uniforms.thickness!.value = ((OUTLINE + INK_LINE) * 1.5) / CAT.scale;
     this.cat.actions.get('dance')?.play();
     this.catTurn.add(this.cat.model);
-    this.catTurn.position.set(CAT.x, -0.3, CAT.z);
+    this.catTurn.position.set(CAT.x, CAT.y, CAT.z);
     this.catTurn.rotation.y = this.turn;
     this.paint = this.painted();
-    this.group.add(this.tiles.mesh, this.model.scene, this.paint, this.catTurn, this.fans.group);
+    this.world.scale.set(FIT.x, FIT.y, FIT.z);
+    this.world.add(this.model.scene);
+    this.group.add(this.tiles.mesh, this.world, this.paint, this.catTurn, this.fans.group);
     RIDERS.forEach((ride, index) => {
       const piece = this.model.node(ride.on);
       if (!piece) return;
-      const riders = new Crowd(ride.spots, { seed: 11 + index * 7, leave: ['cat'] });
+      // They ride a piece that is scaled, and are not to be: their places are spread by `FIT` and the group shrunk by it.
+      const riders = new Crowd(ride.spots.map(spot => ({ ...spot, ...FIT.at({ x: spot.x, y: spot.y ?? 0, z: spot.z }) })), { seed: 11 + index * 7, leave: ['cat'] });
+      riders.group.scale.setScalar(1 / FIT.y);
       piece.add(riders.group);
       this.riders.push(riders);
     });
@@ -174,7 +183,7 @@ export class FritaMap implements MapView {
     this.turn += Math.max(-step, Math.min(step, goal - this.turn));
     this.hop = Math.max(0, this.hop - dt / 0.3);
     this.catTurn.rotation.y = this.turn;
-    this.catTurn.position.y = -0.3 + Math.sin(this.hop * Math.PI) * 0.4;
+    this.catTurn.position.y = CAT.y + Math.sin(this.hop * Math.PI) * 0.4;
     // Singing, it sways; looking, it leans in over the lane.
     this.catTurn.rotation.z = this.watching ? 0 : Math.sin(time * 5) * 0.06;
     this.catTurn.rotation.x = this.watching ? 0.12 * Math.sin((1 - this.hop) * Math.PI * 0.5) : 0;

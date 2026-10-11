@@ -13,12 +13,16 @@ import { Color, Group, Vector3, type Object3D } from 'three';
 import { strings } from '../../../shared/strings.pt-BR';
 import { colors, maps, seats } from '../../../shared/tokens';
 import { Model } from '../../render/models';
-import { random, syncViews, WHITE, type MapView, type SkyId, type StageKit } from '../kit';
+import { fitScenery, random, syncViews, WHITE, type MapView, type SkyId, type StageKit } from '../kit';
 import { TileField } from '../TileField';
 import { Crowd, type Spot } from './crowd';
 
 const COLUMNS = tuning.grow.columns;
 const ROWS = tuning.grow.rows;
+/** The picnic was laid round a blanket of 16 by 12, and the blanket has grown: see `fitScenery`. */
+const FIT = fitScenery({ columns: 16, rows: 12 }, COLUMNS, ROWS);
+/** The table's top in the model: the blanket lies on it. */
+const TABLE = -0.16;
 const palette = maps.grow;
 const CURSED = new Color(colors.tierCursed);
 const SPONGE = new Color(palette.sponge);
@@ -108,6 +112,8 @@ export class GrowMap implements MapView {
   private readonly tiles = new TileField(COLUMNS, ROWS, [palette.cloth, palette.clothPale]);
   private readonly foods = new Map<number, FoodView>();
   private readonly model = new Model('grow');
+  /** The picnic as it was modelled, scaled by `FIT`. The food, the guests and the ladybird keep their size outside it. */
+  private readonly world = new Group();
   private readonly crowd: Crowd;
   /** Seconds since the map appeared: what the map's own pieces pop in by. */
   private age = 0;
@@ -117,6 +123,8 @@ export class GrowMap implements MapView {
   private readonly lid: Object3D | undefined;
   private readonly lidRest = new Vector3();
   private readonly spout = new Vector3();
+  /** The same spout in the world, where its steam is let out. */
+  private readonly steamAt = new Vector3();
   private whistle = 0;
   private steam = 0;
   private readonly flap: Object3D | undefined;
@@ -141,7 +149,9 @@ export class GrowMap implements MapView {
     // Gingham: where a pale stripe crosses a pale stripe, the square is a shade deeper.
     const cross = new Color(palette.clothCross);
     for (let column = 1; column < COLUMNS; column += 2) for (let row = 1; row < ROWS; row += 2) this.tiles.setColor(column * ROWS + row, cross, false);
-    this.group.add(this.tiles.mesh, this.model.scene);
+    this.world.scale.set(FIT.x, FIT.y, FIT.z);
+    this.world.add(this.model.scene);
+    this.group.add(this.tiles.mesh, this.world);
     this.tiles.reset(true);
     for (let column = 1; column < COLUMNS; column += 2) for (let row = 1; row < ROWS; row += 2) this.tiles.setColor(column * ROWS + row, cross, false);
 
@@ -150,6 +160,7 @@ export class GrowMap implements MapView {
     this.lid = model.node('teapot_lid');
     if (this.lid) this.lidRest.copy(this.lid.position);
     this.spout.copy(model.node('mark_spout')?.position ?? this.lidRest);
+    this.steamAt.copy(FIT.at(this.spout));
     this.flap = model.node('basket_flap');
     this.flapAngle = FLAP.open;
     this.cookie = model.node('cookie');
@@ -162,7 +173,7 @@ export class GrowMap implements MapView {
       shape.rotation.y = CAKE.gap + (index + 1) * CAKE.turn;
       shape.scale.setScalar(0.001);
       this.slices.push({ shape, there: 1, taken: false });
-      this.group.add(shape);
+      this.world.add(shape);
     }
 
     // The ants: one file out to the cookie, one home with the crumbs.
@@ -172,7 +183,7 @@ export class GrowMap implements MapView {
       const home = index % 2 === 1;
       const shape = model.part(home ? 'ant_loaded' : 'ant');
       this.ants.push({ shape, along: Math.floor(index / 2) / ANTS.each, home, offX: 0, offZ: 0 });
-      this.group.add(shape);
+      this.world.add(shape);
     }
     this.ladybird = model.part('ladybird');
     this.ladybird.scale.setScalar(0.001);
@@ -181,8 +192,9 @@ export class GrowMap implements MapView {
     // The guests stand wherever the model left a place for one, and face the blanket.
     const spots: Spot[] = [];
     for (let index = 0; ; index++) {
-      const at = model.node(`stand_${index}`)?.position;
-      if (!at) break;
+      const stand = model.node(`stand_${index}`)?.position;
+      if (!stand) break;
+      const at = FIT.at(stand);
       spots.push({ x: at.x, y: at.y, z: at.z, turn: Math.atan2(-at.x, -at.z) });
     }
     this.crowd = new Crowd(spots, { seed: 7 });
@@ -280,7 +292,7 @@ export class GrowMap implements MapView {
   /** Food coming down near the jelly sets it shaking, harder the nearer it lands. */
   private landed(x: number, z: number): void {
     if (!this.jelly) return;
-    const near = 1 - Math.hypot(x - this.jelly.position.x, z - this.jelly.position.z) / 9;
+    const near = 1 - Math.hypot(x - this.jelly.position.x * FIT.x, z - this.jelly.position.z * FIT.z) / 9;
     if (near > 0) this.wobble = Math.min(2.4, this.wobble + near * 1.6);
   }
 
@@ -306,7 +318,7 @@ export class GrowMap implements MapView {
     this.steam += dt * (whistling ? WHISTLE.jet : WHISTLE.idle);
     for (; this.steam >= 1 && this.age > 1.2; this.steam--) {
       const push = whistling ? random(2.5, 4.5) : random(0.2, 0.5);
-      particles.puff({ x: this.spout.x, y: this.spout.y, z: this.spout.z, vx: dirX * push + random(-0.2, 0.2), vy: whistling ? random(3, 5) : random(0.9, 1.4), vz: dirZ * push + random(-0.2, 0.2), life: whistling ? random(0.4, 0.7) : random(1.2, 1.8), size: whistling ? 0.18 : 0.14, sizeEnd: whistling ? 0.5 : 0.42, drag: whistling ? 2.2 : 0.4, color: WHITE });
+      particles.puff({ x: this.steamAt.x, y: this.steamAt.y, z: this.steamAt.z, vx: dirX * push + random(-0.2, 0.2), vy: whistling ? random(3, 5) : random(0.9, 1.4), vz: dirZ * push + random(-0.2, 0.2), life: whistling ? random(0.4, 0.7) : random(1.2, 1.8), size: whistling ? 0.18 : 0.14, sizeEnd: whistling ? 0.5 : 0.42, drag: whistling ? 2.2 : 0.4, color: WHITE });
     }
     if (!this.lid) return;
     const rattle = whistling ? 1 : 0;
@@ -334,7 +346,7 @@ export class GrowMap implements MapView {
       const slice = this.slices[which];
       if (!slice || slice.taken || spent < CAKE.gone[turn]!) return;
       slice.taken = true;
-      const { x, y, z } = slice.shape.position;
+      const { x, y, z } = FIT.at(slice.shape.position);
       const angle = slice.shape.rotation.y;
       for (let index = 0; index < 10; index++) {
         particles.cube({ x: x + Math.cos(angle) * 0.7, y: y + 0.8, z: z - Math.sin(angle) * 0.7, vx: random(-2, 2), vy: random(2, 5), vz: random(-2, 2), life: random(0.4, 0.8), size: random(0.08, 0.16), gravity: 16, spin: 9, color: SPONGE });
@@ -358,8 +370,9 @@ export class GrowMap implements MapView {
     if (bites > this.nibbles && this.cookie) {
       this.nibbles = bites;
       this.hurry = 1.2;
+      const crumbs = FIT.at(this.cookie.position);
       for (let index = 0; index < 5; index++) {
-        particles.cube({ x: this.cookie.position.x + random(-0.6, 0.6), y: this.cookie.position.y + 0.4, z: this.cookie.position.z + random(-0.6, 0.6), vx: random(-1.5, 1.5), vy: random(1.5, 3.5), vz: random(-1.5, 1.5), life: random(0.3, 0.6), size: random(0.06, 0.12), gravity: 14, spin: 9, color: COOKIE });
+        particles.cube({ x: crumbs.x + random(-0.6, 0.6), y: crumbs.y + 0.4, z: crumbs.z + random(-0.6, 0.6), vx: random(-1.5, 1.5), vy: random(1.5, 3.5), vz: random(-1.5, 1.5), life: random(0.3, 0.6), size: random(0.06, 0.12), gravity: 14, spin: 9, color: COOKIE });
       }
     }
     if (this.cookie) {
@@ -405,7 +418,7 @@ export class GrowMap implements MapView {
     const [toX, toZ] = corners[(side + 1) % 4]!;
     const share = left / sides[side]!;
     const heading = Math.atan2(-(toZ - fromZ), toX - fromX);
-    this.ladybird.position.set(fromX + (toX - fromX) * share, -0.16, fromZ + (toZ - fromZ) * share);
+    this.ladybird.position.set(fromX + (toX - fromX) * share, TABLE * FIT.y, fromZ + (toZ - fromZ) * share);
     const turn = Math.atan2(Math.sin(heading - this.ladybird.rotation.y), Math.cos(heading - this.ladybird.rotation.y));
     this.ladybird.rotation.y += turn * (1 - Math.exp(-8 * dt)) + (walking ? Math.sin(time * 13) * 0.02 : 0);
     this.ladybird.scale.setScalar(Math.max(0.001, backOut(clamp01((this.age - 1) / 0.3))));
@@ -414,8 +427,8 @@ export class GrowMap implements MapView {
   /** Petals off a tree overhead, coming down round the blanket and never over it. */
   private petals(dt: number): void {
     if (Math.random() >= PETAL_RATE * dt) return;
-    const x = random(-15, 15);
-    const z = random(-11, 11);
+    const x = random(-15, 15) * FIT.x;
+    const z = random(-11, 11) * FIT.z;
     if (Math.abs(x) < COLUMNS / 2 + 1 && Math.abs(z) < ROWS / 2 + 1) return;
     this.kit.particles.cube({ x, y: random(6, 8), z, vx: random(-0.5, 0.1), vy: random(-1.3, -0.9), vz: random(-0.2, 0.2), life: random(5, 6.5), size: random(0.07, 0.11), spin: random(-3, 3), color: PETALS[Math.floor(Math.random() * PETALS.length)]! });
   }

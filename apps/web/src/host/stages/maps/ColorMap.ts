@@ -11,16 +11,18 @@ import { BoxGeometry, CanvasTexture, Color, Group, Mesh, MeshBasicMaterial, Plan
 import { FLAVORS } from '../../../shared/games';
 import { colors, maps } from '../../../shared/tokens';
 import { Model } from '../../render/models';
-import { random, type MapView, type SkyId, type StageKit } from '../kit';
+import { fitScenery, random, type MapView, type SkyId, type StageKit } from '../kit';
 import { TileField } from '../TileField';
 import { Crowd, type Spot } from './crowd';
 
 const PATCH = tuning.color.patch;
 const SIDE = tuning.color.patches * PATCH;
+/** The stage was modelled round a floor twelve metres a side, and the floor has grown: see `fitScenery`. */
+const FIT = fitScenery({ columns: 12, rows: 12 }, SIDE, SIDE);
 const palette = maps.color;
 const tints = FLAVORS.map(flavor => new Color(flavor.color));
-/** The rail round the floor: how far it stands over the floor (low, so the near side hides nobody), how far down it goes, and how thick it is. */
-const RAIL = { top: 0.3, foot: -1.01, thick: 0.35 };
+/** The rail round the floor: how far it stands over the floor (low, so the near side hides nobody), how far down it goes (to the stage's frame, which is scaled), and how thick it is. */
+const RAIL = { top: 0.3, foot: -1.01 * FIT.y, thick: 0.35 };
 /** How much faster the whole stage plays with each wave, and the most: the quickest speaker then beats 2.5 times a second. */
 const TEMPO = { step: 0.04, most: 1.24 };
 /** How much of their glow the stage's lights lose at rest with each wave, and the least they keep: the called colour stands out more every time. */
@@ -32,6 +34,8 @@ const JUMP = { seconds: 0.5, size: 0.7 };
 const DUST = { rate: 7, inner: SIDE / 2 + 1.4, outer: SIDE / 2 + 5.5 };
 const MOTE = new Color(palette.bulb).multiplyScalar(1.4);
 const FIRE = new Color(palette.flame).multiplyScalar(1.7);
+/** Where the confetti of a call goes up from: the two dance pods, in the model's measure. */
+const PODS = { x: 9.5, y: -0.8, z: -1.75 };
 /** Who is here to dance: the piece of the model each group stands on, and where on it. They ride with it. */
 const DANCERS: { on: string; spots: Spot[] }[] = [
   { on: 'lights', spots: [{ x: 0.5, z: 1, turn: 1 }, { x: 1, z: -0.4, turn: 1.2 }, { x: -0.5, z: 0.3, turn: 0.8 }] },
@@ -70,6 +74,8 @@ export class ColorMap implements MapView {
   private readonly kit: StageKit;
   private readonly tiles = new TileField(SIDE, SIDE, [colors.white, colors.white]);
   private readonly model = new Model('color');
+  /** The stage as it was modelled, scaled by `FIT`. */
+  private readonly world = new Group();
   private readonly textures = FLAVORS.map(flavor => fruitTexture(flavor.icon));
   private readonly marks: { mesh: Mesh; material: MeshBasicMaterial; flavor: number; shown: number }[] = [];
   /** The called colour's fruit, hung over each stack of speakers: beside the floor, where it covers nobody and the camera still has it. */
@@ -123,7 +129,9 @@ export class ColorMap implements MapView {
       this.rim.add(across, along);
     }
     this.rim.position.y = (RAIL.top + RAIL.foot) / 2;
-    this.group.add(this.tiles.mesh, this.model.scene, this.rim);
+    this.world.scale.set(FIT.x, FIT.y, FIT.z);
+    this.world.add(this.model.scene);
+    this.group.add(this.tiles.mesh, this.world, this.rim);
     this.tiles.reset(true);
 
     // The lights the model marks get materials of their own, one for each they shared, so they can change colour together.
@@ -151,7 +159,9 @@ export class ColorMap implements MapView {
     DANCERS.forEach((place, index) => {
       const piece = this.model.node(place.on);
       if (!piece) return;
-      const crowd = new Crowd(place.spots, { seed: 3 + index * 5 });
+      // They ride a piece that is scaled, and are not to be: their places are spread by `FIT` and the group shrunk by it.
+      const crowd = new Crowd(place.spots.map(spot => ({ ...spot, ...FIT.at({ x: spot.x, y: spot.y ?? 0, z: spot.z }) })), { seed: 3 + index * 5 });
+      crowd.group.scale.setScalar(1 / FIT.y);
       piece.add(crowd.group);
       this.crowds.push(crowd);
     });
@@ -188,7 +198,7 @@ export class ColorMap implements MapView {
       for (let index = 0; index < 28; index++) {
         // Thrown up and outward, so that none of it comes down on the floor.
         const side = index % 2 === 0 ? -1 : 1;
-        this.kit.particles.cube({ x: side * (SIDE / 2 + 3.5), y: -0.8, z: -1.75, vx: side * random(0, 3), vy: random(5, 9), vz: random(-2.5, 2.5), life: random(1, 1.6), size: random(0.1, 0.17), gravity: 11, drag: 1, spin: random(-14, 14), color: tints[event.color]! });
+        this.kit.particles.cube({ x: side * PODS.x * FIT.x, y: PODS.y * FIT.y, z: PODS.z * FIT.z, vx: side * random(0, 3), vy: random(5, 9), vz: random(-2.5, 2.5), life: random(1, 1.6), size: random(0.1, 0.17), gravity: 11, drag: 1, spin: random(-14, 14), color: tints[event.color]! });
       }
       rig.shake(0.15);
     } else if (event.t === 'colorDrop') {
@@ -239,7 +249,7 @@ export class ColorMap implements MapView {
     // The fruit over the floor grows open at the call and squishes shut at the drop.
     const open = this.called !== null && !this.dropped;
     this.signSize = Math.max(0, Math.min(1, this.signSize + (open ? dt / 0.28 : -dt / 0.16)));
-    for (const sign of this.signs) sign.scale.setScalar(Math.max(0.001, (open ? backOut(this.signSize) : this.signSize) * 2.6));
+    for (const sign of this.signs) sign.scale.setScalar(Math.max(0.001, ((open ? backOut(this.signSize) : this.signSize) * 2.6) / FIT.y));
 
     // The stage's lights: the called colour while it stands, and their own a little dimmer each wave between calls.
     const house = Math.max(HOUSE.least, 1 - (this.wave - 1) * HOUSE.step);

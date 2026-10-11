@@ -1,6 +1,6 @@
 // What a map is, and what it is handed by the stage: the scene's shared effects and the few colours every map uses.
 import type { AnyRound, GameEvent } from '@boom/game';
-import { Color, type Group } from 'three';
+import { Color, Vector3, type Group } from 'three';
 import { colors } from '../../shared/tokens';
 import type { Decals } from '../fx/Decals';
 import type { Particles } from '../fx/Particles';
@@ -16,6 +16,19 @@ export const GOLD = new Color(colors.gold);
 export const HOT = new Color(colors.gold).multiplyScalar(2.6);
 export const SMOKE = [new Color(colors.cream), new Color(colors.smoke), new Color(colors.danger), new Color(colors.gold)];
 export const random = (low: number, high: number) => low + Math.random() * (high - low);
+
+/**
+ * A floor that has grown since its scenery was modelled round it. Rather than model the scenery again, a map
+ * puts it in a group scaled by this, so what stood at the floor's edge still does. `y` is the smaller of the
+ * other two: a prop may come out a little wide, never tall and thin. `at()` is where a spot of the model is
+ * in the world, for what stands in the scenery without being scaled with it (spectators, particles).
+ */
+export function fitScenery(built: { columns: number; rows: number }, columns: number, rows: number) {
+  const x = columns / built.columns;
+  const z = rows / built.rows;
+  const y = Math.min(x, z);
+  return { x, y, z, at: (spot: { x: number; y: number; z: number }) => new Vector3(spot.x * x, spot.y * y, spot.z * z) };
+}
 
 export const SKY_IDS = ['day', 'morning', 'night', 'alien', 'space'] as const;
 export type SkyId = (typeof SKY_IDS)[number];

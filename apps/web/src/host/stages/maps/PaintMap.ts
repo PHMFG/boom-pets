@@ -13,12 +13,18 @@ import { Color, Group, Vector3, type Object3D } from 'three';
 import { motion } from '../../../shared/motion';
 import { colors, maps, seats } from '../../../shared/tokens';
 import { Model } from '../../render/models';
-import { syncViews, WHITE, random, type MapView, type SkyId, type StageKit } from '../kit';
+import { fitScenery, syncViews, WHITE, random, type MapView, type SkyId, type StageKit } from '../kit';
 import { TileField } from '../TileField';
 import { Crowd, type Spot } from './crowd';
 
 const COLUMNS = tuning.paint.columns;
 const ROWS = tuning.paint.rows;
+/**
+ * The desk was laid out round a sheet of 14 by 12, and the sheet has grown: see `fitScenery`. Everything of
+ * the desk is placed in the model's own measure, inside a group scaled by `FIT`.
+ */
+const BUILT = { columns: 14, rows: 12 };
+const FIT = fitScenery(BUILT, COLUMNS, ROWS);
 const palette = maps.paint;
 /** How much white goes into a painted tile: enough that a pet's ring still shows on its own colour. */
 const LIGHTEN = 0.42;
@@ -27,7 +33,7 @@ const splashColor = seats.map(seat => new Color(seat.color));
 const WATER = new Color(palette.water);
 const DUST = new Color(palette.bulb);
 /** Where the six pots stand: three at each end of the back of the mat, where the clock at the top of the picture never covers one. */
-const POTS = { x: [-11.5, -9.7, -7.9, 7.9, 9.7, 11.5], z: -ROWS / 2 - 2.95, stagger: 0.4, floor: -0.06 };
+const POTS = { x: [-11.5, -9.7, -7.9, 7.9, 9.7, 11.5], z: -BUILT.rows / 2 - 2.95, stagger: 0.4, floor: -0.06 };
 /** Seconds a pot's jump lasts, how high it goes, and how hard it squashes when it comes down. */
 const JUMP = { seconds: 0.55, height: 1.3, squash: 0.25 };
 /** The pots pop in one after another once the map is up. */
@@ -41,7 +47,7 @@ const ROLL = 0.46;
 /** The wind-up toy: metres a second, and seconds it stands being wound at each end. */
 const TOY = { speed: 1.5, wind: 3 };
 /** The paper plane: seconds a flight lasts, seconds it lies between two, and how high and how far back it goes round. */
-const PLANE = { flight: 4.6, rest: 9, high: 5.5, back: -ROWS / 2 - 7.5, wide: COLUMNS / 2 + 7 };
+const PLANE = { flight: 4.6, rest: 9, high: 5.5, back: -BUILT.rows / 2 - 7.5, wide: BUILT.columns / 2 + 7 };
 /** Paint left on the mat by each bucket kicked over, and the most there can be. */
 const SPLATS = { each: 2, most: 12 };
 const backOut = (t: number) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
@@ -140,6 +146,8 @@ export class PaintMap implements MapView {
   private readonly owners = new Uint8Array(COLUMNS * ROWS);
   private readonly buckets = new Map<number, BucketView>();
   private readonly model = new Model('paint');
+  /** The desk as it was modelled, scaled by `FIT`. Buckets and guests keep their size outside it. */
+  private readonly world = new Group();
   private readonly pots: PotView[];
   private readonly crowd: Crowd;
   /** Seconds since the map appeared: what the map's own pieces pop in by. */
@@ -180,7 +188,9 @@ export class PaintMap implements MapView {
 
   constructor(kit: StageKit) {
     this.kit = kit;
-    this.group.add(this.tiles.mesh, this.model.scene);
+    this.world.scale.set(FIT.x, FIT.y, FIT.z);
+    this.world.add(this.model.scene);
+    this.group.add(this.tiles.mesh, this.world);
     this.tiles.reset(true);
     const { model } = this;
     const at = (name: string, into: Vector3) => into.copy(model.node(name)?.position ?? into);
@@ -190,7 +200,7 @@ export class PaintMap implements MapView {
       const shape = model.part('pot');
       model.own(shape, 'potPaint')?.color.set(seat.color);
       const pot = new PotView(shape, POTS.x[index % POTS.x.length]!, POTS.floor, POTS.z + (index % 2) * POTS.stagger, ((index * 2.3) % 0.9) - 0.45, ARRIVE.after + index * ARRIVE.each);
-      this.group.add(pot.group);
+      this.world.add(pot.group);
       return pot;
     });
 
@@ -229,14 +239,15 @@ export class PaintMap implements MapView {
     at('mark_plane_a', this.pads[0]);
     at('mark_plane_b', this.pads[1]);
     this.plane.scale.setScalar(0.001);
-    this.group.add(this.toy, this.plane);
+    this.world.add(this.toy, this.plane);
 
     // The guests stand wherever the model left a place for one, and face the paper.
     const spots: Spot[] = [];
     for (let index = 0; ; index++) {
       const stand = model.node(`stand_${index}`)?.position;
       if (!stand) break;
-      spots.push({ x: stand.x, y: stand.y, z: stand.z, turn: Math.atan2(-stand.x, -stand.z) });
+      const at = FIT.at(stand);
+      spots.push({ x: at.x, y: at.y, z: at.z, turn: Math.atan2(-at.x, -at.z) });
     }
     this.crowd = new Crowd(spots, { seed: 3 });
     this.group.add(this.crowd.group);
@@ -266,14 +277,16 @@ export class PaintMap implements MapView {
     // The kicker's pot at the back jumps for joy and spills a little.
     const pot = this.pots[event.seat % this.pots.length]!;
     pot.hop();
+    const brim = FIT.at(pot.brim);
     for (let index = 0; index < 8; index++) {
-      particles.cube({ ...pot.brim, vx: random(-2, 2), vy: random(4, 8), vz: random(-1, 2), life: random(0.4, 0.7), size: random(0.1, 0.2), gravity: 20, spin: random(-10, 10), color });
+      particles.cube({ x: brim.x, y: brim.y, z: brim.z, vx: random(-2, 2), vy: random(4, 8), vz: random(-1, 2), life: random(0.4, 0.7), size: random(0.1, 0.2), gravity: 20, spin: random(-10, 10), color });
     }
     // The desk feels it too: the guests clap, the tube squirts, the toy jumps, the plane takes off, and paint lands on the mat to stay.
     this.crowd.clap();
     this.squeeze = 1;
+    const nozzle = FIT.at(this.nozzle);
     for (let index = 0; index < 10; index++) {
-      particles.cube({ x: this.nozzle.x, y: this.nozzle.y, z: this.nozzle.z, vx: random(-5, -2), vy: random(1, 4), vz: random(-1, 1), life: random(0.3, 0.6), size: random(0.1, 0.18), gravity: 18, spin: 9, color });
+      particles.cube({ x: nozzle.x, y: nozzle.y, z: nozzle.z, vx: random(-5, -2), vy: random(1, 4), vz: random(-1, 1), life: random(0.3, 0.6), size: random(0.1, 0.18), gravity: 18, spin: 9, color });
     }
     this.toyHop = 1;
     this.rattle = Math.max(this.rattle, 1);
@@ -336,8 +349,9 @@ export class PaintMap implements MapView {
   private landed(): void {
     this.rollTo = this.rollTo > 0 ? -ROLL : ROLL;
     this.rattle = Math.max(this.rattle, 1);
+    const water = FIT.at(this.water);
     for (let index = 0; index < 4; index++) {
-      this.kit.particles.cube({ x: this.water.x + random(-0.5, 0.5), y: this.water.y, z: this.water.z + random(-0.5, 0.5), vx: random(-1.5, 1.5), vy: random(2.5, 4.5), vz: random(-1.5, 1.5), life: random(0.3, 0.5), size: random(0.07, 0.12), gravity: 16, color: WATER });
+      this.kit.particles.cube({ x: water.x + random(-0.5, 0.5), y: water.y, z: water.z + random(-0.5, 0.5), vx: random(-1.5, 1.5), vy: random(2.5, 4.5), vz: random(-1.5, 1.5), life: random(0.3, 0.5), size: random(0.07, 0.12), gravity: 16, color: WATER });
     }
   }
 
@@ -346,7 +360,8 @@ export class PaintMap implements MapView {
     if (!this.lamp) return;
     const head = this.lamp.position;
     const rest = Math.atan2(this.lampAim.x - head.x, this.lampAim.z - head.z);
-    const wanted = leader ? Math.atan2(leader.x - head.x, leader.z - head.z) - rest : Math.sin(time * LAMP.sweepPace) * LAMP.sweep;
+    // The leader is on the paper, in the world; the lamp's head is in the model.
+    const wanted = leader ? Math.atan2(leader.x / FIT.x - head.x, leader.z / FIT.z - head.z) - rest : Math.sin(time * LAMP.sweepPace) * LAMP.sweep;
     const turn = Math.max(-LAMP.reach, Math.min(LAMP.reach, Math.atan2(Math.sin(wanted), Math.cos(wanted))));
     this.lamp.rotation.y += (turn - this.lamp.rotation.y) * (1 - Math.exp(-LAMP.turn * dt));
     if (Math.random() >= LAMP.dust * dt || this.age < 1.5) return;
@@ -356,9 +371,10 @@ export class PaintMap implements MapView {
     const sin = Math.sin(this.lamp.rotation.y);
     const reachX = this.lampAim.x - head.x;
     const reachZ = this.lampAim.z - head.z;
-    const x = head.x + (reachX * cos + reachZ * sin) * along + random(-0.5, 0.5);
+    const mote = FIT.at({ x: head.x + (reachX * cos + reachZ * sin) * along, y: head.y + (this.lampAim.y - head.y) * along, z: head.z + (-reachX * sin + reachZ * cos) * along });
+    const x = mote.x + random(-0.5, 0.5);
     if (x > -COLUMNS / 2 - 0.8) return;
-    this.kit.particles.cube({ x, y: head.y + (this.lampAim.y - head.y) * along + random(-0.3, 0.3), z: head.z + (-reachX * sin + reachZ * cos) * along + random(-0.5, 0.5), vx: random(-0.1, 0.1), vy: random(-0.25, 0.05), vz: random(-0.1, 0.1), life: random(1.6, 2.6), size: random(0.04, 0.07), spin: 2, color: DUST });
+    this.kit.particles.cube({ x, y: mote.y + random(-0.3, 0.3), z: mote.z + random(-0.5, 0.5), vx: random(-0.1, 0.1), vy: random(-0.25, 0.05), vz: random(-0.1, 0.1), life: random(1.6, 2.6), size: random(0.04, 0.07), spin: 2, color: DUST });
   }
 
   /** The bird rocks, tips its beak into the glass and comes up again, sooner each time as the round runs out. Each drink leaves a ring on the water. */
@@ -376,8 +392,9 @@ export class PaintMap implements MapView {
     if (before < BIRD.down && this.drink >= BIRD.down && this.age > 1.5) {
       const ripple = this.ripples[this.drinks++ % Math.max(1, this.ripples.length)];
       if (ripple) ripple.spread = 0;
+      const water = FIT.at(this.water);
       for (let index = 0; index < 3; index++) {
-        particles.cube({ x: this.water.x - 0.5, y: this.water.y, z: this.water.z, vx: random(-1.2, 0.4), vy: random(1.5, 3), vz: random(-1, 1), life: random(0.25, 0.4), size: random(0.06, 0.1), gravity: 14, color: WATER });
+        particles.cube({ x: water.x - 0.5, y: water.y, z: water.z, vx: random(-1.2, 0.4), vy: random(1.5, 3), vz: random(-1, 1), life: random(0.25, 0.4), size: random(0.06, 0.1), gravity: 14, color: WATER });
       }
     }
     for (const ripple of this.ripples) {
@@ -412,7 +429,7 @@ export class PaintMap implements MapView {
     if (this.drips > 0.7 && this.age > 2) {
       this.drips = random(-0.4, 0);
       const which = Math.floor(Math.random() * this.pots.length);
-      const { x, y, z } = this.pots[which]!.brim;
+      const { x, y, z } = FIT.at(this.pots[which]!.brim);
       this.kit.particles.cube({ x: x + 0.13, y: y - 0.55, z: z + 0.9, vy: -0.5, life: 0.4, size: 0.1, gravity: 9, color: splashColor[which % splashColor.length]! });
     }
   }
@@ -487,7 +504,7 @@ export class PaintMap implements MapView {
       this.planeFlying = -1;
       this.planeAt = 1 - this.planeAt;
       this.planeRest = PLANE.rest + random(0, 4);
-      this.kit.dust(to.x, to.z, 3);
+      this.kit.dust(to.x * FIT.x, to.z * FIT.z, 3);
     }
   }
 
@@ -501,7 +518,7 @@ export class PaintMap implements MapView {
     shape.rotation.y = random(0, Math.PI * 2);
     shape.scale.setScalar(0.001);
     this.splats.push({ shape, size: random(0.7, 1.15), age: -random(0.15, 0.4) });
-    this.group.add(shape);
+    this.world.add(shape);
   }
 
   private splatFrame(dt: number): void {
