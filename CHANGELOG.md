@@ -20,6 +20,10 @@ From the owner, after playing (the copy open on their computer was still 1.0.0):
 - A sofa sinking into the lava vanished with its back still showing. Furniture now goes all the way under.
 - The scenery of the bigger maps was outlined more thickly than the pets and props standing in it.
 
+### For whoever is balancing
+
+- The match log writes down the track each race was run on (its metres, turns and obstacles) beside its falls, and furniture landed in each round of O Chão é Lava; the report's row for each game shows them. `pnpm balance` should never show a race at its cap: one that gets there with bots is a track that cannot be run.
+
 ## [1.1.0] - 2026-10-11
 
 From the owner, after looking at 1.0.0: the new games were a bit too short and their worlds not alive enough. So every simple game lasts longer, and every world now has someone in it who cares what happens, scenery that answers the round, and things going somewhere on their own.

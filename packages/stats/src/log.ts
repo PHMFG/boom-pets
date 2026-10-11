@@ -56,7 +56,8 @@ export type RoundStats = {
   /**
    * What the game's own events came to in the round, by seat: bombs passed on, times caught moving, falls in
    * the race, bites, buckets kicked. Under `all` where it is nobody's (how often the cat looked, how many
-   * bombs went off, waves of lava, colours called). Counted from build 0.6.0 on.
+   * bombs went off, waves of lava, colours called), and there too what the round was played on when that
+   * is drawn for it: a race's track, as its metres, turns and obstacles (from 1.2.0). Counted from build 0.6.0 on.
    */
   tally: Record<string, Record<string, number>>;
 };

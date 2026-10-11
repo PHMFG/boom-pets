@@ -76,6 +76,14 @@ export class PlaytestLog {
       if (event.phase === 'play') {
         this.playing = true;
         this.current = { firstKnockoutAt: null, knockouts: 0, winners: [], tally: {} };
+        // The race is run on a track drawn for the round: what kind it was goes with the round, so that how a round
+        // went can be read against how long, how twisting and how full of obstacles its track was.
+        if (game.round.gameMode === 'race') {
+          const { track, hurdles } = game.round.rules;
+          this.tally('metres', null, track.length);
+          this.tally('turns', null, track.turns);
+          this.tally('obstacles', null, hurdles.length);
+        }
         for (const seat of this.seats.values()) {
           seat.aliveSince = 0;
           seat.readyAt = null;
@@ -318,10 +326,10 @@ export class PlaytestLog {
   }
 
   /** One more of something in this round, for a seat or (null) for nobody in particular. */
-  private tally(what: string, seat: number | null): void {
+  private tally(what: string, seat: number | null, count = 1): void {
     const counts = (this.current.tally[what] ??= {});
     const who = seat === null ? 'all' : String(seat);
-    counts[who] = (counts[who] ?? 0) + 1;
+    counts[who] = (counts[who] ?? 0) + count;
   }
 
   private power(id: string): MatchLog['powers'][string] {

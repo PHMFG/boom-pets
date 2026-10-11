@@ -95,6 +95,10 @@ describe('the match log', () => {
     // Falls in the race belong to the race: the cat sending a pet back is not one.
     expect(frita!.tally.falls).toBeUndefined();
     expect(race!.tally.caught).toBeUndefined();
+    // The track the race was run on is written down with it.
+    expect(race!.tally.metres!.all).toBeGreaterThanOrEqual(150);
+    expect(race!.tally.turns!.all).toBeGreaterThanOrEqual(1);
+    expect(race!.tally.obstacles!.all).toBeGreaterThanOrEqual(11);
     const summary = summariseMatch(log);
     expect(summary).toContain('In the game');
     expect(summary).toMatch(/bombs 3/);
