@@ -1,19 +1,23 @@
 // Cor Certa: a dance floor floating in space. Its tiles are patches of four pale colours, each marked with
 // its fruit, so a colour is never told apart by hue alone. When one is called, its name and fruit hang over
 // the floor until the rest drops away.
+// The stage under the floor and everything that floats round it (speakers, the DJ's desk, lights, the mirror
+// ball, a planet and a rocket) are modelled in Blender (tools/blender/maps/color.py), and move by themselves.
 import type { AnyRound, GameEvent } from '@boom/game';
 import { tuning } from '@boom/game';
-import { BoxGeometry, CanvasTexture, Color, CylinderGeometry, Group, IcosahedronGeometry, Mesh, MeshBasicMaterial, PlaneGeometry, Sprite, SpriteMaterial } from 'three';
+import { BoxGeometry, CanvasTexture, Color, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Sprite, SpriteMaterial } from 'three';
 import { FLAVORS } from '../../../shared/games';
 import { colors, maps } from '../../../shared/tokens';
+import { Model } from '../../render/models';
 import type { MapView, SkyId, StageKit } from '../kit';
 import { TileField } from '../TileField';
-import { disposeToys, toy } from './toys';
 
 const PATCH = tuning.color.patch;
 const SIDE = tuning.color.patches * PATCH;
 const palette = maps.color;
 const tints = FLAVORS.map(flavor => new Color(flavor.color));
+/** The footlights in each called colour: a little over white, and no more, or the colour would burn out of them. */
+const lampTints = tints.map(tint => tint.clone().multiplyScalar(1.25));
 const backOut = (t: number) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
 
 /** A fruit on a see-through square, to lie on a patch or hang in the air. */
@@ -36,13 +40,22 @@ export class ColorMap implements MapView {
 
   private readonly kit: StageKit;
   private readonly tiles = new TileField(SIDE, SIDE, [colors.white, colors.white]);
-  private readonly scenery = new Group();
+  private readonly model = new Model('color');
   private readonly textures = FLAVORS.map(flavor => fruitTexture(flavor.icon));
   private readonly marks: { mesh: Mesh; material: MeshBasicMaterial; flavor: number; shown: number }[] = [];
   /** The called colour's fruit, hung over each speaker: at the corners, where it covers nobody. */
   private readonly signs: Sprite[] = [];
-  private readonly rim: Mesh;
-  private readonly ball: Mesh;
+  /**
+   * The band round the floor that takes the called colour. It is four bars and not a slab: where patches drop
+   * there is nothing under them but space, so the patches left standing are plain to see.
+   */
+  private readonly rim = new Group();
+  private readonly bars = [new BoxGeometry(SIDE + 0.7, 0.5, 0.35), new BoxGeometry(0.35, 0.5, SIDE)] as const;
+  private readonly band = new MeshBasicMaterial({ color: palette.base });
+  /** The footlights round the stage. They burn warm, and take the called colour along with the band. */
+  private readonly lamps: { color: Color } | null;
+  private readonly lampRest = new Color();
+  private lampGoal = this.lampRest;
   private readonly seen = new Uint8Array(SIDE * SIDE);
   private called: number | null = null;
   private signSize = 0;
@@ -62,14 +75,26 @@ export class ColorMap implements MapView {
         this.group.add(mesh);
       }
     }
-    // A band round the floor that takes the called colour.
-    this.rim = new Mesh(new BoxGeometry(SIDE + 0.7, 0.5, SIDE + 0.7), new MeshBasicMaterial({ color: palette.base }));
+    for (const side of [-1, 1]) {
+      const across = new Mesh(this.bars[0], this.band);
+      across.position.z = side * (SIDE / 2 + 0.175);
+      const along = new Mesh(this.bars[1], this.band);
+      along.position.x = side * (SIDE / 2 + 0.175);
+      this.rim.add(across, along);
+    }
     this.rim.position.y = -0.76;
-    this.ball = new Mesh(new IcosahedronGeometry(1.6, 1), new MeshBasicMaterial({ color: new Color(colors.white).multiplyScalar(1.5) }));
-    this.ball.position.set(0, 9, -SIDE / 2 - 3);
-    this.group.add(this.tiles.mesh, this.scenery, this.rim, this.ball);
+    this.group.add(this.tiles.mesh, this.model.scene, this.rim);
     this.tiles.reset(true);
-    this.build();
+    const footlights = this.model.node('footlights');
+    this.lamps = footlights ? this.model.own(footlights, 'bulb') : null;
+    if (this.lamps) this.lampRest.copy(this.lamps.color);
+    // The model marks a place over each corner's speakers. A sign hung there rides up and down with its pod.
+    for (let corner = 0; corner < 4; corner++) {
+      const sign = new Sprite(new SpriteMaterial({ transparent: true, depthWrite: false }));
+      sign.scale.setScalar(0.001);
+      this.signs.push(sign);
+      this.model.node(`sign_${corner}`)?.add(sign);
+    }
   }
 
   handle(event: GameEvent): void {
@@ -77,7 +102,8 @@ export class ColorMap implements MapView {
     if (event.t === 'colorShow') {
       this.called = null;
       this.dropped = false;
-      (this.rim.material as MeshBasicMaterial).color.set(palette.base);
+      this.band.color.set(palette.base);
+      this.lampGoal = this.lampRest;
     } else if (event.t === 'colorCall') {
       // The fruit goes up over every speaker and the band round the floor takes the colour. The name is the HUD's and the announcer's.
       this.called = event.color;
@@ -85,7 +111,8 @@ export class ColorMap implements MapView {
         sign.material.map = this.textures[event.color]!;
         sign.material.needsUpdate = true;
       }
-      (this.rim.material as MeshBasicMaterial).color.set(FLAVORS[event.color]!.color);
+      this.band.color.set(FLAVORS[event.color]!.color);
+      this.lampGoal = lampTints[event.color]!;
       rig.shake(0.15);
     } else if (event.t === 'colorDrop') {
       this.dropped = true;
@@ -125,7 +152,8 @@ export class ColorMap implements MapView {
     const open = this.called !== null && !this.dropped;
     this.signSize = Math.max(0, Math.min(1, this.signSize + (open ? dt / 0.28 : -dt / 0.16)));
     for (const sign of this.signs) sign.scale.setScalar(Math.max(0.001, (open ? backOut(this.signSize) : this.signSize) * 2.6));
-    this.ball.rotation.y = time * 0.6;
+    this.lamps?.color.lerp(this.lampGoal, 1 - Math.exp(-12 * dt));
+    this.model.update(dt);
     this.tiles.update(dt, time);
   }
 
@@ -135,38 +163,9 @@ export class ColorMap implements MapView {
     this.marks.forEach(mark => mark.material.dispose());
     this.marks[0]?.mesh.geometry.dispose();
     this.signs.forEach(sign => sign.material.dispose());
-    this.rim.geometry.dispose();
-    (this.rim.material as MeshBasicMaterial).dispose();
-    this.ball.geometry.dispose();
-    (this.ball.material as MeshBasicMaterial).dispose();
-    disposeToys(this.scenery);
+    this.bars.forEach(bar => bar.dispose());
+    this.band.dispose();
+    this.model.dispose();
     this.group.removeFromParent();
-  }
-
-  /** What holds the floor up, and the speakers at its corners. */
-  private build(): void {
-    const base = toy(new BoxGeometry(SIDE + 1.2, 0.8, SIDE + 1.2), palette.base, 1.01);
-    base.position.y = -1.42;
-    base.castShadow = false;
-    this.scenery.add(base);
-    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
-      const stack = new Group();
-      for (let level = 0; level < 2; level++) {
-        const box = toy(new BoxGeometry(2.2, 2, 1.6), palette.speaker, 1.04);
-        box.position.y = 1 + level * 2.05;
-        const cone = toy(new CylinderGeometry(0.62, 0.62, 0.2, 14), palette.cone, 1.1);
-        cone.rotation.x = Math.PI / 2;
-        cone.position.set(0, 1 + level * 2.05, 0.85);
-        stack.add(box, cone);
-      }
-      stack.position.set(x * (SIDE / 2 + 2.6), -1.8, z * (SIDE / 2 + 1.6) - (z < 0 ? 0.5 : 0));
-      stack.rotation.y = Math.atan2(-x, -z);
-      this.scenery.add(stack);
-      const sign = new Sprite(new SpriteMaterial({ transparent: true, depthWrite: false }));
-      sign.position.set(stack.position.x, 4.4, stack.position.z);
-      sign.scale.setScalar(0.001);
-      this.signs.push(sign);
-      this.group.add(sign);
-    }
   }
 }
