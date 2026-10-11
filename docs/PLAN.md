@@ -400,3 +400,12 @@ The plan above is for one game, the brawl. Since 0.6.0 a match is a run of diffe
 - **Logs and the report** say which game each round was, and judge each game by its own length and its spread of winners.
 
 The rules of each game are in `docs/GAMEPLAY.md`, the look of each map in `docs/DESIGN.md`, and how to add another in `AGENTS.md`.
+
+### 1.0.0: the finish (2026-10-10)
+
+No rule of any game changed for 1.0. What changed is how the game looks and how a match is told.
+
+- **Maps are modelled in Blender**, by a script per map (`tools/blender/`, `pnpm models`), driven through the socket bridge of Blender's MCP add-on. The plan of 0.6.0 built every prop in code from plain shapes; that was quick and looked it. A model carries no colour: the game paints each piece from the tokens, toon shades and outlines it, like everything else. Eight maps and the winner's stage were built this way, four of them at a time by separate agents, each in its own checkout.
+- **The camera leaves the game's angle outside a round**, for three low shots: the round's winner, a new world while its card is up, and the podium from the front.
+- **A match is told as it goes:** the places of each round and what they paid, on the TV and on each phone; a roulette that stops on the game that is played; a curtain between worlds; the last seconds of a round counted aloud; one card, in one corner, for whatever state the whole room must know.
+- **Two tools to look with:** `pnpm look` photographs or films any game, screen or moment between rounds, and measures what a map costs to draw. Every visual decision of 1.0 was judged in its pictures.
