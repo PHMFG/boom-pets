@@ -40,6 +40,8 @@ import { RaceMap } from './maps/RaceMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
 const HALF = tuning.arena.size / 2;
+/** The first look at a new world: how far off for its size, how low (degrees), from which side it starts (radians) and how fast it drifts round. */
+const ESTABLISH = { near: 9, perMetre: 1.25, pitch: 27, from: -0.3, spin: 0.14 };
 /** Where the camera looks at the podium: the middle step, at a pet's chest. */
 const PODIUM_SHOT = { x: 0, y: 1.3, z: 0.4 };
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -282,8 +284,8 @@ export class GameStage {
         // The next game's world replaces whatever was on stage, behind its card.
         this.winners.clear();
         this.words.clear();
-        this.rig.release();
         this.showMap(this.makeMap(event.mode, event.final, game.round));
+        this.establish();
         return;
       case 'finale': {
         const spots = this.podium?.reveal(event.place) ?? [];
@@ -704,6 +706,17 @@ export class GameStage {
       this.winners.clear();
       this.showMap(this.makeMap('brawl', false, null));
     }
+  }
+
+  /**
+   * The first look at a new world, while its card is up: from low and far, drifting round it, so the place
+   * is seen before the round is. The countdown brings the camera up to where the game is played from.
+   */
+  private establish(): void {
+    const { minX, maxX, minZ, maxZ } = this.map.bounds;
+    const at = { x: (minX + maxX) / 2, y: 0.5, z: (minZ + maxZ) / 2 };
+    const span = Math.max(maxX - minX, maxZ - minZ);
+    this.rig.cut({ at: () => at, distance: ESTABLISH.near + span * ESTABLISH.perMetre, seconds: 3600, pitch: ESTABLISH.pitch, spin: ESTABLISH.spin }, ESTABLISH.from);
   }
 
   /** The world of a game. `final` is the last round's look, for a map that has one. */

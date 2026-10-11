@@ -81,6 +81,20 @@ export class CameraRig {
     this.hold = { ...shot, left: shot.seconds };
   }
 
+  /**
+   * Starts a shot already in place, with no move from wherever the camera was: for when the picture is
+   * hidden (behind the curtain between worlds) and a move would only be seen as its tail end.
+   * `yaw` is the side it starts from, in radians round its subject.
+   */
+  cut(shot: Shot, yaw = 0): void {
+    this.look(shot);
+    const at = shot.at();
+    this.center.set(at.x, at.y ?? 0.6, at.z);
+    this.distance = shot.distance;
+    this.pitch = MathUtils.degToRad(shot.pitch ?? MathUtils.radToDeg(PITCH));
+    this.yaw = yaw;
+  }
+
   release(): void {
     this.hold = null;
   }
