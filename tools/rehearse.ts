@@ -48,8 +48,9 @@ const reachable = async (url: string) => {
 };
 for (let tries = 0; tries < 160 && !((await reachable(base)) && (await reachable(`http://127.0.0.1:${relayPort}/api/room`))); tries++) await new Promise(wait => setTimeout(wait, 250));
 
-type Frames = { count: number; over25: number; over50: number; worst: number; total: number };
-declare const window: { __BOOM__: { game: { phase: string; gameMode: string } }; __frames: Frames };
+type Frames = { count: number; over25: number; over50: number; worst: number; total: number; long: { ms: number; during: string }[] };
+declare const window: { __BOOM__: { game: { phase: string; gameMode: string; revealed: boolean } }; __frames: Frames; __curtain: () => boolean };
+declare const document: { querySelector(selector: string): unknown };
 declare const requestAnimationFrame: (step: (now: number) => void) => void;
 declare const performance: { now(): number };
 
@@ -67,7 +68,7 @@ try {
   await page.keyboard.press('Enter');
   // Every frame the screen draws from here on is timed.
   await page.evaluate(() => {
-    const frames: Frames = { count: 0, over25: 0, over50: 0, worst: 0, total: 0 };
+    const frames: Frames = { count: 0, over25: 0, over50: 0, worst: 0, total: 0, long: [] };
     window.__frames = frames;
     let last = performance.now();
     const step = (now: number) => {
@@ -77,6 +78,12 @@ try {
       frames.total += took;
       if (took > 25) frames.over25++;
       if (took > 50) frames.over50++;
+      // A long frame is noted with what was on screen: one behind the curtain between worlds is seen by nobody.
+      if (took > 25) {
+        const game = window.__BOOM__.game;
+        const hidden = document.querySelector('.iris.is-closed') !== null;
+        frames.long.push({ ms: Math.round(took), during: `${game.gameMode} ${game.phase}${game.phase === 'intro' ? (game.revealed ? ' (card)' : ' (roulette)') : ''}${hidden ? ', behind the curtain' : ''}` });
+      }
       frames.worst = Math.max(frames.worst, took);
       requestAnimationFrame(step);
     };
@@ -108,6 +115,7 @@ try {
   const frames = await page.evaluate(() => window.__frames);
   console.log(`${phones} phones, ${minutes} minutes: ${matches} matches finished, ${[...played.values()].reduce((sum, rounds) => sum + rounds, 0)} rounds played (${[...played].map(([game, rounds]) => `${game} ${rounds}`).join(', ')}).`);
   console.log(`Frames: ${frames.count} drawn, ${(frames.total / frames.count).toFixed(1)} ms on average, ${frames.over25} over 25 ms, ${frames.over50} over 50 ms, the worst ${frames.worst.toFixed(0)} ms.`);
+  for (const frame of frames.long) console.log(`  ${String(frame.ms).padStart(4)} ms during ${frame.during}`);
 } finally {
   await browser.close();
   if (crowd?.pid) process.kill(-crowd.pid);

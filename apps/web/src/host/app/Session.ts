@@ -103,13 +103,14 @@ export class Session {
       }
     });
 
-    // The bar fills with whichever of the two lots of models is further behind.
-    const loaded = { pets: 0, models: 0 };
+    // The bar fills with whichever of the things being loaded is furthest behind.
+    const loaded = { pets: 0, models: 0, skies: 0 };
     const progress = (part: keyof typeof loaded) => (done: number) => {
       loaded[part] = done;
-      hud.set({ loadProgress: Math.min(loaded.pets, loaded.models) });
+      hud.set({ loadProgress: Math.min(loaded.pets, loaded.models, 0.9 + loaded.skies * 0.1) });
     };
-    void Promise.all([initPhysics(), loadPets(progress('pets')), loadModels(progress('models'))]).then(() => {
+    const skies = this.stage.loadSkies().then(() => progress('skies')(1));
+    void Promise.all([initPhysics(), loadPets(progress('pets')), loadModels(progress('models')), skies]).then(() => {
       if (this.disposed) return;
       this.game = new Game(this.seed);
       this.stage.setGame(this.game);

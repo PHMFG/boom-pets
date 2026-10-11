@@ -29,7 +29,7 @@ import { createPet, isPetId, petPalette } from '../render/assets';
 import { CameraRig } from '../render/CameraRig';
 import { Renderer } from '../render/Renderer';
 import { Word3D } from '../render/Text3D';
-import { DANGER, HOT, INK, random, SMOKE, syncViews, WHITE, type MapView, type SkyId, type StageKit } from './kit';
+import { DANGER, HOT, INK, random, SKY_IDS, SMOKE, syncViews, WHITE, type MapView, type SkyId, type StageKit } from './kit';
 import { BrawlMap } from './maps/BrawlMap';
 import { ColorMap } from './maps/ColorMap';
 import { GrowMap } from './maps/GrowMap';
@@ -924,6 +924,34 @@ export class GameStage {
     this.rig.setViewport(width, height, this.insets);
   }
 
+  /**
+   * Fetches every sky and gets each one ready on the graphics card, while the loading screen is up. A sky is a
+   * big picture, and the first frame that shows one has to unwrap it into a cube: left to the moment a map
+   * first asks for it, that is a frame of 80 ms just as a new world opens.
+   */
+  loadSkies(): Promise<void> {
+    const sky = (id: SkyId) =>
+      this.loader.loadAsync(`/skyboxes/skybox-${id}.png`).then(texture => {
+        texture.mapping = EquirectangularReflectionMapping;
+        texture.colorSpace = SRGBColorSpace;
+        this.skies.set(id, texture);
+      });
+    return Promise.all(SKY_IDS.map(sky)).then(() => {
+      // One small picture drawn with each as its background is what makes the renderer unwrap it.
+      const three = this.renderer.three;
+      const target = new WebGLRenderTarget(8, 8);
+      const scene = new Scene();
+      three.setRenderTarget(target);
+      for (const texture of this.skies.values()) {
+        scene.background = texture;
+        three.render(scene, this.rig.camera);
+      }
+      three.setRenderTarget(null);
+      target.dispose();
+      this.scene.background = this.skies.get(this.map.sky) ?? this.scene.background;
+    });
+  }
+
   /** Puts a map on stage in place of the one that was there, with its sky and its light. */
   private showMap(map: MapView): MapView {
     this.mapFrames = 0;
@@ -936,7 +964,7 @@ export class GameStage {
     const known = this.skies.get(map.sky);
     if (known) this.scene.background = known;
     else {
-      // Skies are big pictures, so each is fetched the first time a map asks for it.
+      // Not loaded yet (the map put up before loading has finished): it is fetched now.
       this.loader.load(`/skyboxes/skybox-${map.sky}.png`, sky => {
         sky.mapping = EquirectangularReflectionMapping;
         sky.colorSpace = SRGBColorSpace;

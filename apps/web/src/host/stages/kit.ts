@@ -17,7 +17,8 @@ export const HOT = new Color(colors.gold).multiplyScalar(2.6);
 export const SMOKE = [new Color(colors.cream), new Color(colors.smoke), new Color(colors.danger), new Color(colors.gold)];
 export const random = (low: number, high: number) => low + Math.random() * (high - low);
 
-export type SkyId = 'day' | 'morning' | 'night' | 'alien' | 'space';
+export const SKY_IDS = ['day', 'morning', 'night', 'alien', 'space'] as const;
+export type SkyId = (typeof SKY_IDS)[number];
 export type Bounds = { minX: number; maxX: number; minZ: number; maxZ: number };
 
 /** The stage's shared effects, lent to whichever map is up. */
