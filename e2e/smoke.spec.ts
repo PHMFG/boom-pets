@@ -144,7 +144,7 @@ class Session {
 
     // Whatever the phone's shape, no control on the lobby pad may sit on top of another.
     await expect(tab.locator('.pad-pet')).not.toBeEmpty();
-    expect(await overlapping(tab, ['.pad-strip', '.pad-arrow', '.pad-pet', '.pad-lobby .pad-ready', '.pad-emote.is-toggle', '.pad-a', '.pad-b']), `${model.name}'s lobby pad has nothing overlapping`).toEqual([]);
+    expect(await overlapping(tab, ['.pad-strip', '.pad-arrow', '.pad-pet', '.pad-lobby .pad-ready', '.pad-emote.is-toggle', '.pad-a', '.pad-b', '.stick-ghost']), `${model.name}'s lobby pad has nothing overlapping`).toEqual([]);
 
     const phone = { model, tab, context, joinMs };
     this.phones.push(phone);

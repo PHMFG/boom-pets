@@ -4,6 +4,12 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.0.0] - 2026-10-10
+
+The finish. No rule of any game changed: this version is about how the game looks, how it moves from one moment to the next, and how a match is told to the people playing it. Every world is now modelled in Blender instead of being stacked from boxes in code, the camera comes down from its perch for the moments that deserve it, and nothing on screen snaps from one thing to another.
+
 ### Added
 
 - **Worlds modelled in Blender.** Every map's scenery used to be built in code from boxes, cones and cylinders. It is now modelled in Blender by a script per map (`pnpm models`), as chunky toys with rounded edges, painted by the game from its own colours, and much of it moves:
@@ -18,6 +24,10 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
   - **Batatinha Frita:** a playground in a park: trees, bushes in flower, a swing set, a slide, a merry-go-round, a seesaw, and the cat in a sandbox with a sandcastle.
 - **The places of a round.** As a round ends a list comes up on the right: who came first, second and so on, and what the round paid each of them, with the winner's row in gold. Before, only a "+6" flying to a card said so.
 - **A curtain between worlds.** One map used to snap into the next. A curtain of ink now closes to a point as the roulette stops and opens on the new world, which grows out from the middle: floor first, then everything round it. The same curtain covers the change to the podium, a rematch and the way back to the lobby.
+- **Where the thumb goes.** Until the joystick has been used once, the phone draws a dashed ring with a knob low on the left: the left half of the pad is the joystick, and nothing said so.
+- **Your place, on your phone.** As a round ends each phone shows its own player's place in it and what it paid.
+- **The last five seconds** of any round are counted aloud, each tick higher than the last, and the timer turns urgent for the last ten in every game (it only did in the brawl).
+- **The lava's alarm and flood** are shown on the same card, in the same corner, that names the colour called in Cor Certa, what the cat is doing and who has the bomb.
 - **A first look at each world.** While a game's card is up the camera shows its world from low and far, drifting round it, and rises to where the game is played from during the countdown.
 
 ### Changed
@@ -27,8 +37,14 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 - The line over a game's card says which round of the match it is ("Rodada 2 de 5") once the game is known.
 - The reel's last tick is a bright note, the curtain closes with a rush of air, and each row of a round's places arrives with a rising tick.
 
+- The open capsule of a SUPER glides through the player colours instead of switching twelve times a second.
+- With "less shake" on (M), the camera's new shots hold still instead of swinging; with the system's reduced motion on, the curtain shuts and opens at once.
+- For developers: `pnpm models` builds the maps in Blender, and `pnpm look` photographs or films any game, screen or moment between rounds and measures what a map costs to draw (about 2 ms a frame for every game on the computer it was measured on; 6 ms for the heaviest with the processor slowed four times).
+
 ### Fixed
 
+- As a brawl round ended, the camera could miss the winner and show the whole platform, when the winner was a ghost that had swapped back in at that very moment.
+- An announcer line asked for before its recording had loaded was said by the computer's own voice. It is skipped instead: the announcer has one voice.
 - A player knocked out of a simple game floats over it as a ghost. The target ring of the brawl's meteor was drawn under that ghost too, where it meant nothing; it is only drawn in the brawl now.
 - On the phone, the word under the A button that says what it does in the game being played ("Pula", "Empurra", "Morde") was cut off by the button's own circle.
 
