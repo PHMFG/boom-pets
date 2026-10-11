@@ -4,6 +4,10 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.2.1] - 2026-10-11
+
 What a review of pictures of every screen found in 1.2.0, by someone who had not built it. Nothing here was reported by a player.
 
 ### Changed
