@@ -20,6 +20,8 @@ export class ColorRules implements MiniRules {
 
   setup(field: Field): void {
     field.resize(color.patches * color.patch, color.patches * color.patch);
+    // The stage has a rim. The only way out is the one the game announces: a patch dropping from under a pet.
+    field.wall = { kind: 'rect' };
   }
 
   spawn(field: Field, index: number, count: number): { x: number; z: number } {

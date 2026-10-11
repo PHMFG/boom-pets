@@ -17,6 +17,7 @@
     "models": "node tools/models.ts",
     "look": "node tools/look.ts",
     "listen": "node tools/listen.ts",
+    "rehearse": "node tools/rehearse.ts",
     "fake": "node tools/fake-phones.ts",
     "sounds": "node tools/sounds.ts",
     "voice": "node tools/voice.ts",

@@ -11,6 +11,7 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ### Changed
 
+- **Cor Certa's floor has a rim.** A pet could walk off the edge of the dance floor and be out before any colour had been called: an enemy the game never announced. Now the only way out is a patch dropping from under you. Found by a rehearsal with phones that wander at random, where a round ended in 4.4 seconds.
 - **Three sounds nobody could hear.** Measured, the tap of a dash, a missed grab and the "tired" blip were 6 to 15 dB under every other sound in the game. They are raised to sit with the rest: a press with no sound feels like a press that did not count. The lava's siren is a little louder too.
 
 ### Fixed

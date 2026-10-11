@@ -489,6 +489,19 @@ describe('Cor Certa', () => {
     field.respawn(pet, Math.floor(column / color.patch) * color.patch + color.patch / 2 - field.columns / 2, Math.floor(row / color.patch) * color.patch + color.patch / 2 - field.rows / 2);
   };
 
+  it('has a rim: nobody leaves the floor by its edge, only by a patch dropping', () => {
+    const { field, run, set } = makeField('color', 3);
+    const pet = field.petOfSeat(0)!;
+    // Straight at the edge, for longer than it takes to reach it and less than it takes for the first drop.
+    set(0, { x: 1, y: 0 });
+    run(Math.floor((color.show + color.count - 0.5) * 60));
+    expect(pet.alive).toBe(true);
+    expect(pet.grounded).toBe(true);
+    expect(pet.x).toBeLessThanOrEqual(field.columns / 2 - petTune.radius + 0.001);
+    expect(field.out).toHaveLength(0);
+    field.free();
+  });
+
   it('shows a floor of four colours, calls one, and drops every tile of the others after the count', () => {
     const { field, run, of } = makeField('color', 3);
     const rules = field.rules;
