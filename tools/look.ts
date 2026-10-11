@@ -15,6 +15,9 @@
 //   --port=5207                          serve on that port (otherwise a free one is found); a game already served there is used as it is
 //   pnpm look brawl,lava --flow --video  the same match filmed, and the moments that pass too fast for a picture every 0.5 s
 //                                        (the end of each round, the reel stopping and the world changing) tiled frame by frame
+//   pnpm look lava --at=0.8,9.5 --video --for=3
+//                                        from each of those seconds of the round, three seconds filmed in real time and tiled
+//                                        ten frames a second: to judge something that moves (furniture falling, a tile blinking)
 //   pnpm look lava --perf                no pictures: how long frames take in a round of that game, on the graphics card
 //                                        and again with the processor slowed four times, with draw calls and triangles
 //   pnpm look --soak                     no pictures: three matches of every game twice over, fast-forwarded, counting what is
@@ -49,6 +52,8 @@ const times = (flag('at') ?? '3,9').split(',').map(Number);
 const frames = Number(flag('frames') ?? 1);
 const every = Number(flag('every') ?? 100);
 const label = flag('name') ? `${flag('name')}-` : '';
+/** With --video in a round: how many seconds are filmed from each moment asked for. */
+const watchFor = Number(flag('for') ?? 3);
 const base = `http://localhost:${port}`;
 
 type Boom = { game: { phase: string; revealed: boolean; round: { time: number }; setLobbySeats(seats: unknown[]): void; startMatch(options: unknown): void; events: unknown[] }; session: { onEvent(event: unknown): void }; skip(seconds: number): void };
@@ -304,6 +309,12 @@ try {
     await waitFor('play');
     for (const seconds of times) {
       await playTo(seconds);
+      if (filming) {
+        // Filmed from here in real time. No picture meanwhile: taking one makes the film stutter.
+        mark(`watch-${what}-${seconds}`);
+        await page.waitForTimeout(watchFor * 1000);
+        continue;
+      }
       await shoot(`${what}${six ? '-six' : ''}-${seconds}`);
       if (frames > 1) sheet(`${label}${what}${six ? '-six' : ''}-${seconds}-f`);
     }
@@ -328,6 +339,7 @@ try {
       if (moment.name.endsWith('-finale')) window(moment.name, moment.at - 0.8, 3);
       if (moment.name === 'finale-winner') window(moment.name, moment.at - 0.4, 3);
       if (moment.name.endsWith('-countdown')) window(moment.name, moment.at - 0.5, 2);
+      if (moment.name.startsWith('watch-')) window(moment.name, moment.at, watchFor);
     }
     console.log(marks.map(moment => `${moment.name} at ${moment.at.toFixed(1)} s`).join(', '));
   }
