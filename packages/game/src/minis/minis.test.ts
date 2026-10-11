@@ -4,7 +4,7 @@ import type { ButtonEdge, SampledInput } from '../input';
 import { initPhysics } from '../physics';
 import { createRng } from '../rng';
 import { Round } from '../round';
-import { grow, lava, paint, pet as petTune, race, STEP } from '../tuning';
+import { color, frita, grow, lava, paint, pet as petTune, potato, race, STEP } from '../tuning';
 import { TILE, type GameEvent, type GameMode, type MiniMode, type SeatSetup } from '../types';
 import { Field, rankBy } from './field';
 import { makeRules, type AnyRules } from './index';
@@ -473,6 +473,170 @@ describe('Corrida Maluca', () => {
     }
     expect(of('swept')).toHaveLength(1);
     expect(Math.hypot(pet.vx, pet.vz)).toBeGreaterThan(3);
+    field.free();
+  });
+});
+
+describe('Cor Certa', () => {
+  const tilesOf = (field: ReturnType<typeof makeField<'color'>>['field'], which: number) => [...field.data].flatMap((kind, index) => (kind === which + 1 ? [index] : []));
+
+  /** Sets a seat's pet down in the middle of a tile. */
+  const put = (field: ReturnType<typeof makeField<'color'>>['field'], which: number, index: number) => {
+    const pet = field.petOfSeat(which)!;
+    // A pet is set down a little to one side of where it is asked to be; the middle of a patch keeps it on its colour.
+    const column = Math.floor(index / field.rows);
+    const row = index % field.rows;
+    field.respawn(pet, Math.floor(column / color.patch) * color.patch + color.patch / 2 - field.columns / 2, Math.floor(row / color.patch) * color.patch + color.patch / 2 - field.rows / 2);
+  };
+
+  it('shows a floor of four colours, calls one, and drops every tile of the others after the count', () => {
+    const { field, run, of } = makeField('color', 3);
+    const rules = field.rules;
+    run(2);
+    expect(of('colorShow')).toHaveLength(1);
+    // Every tile has a colour, and the one about to be called has the number of patches the first wave gives it.
+    expect([...field.data].every(kind => kind >= 1 && kind <= 4)).toBe(true);
+    expect(tilesOf(field, rules.called)).toHaveLength(color.safePatches[0] * color.patch * color.patch);
+    while (rules.phase === 'show') run(1);
+    expect(of('colorCall')[0]).toMatchObject({ color: rules.called, wave: 1, seconds: color.count });
+    // Two stand on the colour; the third on another.
+    const safe = tilesOf(field, rules.called);
+    const wrong = [...field.data].findIndex(kind => kind !== rules.called + 1);
+    put(field, 0, safe[0]!);
+    put(field, 1, safe.at(-1)!);
+    put(field, 2, wrong);
+    run(60);
+    expect(field.out).toEqual([]);
+    while (rules.phase === 'call') run(1);
+    expect(of('colorDrop')[0]).toMatchObject({ color: rules.called });
+    expect(field.tiles[safe[0]!]).toBe(TILE.solid);
+    expect(field.tiles[wrong]).toBe(TILE.gone);
+    while (rules.phase === 'drop') run(1);
+    expect(field.out).toEqual([2]);
+    expect(of('eliminated')[0]).toMatchObject({ seat: 2, cause: 'fall' });
+    // The floor is whole again for the next wave.
+    run(2);
+    expect([...field.tiles].every(state => state === TILE.solid)).toBe(true);
+    field.free();
+  });
+
+  it('gives each wave a shorter count and fewer patches of the colour, and ties those who fall together', () => {
+    const { field, run, of } = makeField('color', 3);
+    const rules = field.rules;
+    run(2);
+    // For four waves everyone is set down on the colour as it is called. In the fifth, two are left on another.
+    for (let wave = 1; wave <= 5; wave++) {
+      while (rules.phase !== 'call') run(1);
+      expect(of('colorCall').at(-1)!.seconds).toBeCloseTo(Math.max(color.countMin, color.count - (wave - 1) * color.countStep), 5);
+      expect(tilesOf(field, rules.called)).toHaveLength(color.safePatches[wave - 1]! * color.patch * color.patch);
+      const safe = tilesOf(field, rules.called)[0]!;
+      const wrong = [...field.data].findIndex(kind => kind !== rules.called + 1);
+      for (const which of [0, 1, 2]) put(field, which, wave === 5 && which > 0 ? wrong : safe);
+      while ((rules.phase as string) !== 'show' && !field.finished) run(1);
+    }
+    expect(field.finished).toBe(true);
+    expect(field.ranking()).toEqual([[0], [1, 2]]);
+    field.free();
+  });
+});
+
+describe('Batata Quente', () => {
+  it('hands a bomb to someone, passes it on a touch but not straight back, and takes out whoever holds it at the end', () => {
+    const { field, run, set, of, walk } = makeField('potato', 3);
+    const rules = field.rules;
+    expect(rules.holder).toBeNull();
+    run(Math.round(potato.firstWait / STEP) + 2);
+    expect(of('potato')[0]).toMatchObject({ from: null, fuse: potato.fuse });
+    const first = rules.holder!;
+    const [second, third] = [0, 1, 2].filter(which => which !== first) as [number, number];
+    // Whoever holds it is faster than the rest.
+    expect(rules.speed(field, { seat: first })).toBe(potato.holderSpeed);
+    expect(rules.speed(field, { seat: second })).toBe(1);
+    // It walks into another pet: the bomb changes hands.
+    const target = field.petOfSeat(second)!;
+    const carrier = field.petOfSeat(first)!;
+    for (let guard = 0; guard < 300 && rules.holder === first; guard++) {
+      const distance = Math.hypot(target.x - carrier.x, target.z - carrier.z);
+      set(first, { x: (target.x - carrier.x) / distance, y: -(target.z - carrier.z) / distance });
+      run(1);
+    }
+    expect(rules.holder).toBe(second);
+    expect(of('potato').at(-1)).toMatchObject({ holder: second, from: first });
+    // Still pushing into it, the bomb does not go straight back.
+    run(10);
+    expect(rules.holder).toBe(second);
+    // The first walks away, and the fuse runs out in the second's hands.
+    walk(first, -target.x * 0.7, -target.z * 0.7);
+    void third;
+    for (let guard = 0; guard < 60 * 12 && field.out.length === 0; guard++) run(1);
+    expect(of('potatoBoom')).toHaveLength(1);
+    expect(field.out).toEqual([second]);
+    expect(of('eliminated')[0]).toMatchObject({ seat: second, cause: 'bomb' });
+    expect(rules.holder).toBeNull();
+    field.free();
+  });
+
+  it('starts each bomb with a shorter fuse, ends with one pet left, and ranks the rest by when they went', () => {
+    const { field, run, of } = makeField('potato', 3);
+    for (let guard = 0; guard < 60 * 40 && !field.finished; guard++) run(1);
+    expect(field.finished).toBe(true);
+    const fresh = of('potato').filter(event => event.from === null);
+    expect(fresh.map(event => event.fuse)).toEqual([potato.fuse, potato.fuse - potato.fuseStep]);
+    expect(field.out).toHaveLength(2);
+    expect(field.ranking()).toEqual([field.aliveSeats(), [field.out[1]], [field.out[0]]]);
+    // Nobody can leave the arena.
+    for (const pet of field.pets) expect(Math.hypot(pet.x, pet.z)).toBeLessThanOrEqual(potato.radius);
+    field.free();
+  });
+});
+
+describe('Batatinha Frita 1, 2, 3', () => {
+  it('sends back whoever still pushes the joystick once the cat looks, after a moment of grace, and nobody else', () => {
+    const { field, run, set, of } = makeField('frita', 3);
+    const rules = field.rules;
+    run(1);
+    expect(of('watch')[0]).toMatchObject({ phase: 'sing' });
+    // All three run while it sings: on tiptoe.
+    for (const which of [0, 1, 2]) set(which, { x: 1 });
+    run(40);
+    const runner = field.petOfSeat(0)!;
+    expect(runner.vx).toBeCloseTo(petTune.speed * frita.speed, 1);
+    while (rules.phase === 'sing') run(1);
+    expect(of('watch').at(-1)!.phase).toBe('watch');
+    // One lets go at once, one keeps pushing, and one has a phone whose input has stalled.
+    set(1, {});
+    set(2, { x: 1, stale: true });
+    const before = field.petOfSeat(0)!.x;
+    run(Math.round(frita.grace / STEP) - 2);
+    expect(of('caught')).toHaveLength(0);
+    run(6);
+    expect(of('caught').map(event => event.seat)).toEqual([0]);
+    const start = -field.columns / 2 + 1;
+    expect(before).toBeGreaterThan(start + 2);
+    expect(Math.abs(runner.x - start)).toBeLessThan(0.6);
+    expect(field.petOfSeat(0)).toBe(runner);
+    expect(field.out).toEqual([]);
+    expect(rules.reach.get(0)).toBeLessThan(0.6);
+    expect(rules.reach.get(1)).toBeGreaterThan(2);
+    field.free();
+  });
+
+  it('ends a few seconds after the first pet crosses the line, with the rest ranked by how far they got', () => {
+    const { field, run, of } = makeField('frita', 3);
+    const rules = field.rules;
+    run(1);
+    const line = field.columns / 2 - frita.finish;
+    field.respawn(field.petOfSeat(1)!, line - 8, 0);
+    field.respawn(field.petOfSeat(2)!, line + 0.6, -1);
+    run(60);
+    expect(of('finish')).toEqual([{ t: 'finish', pet: field.petOfSeat(2)!.id, seat: 2, place: 1 }]);
+    expect(field.metric(2)).toBe(100);
+    expect(field.metric(1)).toBeGreaterThan(field.metric(0) as number);
+    expect(field.finished).toBe(false);
+    run(Math.round(frita.finishGrace / STEP) + 2);
+    expect(field.finished).toBe(true);
+    expect(rules.finishers.map(entry => entry.seat)).toEqual([2]);
+    expect(field.ranking()).toEqual([[2], [1], [0]]);
     field.free();
   });
 });

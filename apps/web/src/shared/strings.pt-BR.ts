@@ -32,6 +32,9 @@ export const strings = {
     lava: 'LAVA!',
     bite: 'NHAC!',
     finish: 'CHEGOU!',
+    flavors: ['LARANJA!', 'LIMÃO!', 'UVA!', 'MENTA!'],
+    stop: 'PAROU!',
+    moved: 'MEXEU!',
   },
 
   /** Shown in the HUD, on phones and (in capitals) as 3D words when a power starts. */
@@ -69,6 +72,10 @@ export const strings = {
     gamePaint: 'Pinta o chão!',
     gameFrita: 'Batatinha frita, um, dois, três!',
     lavaWarn: 'A lava vem aí!',
+    flavor0: 'Laranja!',
+    flavor1: 'Limão!',
+    flavor2: 'Uva!',
+    flavor3: 'Menta!',
   },
 
   /** The games a round can be: the name, and the one line that says what to do. Both go on the card between games. */
@@ -99,6 +106,14 @@ export const strings = {
   alerts: {
     lavaWarn: 'Suba numa pedra!',
     lava: 'LAVA!',
+    /** Cor Certa: the four colours, as flavours, in the order of `FLAVORS`. */
+    flavors: ['Laranja', 'Limão', 'Uva', 'Menta'],
+    /** Batata Quente: for whoever holds the bomb, and for everyone else. */
+    potatoHold: 'PASSE A BATATA!',
+    potatoRun: 'FUJA!',
+    /** Batatinha Frita: while the cat sings, and while it looks. */
+    fritaGo: 'CORRA!',
+    fritaStop: 'PARADO!',
   },
 
   /** The screen between games. */

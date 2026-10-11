@@ -56,10 +56,13 @@ export class PlaytestLog {
     this.playing = false;
   }
 
-  /** Call once per tick during play with each human's input: no stick and no buttons counts as idle. */
-  sampleInput(seat: number, input: SampledInput): void {
+  /**
+   * Call once per tick during play with each human's input: no stick and no buttons counts as idle.
+   * `frozen` is a tick in which standing still is the game (the cat is looking): it is not counted either way.
+   */
+  sampleInput(seat: number, input: SampledInput, frozen = false): void {
     const log = this.seats.get(seat);
-    if (!log) return;
+    if (!log || frozen) return;
     log.playSeconds += tuning.STEP;
     if (Math.hypot(input.x, input.y) < 0.1 && !input.a && !input.b) log.idleSeconds += tuning.STEP;
   }

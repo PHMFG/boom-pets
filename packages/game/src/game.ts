@@ -16,7 +16,7 @@ import type { BotStyle, GachaView, GameEvent, GameMode, Phase, PowerId, SeatSetu
 const BOT_STYLES: readonly BotStyle[] = ['coward', 'kamikaze', 'thrower'];
 const NEUTRAL: SampledInput = { x: 0, y: 0, a: false, b: false, stale: true, edges: [] };
 /** The games a match can draw. A game joins this list when it can be played from start to finish. */
-export const PLAYABLE_MODES: readonly GameMode[] = ['brawl', 'paint', 'lava', 'grow', 'race'];
+export const PLAYABLE_MODES: readonly GameMode[] = ['brawl', 'paint', 'lava', 'grow', 'race', 'color', 'potato', 'frita'];
 
 export type MatchOptions = {
   rounds: number;

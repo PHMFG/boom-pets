@@ -144,6 +144,74 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
       const lip = edge - speed * lag;
       return { ...run, tapA: lip < 0.75 + rng.range(-0.25, 0.2) };
     }
+    case 'color': {
+      const rules = round.rules;
+      // Until a colour is called there is nothing to do but drift toward the middle, where every colour is near.
+      // And for a moment after the call, too: a name has to be heard and a colour found before anyone runs.
+      if (rules.phase === 'show' || (rules.phase === 'call' && rules.total - rules.left < 0.4)) return arrive(me, 0, 0);
+      // The nearest tile of the called colour that is not on the rim of its patch, so a late stop still ends on it.
+      let best = -1;
+      let nearest = Infinity;
+      for (let index = 0; index < round.data.length; index++) {
+        if (round.data[index] !== rules.called + 1) continue;
+        const centre = round.centre(index);
+        const distance = Math.hypot(centre.x - me.x, centre.z - me.z);
+        if (distance < nearest) {
+          nearest = distance;
+          best = index;
+        }
+      }
+      if (best < 0) return STILL;
+      // Aim a little way into the patch, not at its very edge.
+      const edge = round.centre(best);
+      const column = Math.floor(best / round.rows);
+      const row = best % round.rows;
+      const patch = { x: (Math.floor(column / 3) * 3 + 1.5) - round.columns / 2, z: (Math.floor(row / 3) * 3 + 1.5) - round.rows / 2 };
+      return arrive(me, (edge.x + patch.x) / 2, (edge.z + patch.z) / 2);
+    }
+    case 'potato': {
+      const rules = round.rules;
+      const others = round.pets.filter(other => other !== me && other.alive);
+      if (rules.holder === seat) {
+        // Holding it: straight at whoever is nearest.
+        const prey = [...others].sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0];
+        return prey ? toward(me, prey.x, prey.z) : STILL;
+      }
+      const holder = others.find(other => other.seat === rules.holder);
+      if (!holder) return arrive(me, me.x * 0.6, me.z * 0.6);
+      const gap = Math.hypot(holder.x - me.x, holder.z - me.z);
+      if (gap > 4.5) return STILL;
+      // Away from the bomb, sliding along the wall instead of running into it and stopping there.
+      let x = (me.x - holder.x) / (gap || 1);
+      let z = (me.z - holder.z) / (gap || 1);
+      // Not into a huddle, where the bomb only goes round: a little away from anyone else close by, too.
+      for (const other of others) {
+        const near = Math.hypot(other.x - me.x, other.z - me.z);
+        if (other === holder || near > 2.5) continue;
+        x += ((me.x - other.x) / (near || 1)) * 0.7;
+        z += ((me.z - other.z) / (near || 1)) * 0.7;
+      }
+      const out = Math.hypot(me.x, me.z);
+      if (out > 4.3) {
+        const side = Math.sign(x * -me.z + z * me.x) || 1;
+        x = (-me.z / out) * side - (me.x / out) * 0.3;
+        z = (me.x / out) * side - (me.z / out) * 0.3;
+      }
+      return { x, z };
+    }
+    case 'frita': {
+      const rules = round.rules;
+      if (rules.finishers.some(entry => entry.seat === seat)) return STILL;
+      const careful = seat % 2 === 0;
+      const run = { x: 1, z: 0 };
+      // One roll for each song or look and each bot, made from its own length, so it is the same however often it is asked.
+      const roll = ((Math.round(rules.total * 9973) * (seat * 2 + 3)) % 100) / 100;
+      // The cat counts the song out, so a bot knows when to let go, allowing for its own slow hands:
+      // a careful one around "three", a bold one nearer the end, and neither the same way twice.
+      if (rules.phase === 'sing') return rules.left > (careful ? 0.35 + roll * 0.4 : 0.25 + roll * 0.35) ? run : STILL;
+      // Now and then one twitches after the cat has turned, and pays for it; the bold ones more often.
+      return roll < (careful ? 0.06 : 0.26) && rules.total - rules.left < 0.2 && me.x > -round.columns / 2 + 2 ? run : STILL;
+    }
     default:
       return STILL;
   }

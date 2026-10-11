@@ -1,6 +1,7 @@
 // The games a round can be: their picture, and what each control does in them. Names and lines are in the strings.
 import type { GameMode } from '@boom/game';
 import type { strings } from './strings.pt-BR';
+import { maps } from './tokens';
 
 export const GAME_ICON: Record<GameMode, string> = {
   brawl: '💥', lava: '🌋', grow: '🍩', race: '🏁', color: '🪩', potato: '💣', paint: '🎨', frita: '🍟',
@@ -32,6 +33,14 @@ export const GAME_A: Record<GameMode, { icon: string; text: keyof typeof strings
   paint: null,
   frita: null,
 };
+
+/** Cor Certa's four colours. Each is a flavour, with a fruit as well as a colour, so it never depends on hue alone. */
+export const FLAVORS = [
+  { icon: '🍊', color: maps.color.orange, line: 'flavor0' },
+  { icon: '🍋', color: maps.color.lemon, line: 'flavor1' },
+  { icon: '🍇', color: maps.color.grape, line: 'flavor2' },
+  { icon: '🌿', color: maps.color.mint, line: 'flavor3' },
+] as const;
 
 /** The announcer's line for each game's name. */
 export const GAME_LINE: Record<GameMode, keyof typeof strings.announcer> = {

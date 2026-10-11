@@ -5,8 +5,9 @@ import { MAX_SEATS, type PadButton, type PhoneMode, type PhoneStatus, type Power
 import { motion } from '../../shared/motion';
 import { PET_IDS, type PetId } from '../../shared/pets';
 import { AWARD_ICON, CAUSE_ICON, EMOTES, POWER_ICON, TIER_COLOR } from '../../shared/powers';
-import { GAME_A, GAME_ICON, GAME_LINE } from '../../shared/games';
+import { FLAVORS, GAME_A, GAME_ICON, GAME_LINE } from '../../shared/games';
 import { strings } from '../../shared/strings.pt-BR';
+import { colors, seats } from '../../shared/tokens';
 import { AudioEngine } from '../audio/AudioEngine';
 import type { Nameplates } from '../hud/Nameplates';
 import { hud, type FeedItem, type FeedWho, type Options, type PlayerCard, type PowerNote } from '../hud/store';
@@ -331,7 +332,7 @@ export class Session {
       ticks++;
       game.tick(seat => {
         const input = this.input.sample(seat, now);
-        if (game.phase === 'play') this.log.sampleInput(seat, input);
+        if (game.phase === 'play') this.log.sampleInput(seat, input, game.round.gameMode === 'frita' && game.round.rules.phase === 'watch');
         return input;
       });
       for (const event of game.events) this.onEvent(event);
@@ -424,6 +425,36 @@ export class Session {
       case 'bounty':
         this.nameplates.setCrown(event.seat);
         break;
+      case 'colorCall':
+        // The colour is named aloud, and every pad shows it at once.
+        this.audio.announce(FLAVORS[event.color]!.line);
+        hud.set({ call: { icon: FLAVORS[event.color]!.icon, name: strings.alerts.flavors[event.color]!, color: FLAVORS[event.color]!.color } });
+        this.syncPhones();
+        break;
+      case 'colorDrop':
+      case 'colorShow':
+        hud.set({ call: null });
+        this.syncPhones();
+        break;
+      case 'potato':
+        // The bomb changed hands: the new holder feels it, and the screen names them.
+        this.socket?.send(event.holder, { t: 'haptic', pattern: 'warn' });
+        hud.set({ call: { icon: '💣', name: this.who(event.holder).name, color: seats[event.holder % seats.length]!.color } });
+        this.syncPhones();
+        break;
+      case 'potatoBoom':
+        hud.set({ call: null });
+        this.syncPhones();
+        break;
+      case 'watch':
+        // The cat turned, one way or the other: every pad says so at once.
+        if (event.phase === 'watch') this.socket?.send('all', { t: 'haptic', pattern: 'tap' });
+        hud.set({ call: event.phase === 'sing' ? { icon: '🎵', name: strings.alerts.fritaGo, color: colors.go } : { icon: '👀', name: strings.alerts.fritaStop, color: colors.danger } });
+        this.syncPhones();
+        break;
+      case 'caught':
+        this.socket?.send(event.seat, { t: 'haptic', pattern: 'hit' });
+        break;
       case 'finish':
         this.socket?.send(event.seat, { t: 'haptic', pattern: 'win' });
         this.pushFeed(this.who(event.seat), '🏁', null, strings.hud.place(event.place));
@@ -471,6 +502,7 @@ export class Session {
         this.pushFeed(this.who(event.seat), POWER_ICON[event.power], null, event.cursed ? strings.tiers.superCurse : strings.powers[event.power]);
         break;
       case 'phase':
+        if (event.phase !== 'play') hud.set({ call: null });
         if (event.phase === 'intro') {
           hud.set({ intro: { mode: null, final: game.isFinalRound } });
           // The last round counts double, and gets its own track from here on.
@@ -585,10 +617,20 @@ export class Session {
   }
 
   /** A word across the pad for a moment of the game. Every simple game starts by repeating its one line: there may be no button to read. */
-  private padAlert(game: Game): PhoneStatus['alert'] {
+  private padAlert(game: Game, seat: number): PhoneStatus['alert'] {
     if (game.gameMode === 'brawl' || (game.phase !== 'countdown' && game.phase !== 'play')) return null;
-    if (game.phase === 'countdown' || game.round.time < REMIND_SECONDS) return { text: strings.games[game.gameMode].line, tone: 'info', color: null };
     const round = game.round;
+    // Two games cannot wait for the reminder to pass: who has the bomb, and whether the cat is looking.
+    if (round.gameMode === 'potato' && round.rules.holder === seat) return { text: strings.alerts.potatoHold, tone: 'danger', color: null };
+    if (round.gameMode === 'frita' && game.phase === 'play') {
+      if (round.rules.finishers.some(entry => entry.seat === seat)) return null;
+      return round.rules.phase === 'sing' ? { text: strings.alerts.fritaGo, tone: 'go', color: null } : { text: strings.alerts.fritaStop, tone: 'stop', color: null };
+    }
+    if (game.phase === 'countdown' || round.time < REMIND_SECONDS) return { text: strings.games[game.gameMode].line, tone: 'info', color: null };
+    if (round.gameMode === 'color' && round.rules.phase !== 'show') {
+      const flavor = FLAVORS[round.rules.called]!;
+      return { text: `${flavor.icon} ${strings.alerts.flavors[round.rules.called]!}`, tone: 'info', color: flavor.color };
+    }
     if (round.gameMode === 'lava' && round.rules.phase !== 'calm') return { text: round.rules.phase === 'alarm' ? strings.alerts.lavaWarn : strings.alerts.lava, tone: 'danger', color: null };
     return null;
   }
@@ -641,7 +683,7 @@ export class Session {
         a: this.padA(game, pet !== undefined, ghost !== undefined),
         bOn: game.gameMode === 'brawl',
         card: this.padCard(game, seat),
-        alert: this.padAlert(game),
+        alert: this.padAlert(game, seat),
         won: game.phase === 'matchEnd' && standing?.place === 1,
       };
       const encoded = JSON.stringify(status);

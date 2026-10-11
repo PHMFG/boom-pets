@@ -224,6 +224,16 @@ export type GameEvent =
   /** Pinta o Chão: a bucket of paint is coming down, and one was kicked over. */
   | { t: 'bucket'; id: number; x: number; z: number; delay: number }
   | { t: 'splash'; seat: number; x: number; z: number; radius: number }
+  /** Batata Quente: the bomb is in a new pair of hands (`from` is null for a fresh bomb), with that long left on its fuse; it went off. */
+  | { t: 'potato'; holder: number; from: number | null; fuse: number }
+  | { t: 'potatoBoom'; seat: number; x: number; z: number }
+  /** Batatinha Frita: the cat started singing with its back turned, or turned to look, for that long; a pet that moved was sent back. */
+  | { t: 'watch'; phase: 'sing' | 'watch'; seconds: number }
+  | { t: 'caught'; pet: number; seat: number; x: number; z: number }
+  /** Cor Certa: a new floor is shown; one of its four colours is called, with that long to reach it; every other tile drops. */
+  | { t: 'colorShow'; wave: number }
+  | { t: 'colorCall'; color: number; wave: number; seconds: number }
+  | { t: 'colorDrop'; color: number }
   /** Corrida Maluca: a pet crossed the line, in that place; a pet was knocked off its feet by a sweeping bar. */
   | { t: 'finish'; pet: number; seat: number; place: number }
   | { t: 'swept'; pet: number }

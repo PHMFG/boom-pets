@@ -31,6 +31,8 @@ export type StageKit = {
   poof(x: number, y: number, z: number): void;
   stars(x: number, y: number, z: number, count: number): void;
   confetti(x: number, y: number, z: number, palette: Color[], count: number): void;
+  /** A blast of `radius`: smoke, sparks, a shock ring, a shake and the big word. */
+  boom(x: number, y: number, z: number, radius: number): void;
 };
 
 /**
@@ -48,6 +50,8 @@ export interface MapView {
   handle(event: GameEvent, round: AnyRound): void;
   /** More for the camera to keep in view than the pets themselves: what a player needs to see coming. */
   focus?(round: AnyRound, points: { x: number; z: number }[]): void;
+  /** Metres to lift a seat's name, when the map draws something of its own over that pet's head. */
+  headroom?(round: AnyRound, seat: number): number;
   /** Once a frame. `round` is null when nothing of the round is drawn (the podium's stage). */
   frame(round: AnyRound | null, dt: number, time: number, alpha: number): void;
   dispose(): void;

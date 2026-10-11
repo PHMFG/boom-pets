@@ -357,6 +357,30 @@
   color: var(--tier-cursed);
 }
 
+/* Cor Certa: the called colour, where the tips go. The whole card is the colour; the fruit says it again. */
+.call-note {
+  position: absolute;
+  top: calc(30 * var(--u));
+  left: calc(30 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(22 * var(--u));
+  padding: calc(10 * var(--u)) calc(44 * var(--u)) calc(14 * var(--u)) calc(22 * var(--u));
+  background: var(--call);
+  rotate: -1deg;
+  transform-origin: top left;
+  white-space: nowrap;
+}
+
+.call-icon {
+  font-size: calc(104 * var(--u));
+  line-height: 1.05;
+}
+
+.call-name {
+  font: 400 calc(92 * var(--u)) / 1 var(--font-display);
+}
+
 /* ── Loading, between games, and the winner ─────────────────────────────── */
 
 /* A letter of a big word that drops in after the one before it. */

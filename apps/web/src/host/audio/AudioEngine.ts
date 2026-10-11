@@ -94,6 +94,8 @@ export class AudioEngine {
   private whine: { oscillator: OscillatorNode; gain: GainNode } | null = null;
   private voice: SpeechSynthesisVoice | null = null;
   private lastBoom = 0;
+  /** When the bomb of Batata Quente ticks next, on the audio clock. */
+  private nextTick = 0;
 
   get running(): boolean {
     return this.context?.state === 'running';
@@ -217,6 +219,13 @@ export class AudioEngine {
       this.whine.oscillator.frequency.setTargetAtTime(160 + charge * 760, context.currentTime, 0.03);
       this.whine.gain.gain.setTargetAtTime(charge > 0 ? 0.03 + charge * 0.06 : 0, context.currentTime, 0.03);
     }
+    // Batata Quente: the bomb ticks, faster and higher as its fuse burns down.
+    const round = game.round;
+    if (game.phase === 'play' && round.gameMode === 'potato' && round.rules.holder !== null && context.currentTime >= this.nextTick) {
+      const heat = 1 - Math.max(0, round.rules.fuse / round.rules.fuseTotal);
+      this.tone(900 + heat * 700, 0.04, 'square', 0.06 + heat * 0.06);
+      this.nextTick = context.currentTime + 1 / (1 + heat * 1.7);
+    }
   }
 
   /** The sound of one thing the simulation says just happened. */
@@ -325,6 +334,13 @@ export class AudioEngine {
         }
         return;
       }
+      case 'colorShow':
+        return this.arpeggio([12, 16, 19], 0.05, 'triangle', 0.1);
+      case 'colorCall':
+        return this.arpeggio([0, 12, 7, 12], 0.07, 'square', 0.15);
+      case 'colorDrop':
+        this.sample(['crack1', 'crack2'], 0.8);
+        return this.tone(140, 0.5, 'sine', 0.4, 50);
       case 'eat':
         // A pop, higher for a bigger mouthful; a pepper goes down instead of up.
         if (event.kind === 'pepper') return this.tone(520, 0.22, 'sawtooth', 0.11, 180);
@@ -345,6 +361,31 @@ export class AudioEngine {
       case 'splash':
         this.noise(0.35, 0.3, 2600, 500, 'lowpass');
         return this.arpeggio([7, 12, 19], 0.05, 'triangle', 0.14);
+      case 'potato':
+        // A new bomb hisses as its fuse is lit; a pass is a quick blip up.
+        if (event.from === null) {
+          this.noise(0.45, 0.22, 6000, 1800, 'highpass');
+          return this.tone(180, 0.3, 'triangle', 0.2, 360);
+        }
+        return this.tone(700, 0.09, 'square', 0.1, 1050);
+      case 'potatoBoom':
+        return this.boom(tuning.potato.blastRadius, 1);
+      case 'watch': {
+        const context = this.context;
+        if (!context) return;
+        if (event.phase === 'watch') {
+          // The cat has turned: one hard, low note.
+          this.sample(['hit1', 'hit2'], 0.5);
+          return this.tone(NOTE(-5), 0.35, 'square', 0.18, NOTE(-12));
+        }
+        // The song: a patter of notes for its words, then one, two, three, each higher, in step with the count on screen.
+        const patter = [0, 0, 4, 4, 7, 4];
+        patter.forEach((semitone, index) => this.tone(NOTE(semitone), 0.09, 'triangle', 0.1, undefined, undefined, context.currentTime + (index / patter.length) * event.seconds * 0.36));
+        [0.4, 0.6, 0.8].forEach((share, index) => this.tone(NOTE(7 + index * 2 + (index === 2 ? 1 : 0)), 0.16, 'square', 0.14, undefined, undefined, context.currentTime + share * event.seconds));
+        return;
+      }
+      case 'caught':
+        return this.tone(330, 0.32, 'sawtooth', 0.13, 110);
       case 'reveal':
         // The reel stops: a bright rising run. The announcer names the game over it.
         this.duck(1.2);

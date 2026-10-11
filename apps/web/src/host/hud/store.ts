@@ -80,6 +80,8 @@ export type HudState = {
   intro: { mode: GameMode | null; final: boolean } | null;
   /** The end of a match: a drum roll until `winners` is filled in. */
   finale: { winners: { seat: number; name: string }[] } | null;
+  /** Cor Certa: the colour that was just called, shown where the tips go. */
+  call: { icon: string; name: string; color: string } | null;
   /** How much has loaded at start-up, 0 to 1. */
   loadProgress: number;
   /** Seconds the round being played may last, for the timer's ring. */
@@ -113,6 +115,7 @@ export const hud = createStore<HudState>({
   gameMode: 'brawl',
   intro: null,
   finale: null,
+  call: null,
   loadProgress: 0,
   roundCap: 0,
   players: [],

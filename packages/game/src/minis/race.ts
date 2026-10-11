@@ -148,7 +148,8 @@ export class RaceRules implements MiniRules {
   ranking(field: Field): number[][] {
     const done = new Set(this.finishers.map(entry => entry.seat));
     const rest = field.pets.map(pet => pet.seat).filter(seat => !done.has(seat));
-    return [...this.finishers.map(entry => [entry.seat]), ...rankBy(rest, seat => Math.round((this.best.get(seat) ?? 0) * 2))];
+    // Those who crossed in the same instant share the place.
+    return [...rankBy([...done], seat => -this.finishers.find(entry => entry.seat === seat)!.at), ...rankBy(rest, seat => Math.round((this.best.get(seat) ?? 0) * 2))];
   }
 
   /** How much of the track is behind the pet, out of 100. */

@@ -153,7 +153,10 @@ It is held without being looked at, so it must work by feel and explain itself i
   | Game | Floor | Around it | Sky |
   | --- | --- | --- | --- |
   | Bate-Bate | White checker | Lavender clouds far below | Day; night when it is the last round |
+  | Batata Quente | A pale steel frying pan, with two wide rings a shade deeper | The pan's dark rim (the wall, kept low so it hides nobody) and handle, a stove with flames licking up round the pan, a wooden spoon. The bomb rides on its holder's head, and the holder's name moves up to make room | Pink evening |
+  | Batatinha Frita 1, 2, 3 | A pale green lane with white lines and a chequered finish | A lawn, hedges (low on the near side), a swing and a slide, and the giant cat in a sandpit behind the middle of the lane, where it is on screen wherever the pets are. A strip down each side of the lane is green while it sings and red while it looks | Day |
   | Come e Cresce | White and pale red gingham | A wooden table, a giant plate and fork, whole fruit beyond the far edge. Food is chunky and bright, each kind its own shape; the pepper wears the curse colours | Day |
+  | Cor Certa | Sixteen patches in four pale colours (orange, lemon, grape, mint), each with its fruit lying on it, so a colour is never told by hue alone | A dark dance floor's base with a band that takes the called colour, speaker stacks at the corners with the called fruit hung over each, a mirror ball | Space |
   | Corrida Maluca | Pale mint and lemon blocks, with a chequered stretch before the line | Clouds far below, a green arch at the start and a gold one at the end, a gold flag wherever a fallen pet comes back, orange bars sweeping on grey posts | Morning |
   | O Chão é Lava | Pale stone. The rocks to stand on are dark and drawn a little wider than they are: on a pale floor they must be the first thing anyone sees | A sea of lava, brighter than white so it glows, with dark boulders standing in it and two cones at the back | Night |
   | Pinta o Chão | White paper; a painted tile is its player's colour, lightened | A desk, masking tape round the paper, giant pencils, a pot of paint for each player colour | Morning |
@@ -176,6 +179,10 @@ It is held without being looked at, so it must work by feel and explain itself i
 | Something eaten | Munches, and grows when it has eaten enough | A few crumbs in the eater's colour; a purple puff for a pepper | Nothing |
 | A bite that lands | Thrown back | Stars, a puff, the word NHAC! in the biter's colour | Small shake |
 | The lava's alarm, and the lava | Nothing; those left out burst into sparks | The sea climbs through the alarm, then jumps over the floor. The words SOBE! and LAVA! | Small shake, then a bigger one with a little glow |
+| A colour called, and the drop | Nothing; those on the wrong patch fall | The band round the floor takes the colour and its fruit goes up over the speakers; then every other patch tumbles away | Small shake, then a bigger one with a little glow |
+| The bomb changing hands | Nothing | Stars and a ring in the new holder's colour; a broken red ring turns under whoever holds it | Nothing; a small shake for a new bomb |
+| The bomb going off | Its holder shatters; those close are thrown back | The reach of the blast is drawn round the holder for the last 1.4 s, then an explosion and the word KABUM! | As an explosion |
+| The cat turning, and a pet caught | The cat hops round to face the lane; a caught pet goes back to the start in a puff | The count 1, 2, 3 and the word PAROU!; the strips beside the lane go red. For a pet caught: a red puff, stars, the word MEXEU! | Small shake |
 | A bucket of paint kicked over | Nothing | A ring and a burst of cubes in the kicker's colour, as wide as the patch painted | Small shake |
 | A place revealed in the finale | Pops onto its step, which takes its colour | Dust and a ring in its colour | Small shake |
 | The winner | Drops in, bigger than the rest, crowned, dancing | Spotlight, confetti from both sides, fireworks, the word VITÓRIA! | Colour returns, closes in and circles |
@@ -212,7 +219,7 @@ A new effect goes on this ladder next to something of the same weight, and is no
 
 - One track fades into the next; nothing cuts. Music sits under the effects, ducks for big moments (a gacha, an explosion) and goes muffled in slow motion.
 - If a track's file is missing, a synthesised tune stands in, so the game is never silent.
-- **The announcer is a stadium voice, and the loudest thing in the game.** His lines are recorded (`strings.announcer`, `pnpm voice`) and played deeper than recorded, doubled, pushed into grit, squashed flat and thrown into a big hall with an echo after it; the big lines land with a low boom, and the music gets out of the way. He speaks only at the moments the whole room should look up: the next game and its name, the countdown, the lava's alarm, the final round, the end of a round and of the match, the winner, a SUPER and its curse, the revenge swap, a chain of explosions. A new line has to be one of those moments, or he becomes noise.
+- **The announcer is a stadium voice, and the loudest thing in the game.** His lines are recorded (`strings.announcer`, `pnpm voice`) and played deeper than recorded, doubled, pushed into grit, squashed flat and thrown into a big hall with an echo after it; the big lines land with a low boom, and the music gets out of the way. He speaks only at the moments the whole room should look up: the next game and its name, the countdown, the lava's alarm, a colour called in Cor Certa, the final round, the end of a round and of the match, the winner, a SUPER and its curse, the revenge swap, a chain of explosions. A new line has to be one of those moments, or he becomes noise.
 - Sound follows size: a bigger charge whooshes longer and louder, a bigger blast booms longer, and each link of a chain reaction thumps higher.
 - Every event that matters is heard as well as seen. S mutes.
 

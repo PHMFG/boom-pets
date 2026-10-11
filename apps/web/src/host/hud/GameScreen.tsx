@@ -54,6 +54,9 @@ export function GameScreen() {
   const roundCap = useStore(hud, state => state.roundCap);
   const intro = useStore(hud, state => state.intro);
   const gameMode = useStore(hud, state => state.gameMode);
+  const call = useStore(hud, state => state.call);
+  const shownCall = useRef(call);
+  if (call) shownCall.current = call;
   const finale = useStore(hud, state => state.finale);
   const loadProgress = useStore(hud, state => state.loadProgress);
   // What these screens last showed, so they still show it while they squish out.
@@ -313,6 +316,16 @@ export function GameScreen() {
         {() => (
           <div className="finale" ref={finaleBox}>
             <Finale winners={shownFinale.current?.winners ?? []} />
+          </div>
+        )}
+      </Presence>
+
+      {/* Cor Certa: the colour that was called, with its fruit, in the slot where explanations go. */}
+      <Presence show={!title && phase === 'play' && call !== null}>
+        {() => (
+          <div className="call-note sticker" style={{ '--call': shownCall.current?.color } as CSSProperties}>
+            <span className="call-icon">{shownCall.current?.icon}</span>
+            <span className="call-name">{shownCall.current?.name}</span>
           </div>
         )}
       </Presence>

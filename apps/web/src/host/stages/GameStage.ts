@@ -30,9 +30,12 @@ import { Renderer } from '../render/Renderer';
 import { Word3D } from '../render/Text3D';
 import { DANGER, HOT, INK, random, SMOKE, syncViews, WHITE, type MapView, type SkyId, type StageKit } from './kit';
 import { BrawlMap } from './maps/BrawlMap';
+import { ColorMap } from './maps/ColorMap';
 import { GrowMap } from './maps/GrowMap';
+import { FritaMap } from './maps/FritaMap';
 import { LavaMap } from './maps/LavaMap';
 import { PaintMap } from './maps/PaintMap';
+import { PotatoMap } from './maps/PotatoMap';
 import { RaceMap } from './maps/RaceMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
@@ -114,6 +117,7 @@ export class GameStage {
       poof: (x, y, z) => this.poof(x, y, z),
       stars: (x, y, z, count) => this.stars(x, y, z, count),
       confetti: (x, y, z, palette, count) => this.confetti(x, y, z, palette, count),
+      boom: (x, y, z, radius) => this.boom(x, y, z, radius, true, 1),
     };
     this.map = this.showMap(new BrawlMap(this.kit, { night: false, ripple: false }));
 
@@ -698,6 +702,12 @@ export class GameStage {
         return new LavaMap(this.kit);
       case 'grow':
         return new GrowMap(this.kit);
+      case 'color':
+        return new ColorMap(this.kit);
+      case 'potato':
+        return new PotatoMap(this.kit);
+      case 'frita':
+        return new FritaMap(this.kit);
       default:
         return new BrawlMap(this.kit, { night: final, ripple: true });
     }
@@ -837,7 +847,7 @@ export class GameStage {
     const cleared = game.phase === 'matchEnd' || game.phase === 'finale';
     for (const pet of cleared ? [] : game.round.pets) {
       const view = this.pets.get(pet.id);
-      if (view && !pet.decoy && view.feet.y > -2) project(pet.seat, view.feet.x, view.feet.y + view.height + 0.15, view.feet.z);
+      if (view && !pet.decoy && view.feet.y > -2) project(pet.seat, view.feet.x, view.feet.y + view.height + 0.15 + (this.map.headroom?.(game.round, pet.seat) ?? 0), view.feet.z);
       if (pet.decoy || pet.grabTarget?.kind !== 'pet' || game.seats.find(seat => seat.seat === pet.seat)?.bot !== null) continue;
       const target = game.round.petById(pet.grabTarget.id);
       if (target && !target.decoy) reached.set(target.seat, pet.seat);

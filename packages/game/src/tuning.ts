@@ -170,6 +170,70 @@ export const supers = {
   showerSafe: 2.5,
 } as const;
 
+/** Batata Quente. */
+export const potato = {
+  cap: 50,
+  /** The arena is round, with a wall. */
+  radius: 6,
+  /** Seconds before the first bomb is handed out, and between one going off and the next. */
+  firstWait: 1.5,
+  nextWait: 1.6,
+  /** Seconds on the first fuse, how much shorter each one is, and the shortest it gets. */
+  fuse: 7,
+  fuseStep: 0.8,
+  fuseMin: 4,
+  /** How close two pets must be for the bomb to pass, beyond touching. */
+  touch: 0.12,
+  /** Seconds the bomb cannot go straight back to whoever just passed it. */
+  noReturn: 0.8,
+  /** How much faster the pet with the bomb is. */
+  holderSpeed: 1.12,
+  blastRadius: 3,
+  blastForce: 9,
+  blastLift: 5,
+} as const;
+
+/** Batatinha Frita 1, 2, 3. */
+export const frita = {
+  cap: 60,
+  /** A wide, shallow lane: it runs left to right, so the whole way fits a wide screen. */
+  columns: 26,
+  rows: 9,
+  /** The finish line is this far from the right-hand end. */
+  finish: 3,
+  /** Seconds the round goes on after the first pet crosses the line. */
+  finishGrace: 8,
+  /** How fast a pet goes here, as a share of normal: on tiptoe, so the way takes several songs. */
+  speed: 0.55,
+  /** The shortest and longest the cat sings with its back turned, and the shortest and longest it looks. */
+  singMin: 1.2,
+  singMax: 2.8,
+  watchMin: 1.4,
+  watchMax: 2.4,
+  /** Seconds after it turns before anyone is judged: time for a thumb to let go, and for a slow network. */
+  grace: 0.35,
+  /** How far the joystick may still be pushed while the cat looks. */
+  stickLimit: 0.25,
+} as const;
+
+/** Cor Certa. */
+export const color = {
+  cap: 45,
+  /** The floor is this many patches a side, each this many tiles a side. A multiple of two keeps every colour equal. */
+  patches: 4,
+  patch: 3,
+  /** Seconds a new floor is shown before a colour is called. */
+  show: 1.3,
+  /** Seconds to reach the colour on the first call, how much shorter each call is, and the shortest it gets. */
+  count: 3,
+  countStep: 0.4,
+  countMin: 1.1,
+  /** How many patches the colour about to be called has, wave by wave; the last number goes on. Fewer means farther to run. */
+  safePatches: [4, 4, 2, 2, 1],
+  /** Seconds the other tiles stay gone: long enough for whoever was on them to fall. */
+  drop: 1.5,
+} as const;
+
 /** Corrida Maluca. */
 export const race = {
   cap: 60,
