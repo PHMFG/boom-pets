@@ -280,14 +280,16 @@ export class LavaMap implements MapView {
   /** What the alarm does to the scenery: the volcano, the boulders, the cracks in the wall and the old skull. */
   private shake(dt: number, time: number): void {
     const { rumble } = this;
+    // The trembling is shake like the camera's, so "less shake" stills it too. The swelling and the glow stay.
+    const tremble = rumble * this.kit.rig.shakeScale;
     if (this.volcano) {
-      this.volcano.position.x = VOLCANO.x + Math.sin(time * 43) * rumble * 0.045;
-      this.volcano.position.z = VOLCANO.z + Math.cos(time * 37) * rumble * 0.045;
+      this.volcano.position.x = VOLCANO.x + Math.sin(time * 43) * tremble * 0.045;
+      this.volcano.position.z = VOLCANO.z + Math.cos(time * 37) * tremble * 0.045;
       // It swells with each breath, slower than anything in the game may pulse.
       this.volcano.scale.y = 1 + rumble * 0.06 * Math.sin(time * Math.PI * 2 * 1.8);
     }
     this.shaken.forEach((rocks, index) => {
-      rocks.position.y = Math.sin(time * (41 + index * 9) + index) * rumble * 0.05;
+      rocks.position.y = Math.sin(time * (41 + index * 9) + index) * tremble * 0.05;
     });
     this.cracks?.color.copy(LAVA).multiplyScalar(GLOW.rest + rumble * GLOW.alarm);
 
