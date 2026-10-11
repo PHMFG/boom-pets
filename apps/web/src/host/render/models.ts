@@ -8,6 +8,7 @@ import { outlineMaterial, prepareOutline, toonMaterial } from './materials';
 
 /** The files in public/models/maps. Each is painted from the block of `maps` with the same name. */
 export const MODEL_IDS = [
+  'color',
   'potato',
 ] as const;
 export type ModelId = (typeof MODEL_IDS)[number];

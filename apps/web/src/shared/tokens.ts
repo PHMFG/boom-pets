@@ -29,7 +29,7 @@ export const colors = {
  * in what surrounds the floor. The brawl uses `floor`, `floorDark` and `cloud` above.
  */
 export const maps = {
-  color: { orange: '#FFD2AD', lemon: '#FFF0A0', grape: '#DCCBFF', mint: '#BDEFD3', base: '#2B2145', speaker: '#3D315F', cone: '#CFCADD' },
+  color: { orange: '#FFD2AD', lemon: '#FFF0A0', grape: '#DCCBFF', mint: '#BDEFD3', base: '#2B2145', speaker: '#3D315F', cone: '#CFCADD', coneDark: '#7F7896', trim: '#6A5AA0', truss: '#A9A3C2', bulb: '#FFE7A6', neon: '#5FE3F5', vinyl: '#1F1A33', vinylShine: '#4A3F6B', label: '#FF9F7A', mirror: '#F2F4FB', mirrorDark: '#AEB6D6', planet: '#3FA9B5', planetBand: '#2F8C9E', ring: '#F2A9C0', ringDark: '#D9809F', moon: '#D9C7F2', moonDark: '#B9A3DE', rocket: '#F6F3FB', fin: '#FF7B6B', flame: '#FFC46B' },
   grow: { cloth: '#FFFFFF', clothPale: '#FCE4E4', clothCross: '#F6C6C8', table: '#C8935B', plate: '#F4F6FA', apple: '#E8413C', stem: '#7A4B2B', leaf: '#4CB96A', icing: '#F59AC4', dough: '#E7B26E', rind: '#4FB96E', flesh: '#F2566B' },
   lava: { stone: '#F1EBE1', stoneDark: '#E4DBCE', rock: '#6E5C78', rim: '#3B2B40', cone: '#4E3A55', lava: '#FF6A1A', lavaHot: '#FFB23E' },
   race: { track: '#EAF8EF', trackDark: '#FFF7DA', post: '#8B8794', bar: '#FF5A1F', flag: '#FFC400', start: '#7BE06A' },
