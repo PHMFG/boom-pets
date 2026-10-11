@@ -54,10 +54,21 @@ Two things to know:
   front edge of the floor (low Y) hides pets: keep the front low and build height at the back and the sides.
   Nothing may reach over the floor.
 - **Only what the game says is dangerous may look dangerous.** Scenery never looks like something to dodge.
-- **Cheap.** Under about 40 000 triangles and 150 objects a map. `join()` the pieces of one prop into one
-  object; `copy()` repeats share their shape. Tag big ground pieces `outline=0` and `shadow=False`.
-- **It moves.** Give the scenery life with `spin`, `sway`, `bob` and `throb` (they loop for ever, each at its
-  own pace), and let the map's code drive whatever reacts to the round. Nothing blinks faster than 2.6 times a
-  second, and nothing flashes.
+- **Cheap enough.** Up to about 90 000 triangles drawn and 550 draw calls in play (`pnpm look <map> --perf`;
+  with the processor slowed four times the median frame stays under 10 ms). `join()` the pieces of one prop
+  into one object, so the calls go to things that move; `copy()` repeats share their shape. Tag big ground
+  pieces `outline=0` and `shadow=False`.
+- **It is alive.** Three layers, and a map needs all of them:
+  1. *Someone who cares.* Spectators (`stages/maps/crowd.ts`) stand where the model gives them somewhere to
+     stand, off the floor and never at its front edge. Mark each place with an empty named `seat_0`, `seat_1`...
+     (`group('seat_0', at=(x, y, z))`, at the height of their feet) and let the map's code read them
+     (`model.node('seat_0')`), as `maps/potato.py` and `PotatoMap.ts` do. The map tells them what to watch and
+     when to clap, flinch and cheer.
+  2. *Scenery that answers the round*, driven by the map's code from the round's events and state: a timer
+     that shows a fuse, things that hop at a blast, a volcano that erupts with the flood. Name the piece in the
+     script and move it by `model.node('name')`.
+  3. *Things that loop*: `spin`, `sway`, `bob`, `throb` and `key` for whatever only has to keep going (steam,
+     a windmill, a flag), each at its own pace, and things that go somewhere on their own timetable.
+  Nothing blinks faster than 2.6 times a second, and nothing flashes.
 - Anything the round itself changes (tiles, rocks that rise, food, the bomb) is placed by the map's code:
   make it a `part()`.
