@@ -47,10 +47,10 @@ Host (`apps/web/src/host/`)
 - `stages/maps/`: one `MapView` per game (`kit.ts` says what that is): its floor, surroundings, sky, light and props. The scenery is a model made in Blender (`render/models.ts` loads it, paints it from `maps.<map>` in the tokens and outlines it; `tools/blender/` builds it); `maps/toys.ts` builds the few props still made from plain shapes in code.
 - `stages/Props.ts` (barrels, cube, meteors, ghosts, slot reels, capsule machine, pop-up words, podium), `stages/TileField.ts`.
 - `pets/PetView.ts`: one pet. The model plays its clips; code-driven motion goes on wrapper groups above it.
-- `render/`: `Renderer.ts` (post-processing), `CameraRig.ts` (how close the camera stays, and how fast it moves), `materials.ts` (toon and outline), `assets.ts` (pet models and their double outline), `Text3D.ts`, `emoji.ts`. What the camera frames is `focusPoints` in `stages/GameStage.ts`.
+- `render/`: `Renderer.ts` (post-processing), `CameraRig.ts` (how close the camera stays, how fast it moves, and the low shots of one thing it takes outside a round: `look` and `cut`), `materials.ts` (toon and outline), `assets.ts` (pet models and their double outline), `models.ts` (the maps' models made in Blender), `Text3D.ts`, `emoji.ts`. What the camera frames in a round is `focusPoints` in `stages/GameStage.ts`.
 - `fx/Particles.ts`, `fx/Decals.ts`, `audio/AudioEngine.ts` (samples for impacts, recorded tracks for music, everything else synthesised). `app/Session.ts` chooses the track.
 - `hud/GameScreen.tsx` and `game.css`: the main menu on the title screen, and the flat HUD for every phase. `Nameplates.ts` is written to the DOM each frame.
-- `hud/Interludes.tsx`: what is on screen when no round is: loading at start-up, the roulette and game card between rounds, the winner's banner.
+- `hud/Interludes.tsx`: what is on screen when no round is: loading at start-up, the list of a round's places as it ends, the roulette and game card between rounds, the curtain that hides one world changing into another (`Session.syncCurtain` shuts and opens it), the winner's banner.
 - `studio/`: test bench at `/?studio` for pets, clips and the 3D font.
 
 Phone (`apps/web/src/controller/`): `main.ts` (join), `net.ts` (connection), `pad.ts` (joystick, A and B, the power button with its card, the next game's card, and the screen for each state). What A is in each game is `GAME_A` in `shared/games.ts`, sent by the game screen.
@@ -67,7 +67,7 @@ Music: five tracks in `apps/web/public/music/` (`title`, `lobby`, `battle-a`, `b
 
 Documents: `docs/DESIGN.md` and `docs/GAMEPLAY.md` (the style, above), `docs/PLAN.md` (the original plan and what was built), `CHANGELOG.md` (what changed in each version, and why).
 
-Other: `tools/` (scripts below), `assets-raw/` (unzipped Kenney packs, not committed; see its README), `playtests/` (one JSON per finished match, not committed).
+Other: `tools/` (scripts below; `tools/blender/` holds the modelling kit and one script per map), `assets-raw/` (unzipped Kenney packs, not committed; see its README), `playtests/` (one JSON per finished match, not committed).
 
 ## Commands
 
@@ -138,4 +138,4 @@ How to work with it:
 Go through the checklist at the end of `docs/DESIGN.md`, `docs/GAMEPLAY.md` or both, whichever the change touches.
 
 
-Run `pnpm typecheck` and `pnpm test` before finishing a change, and `pnpm test:e2e` after touching the phone page, the protocol or the lobby. For anything visual, open the game and look; passing tests do not establish that it looks right. In development the page exposes `window.__BOOM__` (`game`, `session`, and `skip(seconds)` to fast-forward).
+Run `pnpm typecheck` and `pnpm test` before finishing a change, and `pnpm test:e2e` after touching the phone page, the protocol or the lobby. For anything visual, look: `pnpm look` saves pictures of the real screen (and films the moments between rounds with `--flow --video`), and `BOOM_SHOTS=1 pnpm test:e2e` saves pictures of the phone's screens into `test-results/shots/`. Passing tests do not establish that it looks right. `pnpm look <games> --perf` says what a map costs to draw. In development the page exposes `window.__BOOM__` (`game`, `session`, and `skip(seconds)` to fast-forward).
