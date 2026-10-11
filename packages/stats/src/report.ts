@@ -46,7 +46,7 @@ export const LIMITS = {
   superKnockouts: { low: 0.4, high: 2 },
   roundSeconds: { low: 12, high: 60 },
   /** A round of any other game: under the low end it is over before it is understood, over the high end it drags. */
-  gameSeconds: { low: 10, high: 62 },
+  gameSeconds: { low: 15, high: 78 },
   /** Share of a game's rounds one person may win before that game has a trick. */
   gameWinShare: 0.75,
   /**

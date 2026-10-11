@@ -81,11 +81,14 @@ export class LavaRules implements MiniRules {
     return this.wave * 1000 + Math.round(this.left * 100) + (this.phase === 'calm' ? 0 : this.phase === 'alarm' ? 1 : 2) * 100_000;
   }
 
-  /** The rocks of the last wave sink and new ones rise somewhere else: one fewer than there are pets, so somebody has to share or be left out. */
+  /**
+   * The rocks of the last wave sink and new ones rise somewhere else: one fewer than there are pets, so somebody
+   * has to share or be left out. The first wave is kinder, with a rock for everyone: it is the one to learn on.
+   */
   private startWave(field: Field): void {
     this.wave++;
     field.data.fill(0);
-    const wanted = Math.max(1, field.alive().length - 1);
+    const wanted = Math.max(1, field.alive().length - (this.wave <= lava.spareWaves ? 0 : 1));
     const rocks: number[] = [];
     for (let attempt = 0; attempt < 200 && rocks.length < wanted; attempt++) {
       // Not on the outer ring, and not right beside another rock.

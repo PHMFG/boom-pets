@@ -78,8 +78,10 @@ export class RaceRules implements MiniRules {
       if (Math.max(Math.abs(middle.x - x), Math.abs(middle.z - z)) <= 1.01) field.tiles[index] = TILE.solid;
     }
 
-    // Three obstacles on each straight, in an order the roll decides. Between the second and third stands a flag.
-    const kinds: Obstacle[] = ['gap', 'blink', 'narrow', 'sweeper', 'gap', 'blink', 'sweeper', 'narrow', 'gap'];
+    // The same number of obstacles on each straight, the four kinds in turn, in an order the roll decides. In the middle of them stands a flag.
+    const perLane = race.slotsX.length;
+    const turn: Obstacle[] = ['gap', 'blink', 'narrow', 'sweeper'];
+    const kinds = Array.from({ length: perLane * 3 }, (_, index) => turn[index % turn.length]!);
     for (let index = kinds.length - 1; index > 0; index--) {
       const other = field.rng.int(index + 1);
       [kinds[index], kinds[other]] = [kinds[other]!, kinds[index]!];
@@ -90,8 +92,9 @@ export class RaceRules implements MiniRules {
       const { from, to } = LEGS[leg]!;
       const forward = to.x > from.x;
       const xs = forward ? race.slotsX : [...race.slotsX].reverse();
-      xs.forEach((x, slot) => this.place(field, kinds[lane * 3 + slot]!, STARTS[leg]! + Math.abs(x - from.x), field.rng.range(0, race.blinkCycle)));
-      this.flags.push(STARTS[leg]! + Math.abs((xs[1]! + xs[2]!) / 2 - from.x));
+      xs.forEach((x, slot) => this.place(field, kinds[lane * perLane + slot]!, STARTS[leg]! + Math.abs(x - from.x), field.rng.range(0, race.blinkCycle)));
+      const half = Math.max(1, Math.floor(perLane / 2));
+      this.flags.push(STARTS[leg]! + Math.abs((xs[half - 1]! + xs[half]!) / 2 - from.x));
       // And one in the middle of the turn that follows.
       if (leg < 4) this.flags.push(STARTS[leg + 1]! + LEGS[leg + 1]!.length / 2);
     });

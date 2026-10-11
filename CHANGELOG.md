@@ -11,6 +11,13 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ### Changed
 
+- **The simple games last longer.** Each was over a bit too soon. With four bots a round now lasts about a third to a half longer than before, each game in its own way and without a new rule to learn:
+  - **Pinta o Chão** and **Come e Cresce** run 55 seconds instead of 40. In Come e Cresce a size takes 7 points instead of 5, so pets are still growing at the end.
+  - **O Chão é Lava:** the first wave has a rock for every pet, a wave to learn on, and the calms are a second longer. About 33 seconds instead of 20.
+  - **Batata Quente:** fuses start at 9.5 seconds instead of 7 and never drop under 5.5. About 32 seconds with four players instead of 23, and about 50 with six.
+  - **Batatinha Frita:** the pets tiptoe slower, so the lane takes more songs. About 30 seconds with bots, who are rarely caught.
+  - **Cor Certa:** the count shortens more gently and the safe patches thin out over seven waves instead of five. About 46 seconds instead of 30.
+  - **Corrida Maluca:** the track is a quarter longer, with the same nine obstacles. About 40 seconds instead of 34.
 - **Cor Certa's floor has a rim.** A pet could walk off the edge of the dance floor and be out before any colour had been called: an enemy the game never announced. Now the only way out is a patch dropping from under you. Found by a rehearsal with phones that wander at random, where a round ended in 4.4 seconds.
 - **Three sounds nobody could hear.** Measured, the tap of a dash, a missed grab and the "tired" blip were 6 to 15 dB under every other sound in the game. They are raised to sit with the rest: a press with no sound feels like a press that did not count. The lava's siren is a little louder too.
 

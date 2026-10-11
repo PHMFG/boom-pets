@@ -172,16 +172,16 @@ export const supers = {
 
 /** Batata Quente. */
 export const potato = {
-  cap: 50,
+  cap: 80,
   /** The arena is round, with a wall. */
   radius: 6,
   /** Seconds before the first bomb is handed out, and between one going off and the next. */
   firstWait: 1.5,
-  nextWait: 1.6,
+  nextWait: 2.2,
   /** Seconds on the first fuse, how much shorter each one is, and the shortest it gets. */
-  fuse: 7,
-  fuseStep: 0.8,
-  fuseMin: 4,
+  fuse: 9.5,
+  fuseStep: 0.7,
+  fuseMin: 5.5,
   /** How close two pets must be for the bomb to pass, beyond touching. */
   touch: 0.12,
   /** Seconds the bomb cannot go straight back to whoever just passed it. */
@@ -195,16 +195,16 @@ export const potato = {
 
 /** Batatinha Frita 1, 2, 3. */
 export const frita = {
-  cap: 60,
+  cap: 80,
   /** A wide, shallow lane: it runs left to right, so the whole way fits a wide screen. */
   columns: 26,
   rows: 9,
   /** The finish line is this far from the right-hand end. */
   finish: 3,
   /** Seconds the round goes on after the first pet crosses the line. */
-  finishGrace: 8,
-  /** How fast a pet goes here, as a share of normal: on tiptoe, so the way takes several songs. */
-  speed: 0.55,
+  finishGrace: 10,
+  /** How fast a pet goes here, as a share of normal: on tiptoe, so the way takes many songs. */
+  speed: 0.46,
   /** The shortest and longest the cat sings with its back turned, and the shortest and longest it looks. */
   singMin: 1.2,
   singMax: 2.8,
@@ -220,34 +220,34 @@ export const frita = {
 
 /** Cor Certa. */
 export const color = {
-  cap: 45,
+  cap: 75,
   /** The floor is this many patches a side, each this many tiles a side. A multiple of two keeps every colour equal. */
   patches: 4,
   patch: 3,
   /** Seconds a new floor is shown before a colour is called. */
   show: 1.3,
   /** Seconds to reach the colour on the first call, how much shorter each call is, and the shortest it gets. */
-  count: 3,
-  countStep: 0.4,
-  countMin: 1.1,
+  count: 3.2,
+  countStep: 0.3,
+  countMin: 1.2,
   /** How many patches the colour about to be called has, wave by wave; the last number goes on. Fewer means farther to run. */
-  safePatches: [4, 4, 2, 2, 1],
+  safePatches: [4, 4, 3, 3, 2, 2, 1],
   /** Seconds the other tiles stay gone: long enough for whoever was on them to fall. */
   drop: 1.5,
 } as const;
 
 /** Corrida Maluca. */
 export const race = {
-  cap: 60,
-  columns: 24,
+  cap: 80,
+  columns: 30,
   rows: 15,
   /** Seconds the round goes on after the first pet crosses the line. */
-  grace: 8,
+  grace: 10,
   /** Upward speed of a jump: about 0.9 m high and 3 m long at a run, enough for a gap of two tiles and not for the three between lanes. */
   jumpSpeed: 7.5,
   jumpRest: 0.2,
-  /** Where across the map (in x) the three obstacles of each straight are centred. A flag stands between the second and the third. */
-  slotsX: [-6, 0, 6],
+  /** Where across the map (in x) the obstacles of each straight are centred. A flag stands in the middle of them. */
+  slotsX: [-8, 0, 8],
   /** Tiles of track an obstacle takes up, and how many a gap takes away. Even numbers: an obstacle is centred on a line between tiles. */
   stretch: 4,
   gapLength: 2,
@@ -267,7 +267,7 @@ export const race = {
 
 /** Come e Cresce. */
 export const grow = {
-  cap: 40,
+  cap: 55,
   columns: 16,
   rows: 12,
   /** Seconds between two pieces of food with two pets on the blanket (faster with more), and the most that may lie there at once. */
@@ -281,7 +281,7 @@ export const grow = {
   /** How near a piece a pet of normal size must be to eat it. */
   mouth: 0.8,
   /** Points for each size a pet grows, how many sizes there are, how much bigger each makes it, and how much slower. */
-  perSize: 5,
+  perSize: 7,
   sizes: 8,
   growPerSize: 0.11,
   slowPerSize: 0.035,
@@ -305,7 +305,7 @@ export const grow = {
 
 /** O Chão é Lava. */
 export const lava = {
-  cap: 45,
+  cap: 75,
   columns: 14,
   rows: 12,
   /** How high a rock stands (never more than 0.3, or a pet could not step up onto it), and how wide: room for one pet, two if they balance. */
@@ -314,11 +314,13 @@ export const lava = {
   /** Rocks are never closer together than this. */
   rockGap: 3,
   /** Seconds to find a rock before the first alarm, how much shorter each calm is than the last, and the shortest it gets. */
-  calm: 4.5,
+  calm: 5.5,
   calmStep: 0.5,
-  calmMin: 2,
+  calmMin: 2.5,
+  /** For this many waves at the start there is a rock for every pet: a wave to learn on, where nobody has to be left out. After that there is one too few. */
+  spareWaves: 1,
   /** Seconds the alarm sounds before the lava is up, and seconds it stays up. */
-  alarm: 2.5,
+  alarm: 3,
   flood: 2,
   /** A's shove: a short lunge that pushes whoever it touches, then a rest, longer after a miss. */
   shoveSpeed: 9,
@@ -331,11 +333,11 @@ export const lava = {
 
 /** Pinta o Chão. */
 export const paint = {
-  cap: 40,
+  cap: 55,
   columns: 14,
   rows: 12,
   /** For the last seconds nobody is shown the count. */
-  hideLast: 8,
+  hideLast: 10,
   /** Seconds before the first bucket of paint drops, and between buckets after it. */
   bucketFirst: 6,
   bucketEvery: 7,
