@@ -256,16 +256,17 @@ export class AudioEngine {
         this.tone(440, 0.14, 'square', 0.16);
         return this.announce(event.n === 3 ? 'three' : event.n === 2 ? 'two' : 'one');
       case 'dash':
-        return this.whoosh(0.16 + event.charge * 0.14, 0.12 + event.charge * 0.16);
+        // Even a tap is heard: it is the brawl's one verb, and a press with no sound feels like a press that did not count.
+        return this.whoosh(0.16 + event.charge * 0.14, 0.27 + event.charge * 0.2);
       case 'dashHit':
         this.sample(['hit1', 'hit2', 'hit3'], 0.5 + event.charge * 0.5);
         return;
       case 'land':
         return this.sample(['land1', 'land2'], Math.min(0.6, event.speed / 30));
       case 'tired':
-        return this.tone(180, 0.05, 'triangle', 0.06, 140);
+        return this.tone(180, 0.07, 'triangle', 0.11, 140);
       case 'grabMiss':
-        return this.whoosh(0.1, 0.07);
+        return this.whoosh(0.1, 0.2);
       case 'grab':
         if (event.kind === 'pet') this.sample(['hit1', 'hit2'], 0.35);
         return this.tone(300, 0.1, 'triangle', 0.15, 520);
@@ -344,7 +345,7 @@ export class AudioEngine {
         if (event.phase === 'alarm') {
           // A siren for as long as the alarm lasts: one rising sweep a second.
           this.duck(event.seconds);
-          for (let at = 0; at < event.seconds - 0.2; at += 0.62) this.tone(430, 0.55, 'sawtooth', 0.11, 860, undefined, context.currentTime + at);
+          for (let at = 0; at < event.seconds - 0.2; at += 0.62) this.tone(430, 0.55, 'sawtooth', 0.14, 860, undefined, context.currentTime + at);
         } else if (event.phase === 'flood') {
           // The lava arrives: a low surge and a hiss.
           this.noise(1.1, 0.4, 300, 2600, 'bandpass');
