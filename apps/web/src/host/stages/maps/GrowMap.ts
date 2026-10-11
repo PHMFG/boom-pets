@@ -1,72 +1,65 @@
 // Come e Cresce: a red and white picnic blanket on a wooden table, with food raining on it. The food is
 // chunky and bright; the blanket is pale, so the pets and what they are after both stand out on it.
+// The table, the picnic laid round the blanket and the four kinds of food are modelled in Blender
+// (tools/blender/maps/grow.py).
 import type { AnyRound, Food, FoodKind, GameEvent } from '@boom/game';
 import { tuning } from '@boom/game';
-import { BoxGeometry, Color, ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry } from 'three';
+import { Color, Group, type Object3D } from 'three';
 import { strings } from '../../../shared/strings.pt-BR';
 import { colors, maps, seats } from '../../../shared/tokens';
+import { Model } from '../../render/models';
 import { random, syncViews, WHITE, type MapView, type SkyId, type StageKit } from '../kit';
 import { TileField } from '../TileField';
-import { disposeToys, toy } from './toys';
 
 const COLUMNS = tuning.grow.columns;
 const ROWS = tuning.grow.rows;
 const palette = maps.grow;
 const CURSED = new Color(colors.tierCursed);
-
-/** One piece of food, built from a few plain shapes. Each kind has a shape of its own, not only a colour. */
-function makeFood(kind: FoodKind): Group {
-  const group = new Group();
-  if (kind === 'apple') {
-    const stem = toy(new CylinderGeometry(0.03, 0.04, 0.16, 5), palette.stem, 1);
-    stem.position.y = 0.34;
-    const leaf = toy(new SphereGeometry(0.1, 6, 4), palette.leaf, 1);
-    leaf.scale.set(1, 0.35, 0.6);
-    leaf.position.set(0.1, 0.38, 0);
-    group.add(toy(new SphereGeometry(0.3, 12, 8), palette.apple, 1.09), stem, leaf);
-  } else if (kind === 'donut') {
-    const dough = toy(new TorusGeometry(0.27, 0.13, 8, 16), palette.dough, 1.07);
-    const icing = toy(new TorusGeometry(0.27, 0.115, 8, 16), palette.icing, 1);
-    dough.rotation.x = icing.rotation.x = Math.PI / 2;
-    icing.position.y = 0.05;
-    group.add(dough, icing);
-  } else if (kind === 'melon') {
-    // A fat slice standing on its rind.
-    const rind = toy(new CylinderGeometry(0.52, 0.52, 0.24, 14, 1, false, 0, Math.PI), palette.rind, 1.06);
-    const flesh = toy(new CylinderGeometry(0.44, 0.44, 0.26, 14, 1, false, 0, Math.PI), palette.flesh, 1);
-    rind.rotation.set(Math.PI / 2, 0, Math.PI / 2);
-    flesh.rotation.copy(rind.rotation);
-    group.add(rind, flesh);
-    group.position.y = 0.1;
-  } else {
-    // The pepper wears the colours of a curse: it is the one thing here not to eat.
-    const body = toy(new ConeGeometry(0.2, 0.62, 8), colors.tierCursed, 1.1);
-    body.rotation.z = Math.PI;
-    const stem = toy(new CylinderGeometry(0.04, 0.06, 0.16, 5), colors.tierCursedAccent, 1);
-    stem.position.y = 0.36;
-    group.add(body, stem);
-  }
-  return group;
-}
+/**
+ * How each kind is held up to the camera, which looks down from the front: the ring leans toward it so its
+ * hole shows, the others lean back so their profile does. `lift` keeps a leaning piece clear of the blanket.
+ * The flat slice and the bent pepper only rock, keeping their best side forward; the round ones turn right round.
+ */
+const SHOW: Record<FoodKind, { lean: number; lift: number; rocks: boolean }> = {
+  apple: { lean: -0.25, lift: 0.12, rocks: false },
+  donut: { lean: 0.55, lift: 0.3, rocks: false },
+  melon: { lean: -0.3, lift: 0.14, rocks: true },
+  pepper: { lean: -0.35, lift: 0.14, rocks: true },
+};
+/** How hard a piece squashes when it lands. */
+const SQUASH = 0.3;
 
 class FoodView {
-  readonly group: Group;
-  private readonly spin = random(-2, 2);
+  readonly group = new Group();
+  private readonly shape: Object3D;
+  private readonly show: (typeof SHOW)[FoodKind];
+  private readonly spin = random(0.7, 1.8) * (Math.random() < 0.5 ? -1 : 1);
+  private landedAt = -1;
 
-  constructor(kind: FoodKind) {
-    this.group = makeFood(kind);
+  /** `shape` is the model's piece of that kind, standing on its own origin. */
+  constructor(kind: FoodKind, shape: Object3D) {
+    this.shape = shape;
+    this.show = SHOW[kind];
+    this.group.add(shape);
+    this.group.rotation.x = this.show.lean;
   }
 
-  /** Falls for as long as its timer runs, then lies on the blanket, bobbing so it is seen. */
+  /** Falls for as long as its timer runs, lands with a squash, then lies on the blanket, bobbing so it is seen. */
   update(food: Food, time: number): void {
+    const falling = food.left > 0;
+    if (!falling && this.landedAt < 0) this.landedAt = time;
     const height = (food.left / tuning.grow.dropTime) * 7;
-    this.group.position.set(food.x, 0.34 + height + (food.left > 0 ? 0 : Math.abs(Math.sin(time * 3 + food.id)) * 0.08), food.z);
-    this.group.rotation.y = time * this.spin;
+    this.group.position.set(food.x, this.show.lift + height + (falling ? 0 : Math.abs(Math.sin(time * 3 + food.id)) * 0.08), food.z);
+    this.shape.rotation.y = this.show.rocks ? Math.sin(time * this.spin + food.id) * 0.6 : time * this.spin;
+    // Stretched on the way down; on landing it flattens and springs back.
+    const age = time - this.landedAt;
+    const squash = falling ? -0.12 : SQUASH * Math.exp(-age * 9) * Math.cos(age * 20);
+    this.group.scale.set(1 + squash * 0.6, 1 - squash, 1 + squash * 0.6);
   }
 
+  /** The shape and its colours belong to the model. */
   dispose(): void {
     this.group.removeFromParent();
-    disposeToys(this.group);
   }
 }
 
@@ -79,17 +72,16 @@ export class GrowMap implements MapView {
   private readonly kit: StageKit;
   private readonly tiles = new TileField(COLUMNS, ROWS, [palette.cloth, palette.clothPale]);
   private readonly foods = new Map<number, FoodView>();
-  private readonly scenery = new Group();
+  private readonly model = new Model('grow');
 
   constructor(kit: StageKit) {
     this.kit = kit;
     // Gingham: where a pale stripe crosses a pale stripe, the square is a shade deeper.
     const cross = new Color(palette.clothCross);
     for (let column = 1; column < COLUMNS; column += 2) for (let row = 1; row < ROWS; row += 2) this.tiles.setColor(column * ROWS + row, cross, false);
-    this.group.add(this.tiles.mesh, this.scenery);
+    this.group.add(this.tiles.mesh, this.model.scene);
     this.tiles.reset(true);
     for (let column = 1; column < COLUMNS; column += 2) for (let row = 1; row < ROWS; row += 2) this.tiles.setColor(column * ROWS + row, cross, false);
-    this.build();
   }
 
   handle(event: GameEvent, round: AnyRound): void {
@@ -115,54 +107,16 @@ export class GrowMap implements MapView {
 
   frame(round: AnyRound | null, dt: number, time: number): void {
     const field = round?.gameMode === 'grow' ? round : null;
-    syncViews(this.group, this.foods, field?.rules.foods ?? [], food => new FoodView(food.kind), (view, food) => view.update(food, time));
+    syncViews(this.group, this.foods, field?.rules.foods ?? [], food => new FoodView(food.kind, this.model.part(food.kind)), (view, food) => view.update(food, time));
     this.tiles.update(dt, time);
+    // The jelly wobbles, the ants march, the teapot steams: whatever was given motion in Blender.
+    this.model.update(dt);
   }
 
   dispose(): void {
     this.foods.forEach(view => view.dispose());
     this.tiles.dispose();
-    disposeToys(this.scenery);
+    this.model.dispose();
     this.group.removeFromParent();
-  }
-
-  /** The table the blanket lies on, with a giant plate, a fork and a basket left on it. */
-  private build(): void {
-    const table = toy(new BoxGeometry(COLUMNS + 18, 1, ROWS + 16), palette.table, 1);
-    table.position.y = -1.06;
-    table.receiveShadow = true;
-    table.castShadow = false;
-    this.scenery.add(table);
-
-    const plate = new Group();
-    plate.add(toy(new CylinderGeometry(3.4, 3, 0.3, 28), palette.plate, 1.02));
-    const dip = toy(new CylinderGeometry(2.3, 2.3, 0.06, 28), palette.clothPale, 1);
-    dip.position.y = 0.16;
-    plate.add(dip);
-    plate.position.set(-COLUMNS / 2 - 4.6, -0.4, -ROWS / 2 - 1);
-    this.scenery.add(plate);
-
-    const fork = new Group();
-    const handle = toy(new BoxGeometry(0.5, 0.2, 6), palette.plate);
-    const neck = toy(new BoxGeometry(1.5, 0.2, 0.6), palette.plate);
-    neck.position.z = -3.2;
-    fork.add(handle, neck);
-    for (const x of [-0.6, 0, 0.6]) {
-      const prong = toy(new BoxGeometry(0.22, 0.2, 2), palette.plate);
-      prong.position.set(x, 0, -4.4);
-      fork.add(prong);
-    }
-    fork.position.set(COLUMNS / 2 + 3.6, -0.45, 0.5);
-    fork.rotation.y = 0.2;
-    this.scenery.add(fork);
-
-    // A few whole fruit beyond the far edge, for the look of plenty.
-    for (const [index, kind] of (['apple', 'melon', 'donut', 'apple'] as const).entries()) {
-      const food = makeFood(kind);
-      food.scale.setScalar(3.2);
-      food.position.set(-4 + index * 3.6, 0.4, -ROWS / 2 - 4.2 - (index % 2) * 1.4);
-      food.rotation.y = index * 1.1;
-      this.scenery.add(food);
-    }
   }
 }
