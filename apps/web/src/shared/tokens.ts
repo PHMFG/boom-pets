@@ -30,12 +30,12 @@ export const colors = {
  */
 export const maps = {
   color: { orange: '#FFD2AD', lemon: '#FFF0A0', grape: '#DCCBFF', mint: '#BDEFD3', base: '#2B2145', speaker: '#3D315F', cone: '#CFCADD' },
-  grow: { cloth: '#FFFFFF', clothPale: '#FCE4E4', clothCross: '#F6C6C8', table: '#C8935B', plate: '#F4F6FA', apple: '#E8413C', stem: '#7A4B2B', leaf: '#4CB96A', icing: '#F59AC4', dough: '#E7B26E', rind: '#4FB96E', flesh: '#F2566B' },
+  grow: { cloth: '#FFFFFF', clothPale: '#FCE4E4', clothCross: '#F6C6C8', clothEdge: '#E8606A', table: '#C8935B', tableAlt: '#D2A06A', tableDark: '#AE7C49', plate: '#F4F6FA', enamel: '#4DBDB3', silver: '#DFE4EC', napkin: '#CDEBF2', glass: '#D4EEF7', apple: '#E8413C', stem: '#7A4B2B', leaf: '#4CB96A', icing: '#F59AC4', dough: '#E7B26E', rind: '#4FB96E', pith: '#E6F4C8', flesh: '#F2566B', wicker: '#D9A55C', wickerDark: '#B98242', bread: '#F6DFA8', crust: '#C98A45', cheese: '#FFCB4D', ham: '#F4A3A8', juice: '#FFA53A', jam: '#C43B5C', jelly: '#F0527A', sponge: '#F3CF8A', cookie: '#D9A05B' },
   lava: { stone: '#F1EBE1', stoneDark: '#E4DBCE', rock: '#6E5C78', rim: '#3B2B40', cone: '#4E3A55', lava: '#FF6A1A', lavaHot: '#FFB23E' },
   race: { track: '#EAF8EF', trackDark: '#FFF7DA', post: '#8B8794', bar: '#FF5A1F', flag: '#FFC400', start: '#7BE06A' },
   potato: { pan: '#F0F3F8', panDark: '#E1E6EE', rim: '#3A3550', grip: '#6A5F80', stove: '#F1E6D6', burner: '#2B2638', flame: '#FF7A1A', flameHot: '#FFD25A', spoon: '#C8935B', bomb: '#2B2638', steel: '#CFCADD' },
   frita: { grass: '#F0F9E6', grassDark: '#E1F2D3', line: '#FFFFFF', lawn: '#A9DC8F', hedge: '#5FAE6E', hedgeDark: '#4B9460', wood: '#C8935B', slide: '#FFB23E', metal: '#9AA3B8', sand: '#F3E3B5' },
-  paint: { paper: '#FFFFFF', paperDark: '#F1F3F7', tape: '#F2DFA0', desk: '#C99A66', pencil: '#F4B63F', wood: '#E9C99A', lead: '#3A3550', eraser: '#F28FB0', bucket: '#9AA3B8' },
+  paint: { paper: '#FFFFFF', paperDark: '#F1F3F7', tape: '#F2DFA0', desk: '#C99A66', deskDark: '#B3844F', mat: '#47A49C', matLine: '#8CCFC7', pencil: '#F4B63F', wood: '#E9C99A', lead: '#3A3550', eraser: '#F28FB0', bucket: '#9AA3B8', tin: '#CDD3DF', potPaint: '#FFFFFF', glass: '#D4EEF7', water: '#A7D5E6', bristle: '#5B4636', teal: '#2FB8AC', salmon: '#FF8E7A', sky: '#7CC8F2', tangerine: '#FFA24A', bulb: '#FFF0A8' },
 } as const;
 
 export type SeatShape = 'circle' | 'triangle' | 'square' | 'star' | 'diamond' | 'cross';
