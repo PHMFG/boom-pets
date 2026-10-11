@@ -13,3 +13,6 @@ playtests/
 # Test output
 test-results/
 playwright-report/
+
+# Python bytecode left by Blender
+__pycache__/
