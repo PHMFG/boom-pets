@@ -468,6 +468,8 @@ export class RaceMap implements MapView {
     //   At a corner: outside the turn, on the diagonal, where the cloth runs along the corner's far edge.
     //   At a corner the track comes into toward the camera: the diagonal is in front of it and the cloth would
     //   lie across it, so the pole stands on the side the track turns away from, a cloth's length out.
+    //   At a corner the track leaves away from the camera: the diagonal is in front of it again, so the pole
+    //   stands straight on past the corner, beside the stretch that leaves, with the cloth along its edge.
     field.rules.flags.slice(1).forEach((along, index) => {
       const spot = track.pointAt(along);
       const corner = track.legs.findIndex(leg => Math.abs(leg.start - along) < 0.01);
@@ -480,7 +482,9 @@ export class RaceMap implements MapView {
           : { x: Math.sign(spot.x) || 1, z: 0 }
         : before.dz > 0.5
           ? { x: -spot.dx * out, z: -spot.dz * out }
-          : { x: before.dx - spot.dx, z: before.dz - spot.dz };
+          : spot.dz < -0.5
+            ? { x: before.dx, z: before.dz }
+            : { x: before.dx - spot.dx, z: before.dz - spot.dz };
       const flag = new Group();
       const cloth = new Group();
       const near = model.part('flag_cloth_a');

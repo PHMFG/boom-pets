@@ -6,7 +6,24 @@ import { motion } from '../../shared/motion';
 import { strings } from '../../shared/strings.pt-BR';
 import { colors, seats as seatTokens } from '../../shared/tokens';
 
-type Plate = { anchor: HTMLElement; tag: HTMLElement; name: HTMLElement; sleep: HTMLElement; held: HTMLElement; hand: HTMLElement; holdUntil: number | null; heldIcon: string | null; reachedBy: number | null };
+/** Where a tag stands by its pet: over its head, or to one side of it when over would cover another pet. */
+export type TagSide = 'above' | 'left' | 'right';
+type Plate = {
+  anchor: HTMLElement;
+  tag: HTMLElement;
+  name: HTMLElement;
+  sleep: HTMLElement;
+  held: HTMLElement;
+  hand: HTMLElement;
+  holdUntil: number | null;
+  heldIcon: string | null;
+  reachedBy: number | null;
+  /** How it stands now, as last written to the page, so the page is only written to when that changes. */
+  stand: string;
+  /** Its size in pixels with its whole name showing, measured now and then: reading it every frame would cost a layout. */
+  size: { width: number; height: number };
+  measured: number;
+};
 
 export class Nameplates {
   private readonly layer: HTMLElement;
@@ -37,6 +54,35 @@ export class Nameplates {
   place(seat: number, x: number, y: number): void {
     const plate = this.plates.get(seat);
     if (plate) plate.anchor.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  }
+
+  /** How big a tag is on the page with its name showing, in pixels. */
+  size(seat: number): { width: number; height: number } {
+    const plate = this.plates.get(seat);
+    if (!plate) return { width: 0, height: 0 };
+    if (plate.measured-- <= 0 && !plate.tag.classList.contains('is-compact')) {
+      plate.size = { width: plate.tag.offsetWidth, height: plate.tag.offsetHeight };
+      plate.measured = 30;
+    }
+    return plate.size;
+  }
+
+  /**
+   * Says where a tag stands by its pet. Over the head is the usual place. To one side it is `reach` pixels out from
+   * the point over the head and `drop` pixels down from it, level with the pet's middle, pointing across at it.
+   * `compact` leaves only the seat's shape on it: for a crowd, where any place would cover somebody.
+   */
+  stand(seat: number, side: TagSide, reach: number, drop: number, compact: boolean): void {
+    const plate = this.plates.get(seat);
+    if (!plate) return;
+    const stand = `${side} ${Math.round(reach)} ${Math.round(drop)} ${compact}`;
+    if (plate.stand === stand) return;
+    plate.stand = stand;
+    plate.tag.classList.toggle('is-left', side === 'left');
+    plate.tag.classList.toggle('is-right', side === 'right');
+    plate.tag.classList.toggle('is-compact', compact);
+    plate.tag.style.setProperty('--reach', `${Math.round(reach)}px`);
+    plate.tag.style.setProperty('--drop', `${Math.round(drop)}px`);
   }
 
   /** Puts a crown on the seat that is leading, or on nobody. */
@@ -87,6 +133,7 @@ export class Nameplates {
     shape.className = 'nameplate-shape';
     shape.innerHTML = seatShapeSvg(token.shape, colors.white);
     const name = document.createElement('span');
+    name.className = 'nameplate-name';
     const sleep = document.createElement('span');
     sleep.className = 'nameplate-sleep';
     const held = document.createElement('span');
@@ -96,7 +143,7 @@ export class Nameplates {
     tag.append(shape, name, sleep, held, hand);
     anchor.append(tag);
     this.layer.append(anchor);
-    const plate: Plate = { anchor, tag, name, sleep, held, hand, holdUntil: null, heldIcon: null, reachedBy: null };
+    const plate: Plate = { anchor, tag, name, sleep, held, hand, holdUntil: null, heldIcon: null, reachedBy: null, stand: '', size: { width: 0, height: 0 }, measured: 0 };
     this.plates.set(seat, plate);
     return plate;
   }

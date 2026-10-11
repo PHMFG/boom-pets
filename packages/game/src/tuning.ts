@@ -260,8 +260,16 @@ export const race = {
    */
   minRun: 12,
   clear: 5,
-  lead: 7,
+  lead: 8,
   spacing: 7,
+  /**
+   * The starting grid: pets stand two abreast, this far either side of the track's middle, in rows this far apart,
+   * the last row this far behind the start. Far enough apart that six rings can each be seen, and the front row
+   * still has a run-up to the first obstacle. Who stands where is drawn afresh each race.
+   */
+  gridAside: 0.75,
+  gridRow: 1.6,
+  gridBack: 0.9,
   /** Seconds the round goes on after the first pet crosses the line. */
   grace: 10,
   /** Upward speed of a jump: about 0.9 m high and 3 m long at a run, enough for a gap of two tiles and not for the three between two stretches of track. */
@@ -328,8 +336,13 @@ export const lava = {
   cap: 75,
   columns: 20,
   rows: 16,
-  /** How high a piece of furniture stands (never more than 0.3, or a pet could not step up onto it). */
-  height: 0.3,
+  /**
+   * How high a piece of furniture stands. High enough that, from above, its side shows under the ring of the pet
+   * standing on it: at 0.3 a pouf vanished under its pet and nobody could tell who was up. A pet walks up onto
+   * it in one stride (`stepUp`, a little more than the height), which nowhere else in the game allows.
+   */
+  height: 0.7,
+  stepUp: 0.75,
   /**
    * The furniture that falls from the sky: how many pets each piece is meant for, and the part of its top a
    * pet is safe on (a circle's radius, or a rectangle's width and depth). The safe part is a little smaller

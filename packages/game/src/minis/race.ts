@@ -183,6 +183,8 @@ export class RaceRules implements MiniRules {
   readonly hurdles: Hurdle[] = [];
   readonly sweepers: Sweeper[] = [];
   private readonly slots: Slot[] = [];
+  /** Which place on the starting grid each pet takes, in the order they are set down: drawn for the race. */
+  private grid: number[] = [];
 
   setup(field: Field): void {
     field.resize(race.columns, race.rows);
@@ -236,11 +238,23 @@ export class RaceRules implements MiniRules {
     });
   }
 
-  /** Two abreast behind the start, facing down the track. */
-  spawn(_field: Field, index: number): { x: number; z: number } {
+  /**
+   * On the starting grid, two abreast: the front row first, so with few pets nobody starts behind anybody. Who
+   * takes which place is drawn for the race, so the same seat is not at the back every time.
+   */
+  spawn(field: Field, index: number, count: number): { x: number; z: number } {
+    if (this.grid.length !== count) {
+      this.grid = Array.from({ length: count }, (_, place) => place);
+      for (let place = count - 1; place > 0; place--) {
+        const other = field.rng.int(place + 1);
+        [this.grid[place], this.grid[other]] = [this.grid[other]!, this.grid[place]!];
+      }
+    }
+    const place = this.grid[index % count] ?? index;
+    const rows = Math.ceil(count / 2);
     const { x, z, dx, dz } = this.track.pointAt(0);
-    const ahead = (index % 2) * 1.1;
-    const aside = (Math.floor(index / 2) - 1) * 0.95;
+    const ahead = (rows - 1 - Math.floor(place / 2)) * race.gridRow - race.gridBack;
+    const aside = (place % 2 === 0 ? -1 : 1) * race.gridAside;
     return { x: x + dx * ahead + dz * aside, z: z + dz * ahead - dx * aside };
   }
 

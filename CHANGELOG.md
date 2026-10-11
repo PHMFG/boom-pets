@@ -4,7 +4,25 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-Nothing yet.
+What a review of pictures of every screen found in 1.2.0, by someone who had not built it. Nothing here was reported by a player.
+
+### Changed
+
+- **Name tags get out of the way.** When pets stand one behind another, a tag over one pet's head used to lie right across the pet behind it: in a lane of Batatinha Frita you could see four tags and hardly a pet. A tag now moves to the side of its own pet when it would cover somebody, and goes back when there is room. In a tight crowd it shrinks to its colour and shape.
+- **Cor Certa shows the whole floor.** On the bigger floor some patches were under the clock, under the players' cards or off the screen, and you cannot run to a colour you cannot see. The camera now keeps every patch in the picture.
+- **In O Chão é Lava you can see who is up.** Furniture was so low that a pouf vanished under the pet standing on it. Every piece is taller now, on a base, so its side shows under whoever is on it, and pets hop up onto it. The lava comes up deeper round it. The table's pale runner, which looked like a gap in the table, is teal.
+- **Corrida Maluca starts on a grid.** Six pets used to start in a block where you could not find your own. They start two abreast in three rows, with room to see each one, and who starts where is drawn again each race.
+
+### Fixed
+
+- A flag at some corners of a drawn track stood with its cloth across the track.
+- "VALE DOBRADO!" covered the end of the line that says which round it is, on the narrower game cards.
+- The winner's box showed "venceu!" for a moment before the name. The name now arrives with the box and the verb after it.
+- The hint in the lobby's network field was cut off at its last letter.
+
+### For whoever is checking
+
+- `pnpm look <game> --at=… --video --for=3` films seconds of a round in real time, drawn on the graphics card, and tiles them ten frames a second: a still does not show whether something moves well. `pnpm look <game> --six` now shows the six pets' name tags.
 
 ## [1.2.0] - 2026-10-11
 

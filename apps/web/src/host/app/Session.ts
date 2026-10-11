@@ -324,8 +324,9 @@ export class Session {
 
   private refreshNames(): void {
     const game = this.game;
-    // Demo bots (behind the title and in an empty lobby) have no name tags.
-    const bots: SeatInfo[] = (game?.phase === 'lobby' ? [] : (game?.seats ?? [])).filter(seat => seat.bot !== null && !this.roster.some(human => human.seat === seat.seat)).map(seat => ({ seat: seat.seat, name: seat.name, connected: true, rtt: null, holdMsLeft: null }));
+    // Demo bots (behind the title and in an empty lobby) have no name tags. In a solo run, which has no phones at
+    // all, a seat nobody steers is tagged like a bot: `pnpm look --six` stands six of them up to be looked at.
+    const bots: SeatInfo[] = (game?.phase === 'lobby' ? [] : (game?.seats ?? [])).filter(seat => (seat.bot !== null || this.socket === null) && !this.roster.some(human => human.seat === seat.seat)).map(seat => ({ seat: seat.seat, name: seat.name, connected: true, rtt: null, holdMsLeft: null }));
     this.stage.setNames([...this.roster, ...bots], hud.get().rosterAt);
     this.nameplates.setCrown(game?.bounty ?? null);
   }

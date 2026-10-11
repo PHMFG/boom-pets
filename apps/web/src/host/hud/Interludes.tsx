@@ -169,6 +169,7 @@ export function Finale({ winners }: { winners: { seat: number; name: string }[] 
   if (winners.length > 0) shown.current = winners;
   const named = shown.current;
   const token = seatTokens[(named[0]?.seat ?? 0) % seatTokens.length]!;
+  const name = named.map(winner => winner.name).join(strings.finale.and);
   return (
     <>
       <Presence show={winners.length === 0}>{() => <p className="finale-drum sticker">{strings.finale.drum}</p>}</Presence>
@@ -176,8 +177,11 @@ export function Finale({ winners }: { winners: { seat: number; name: string }[] 
         {() => (
           <div className="finale-winner sticker" style={{ '--seat': token.color } as CSSProperties}>
             <span className="finale-trophy">🏆</span>
-            <h2 className="finale-name">{letters(named.map(winner => winner.name).join(strings.finale.and))}</h2>
-            <p className="finale-won">{named.length > 1 ? strings.finale.tied : strings.finale.won}</p>
+            <h2 className="finale-name">{letters(name)}</h2>
+            {/* The verb comes after its subject: it waits for the name's last letter. */}
+            <p className="finale-won" style={{ '--letters': name.length } as CSSProperties}>
+              {named.length > 1 ? strings.finale.tied : strings.finale.won}
+            </p>
           </div>
         )}
       </Presence>

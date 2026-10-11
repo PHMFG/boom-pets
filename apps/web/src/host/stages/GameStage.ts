@@ -24,7 +24,7 @@ import { strings } from '../../shared/strings.pt-BR';
 import { colors } from '../../shared/tokens';
 import { Decals } from '../fx/Decals';
 import { Particles } from '../fx/Particles';
-import type { Nameplates } from '../hud/Nameplates';
+import type { Nameplates, TagSide } from '../hud/Nameplates';
 import { PetView, type PetContext } from '../pets/PetView';
 import { createPet, isPetId, petPalette } from '../render/assets';
 import { CameraRig } from '../render/CameraRig';
@@ -42,6 +42,23 @@ import { RaceMap } from './maps/RaceMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
 const HALF = tuning.arena.size / 2;
+/**
+ * A name tag stands over its pet's head unless that would cover another pet, which happens whenever the camera is
+ * far and pets stand one behind another (a lane of Batatinha Frita, the start of a race). `cover` is the share of
+ * another pet's body a tag may hide before it counts; `patience` the seconds it must go on before the tag moves to
+ * one side of its own pet, so two pets crossing do not send tags jumping; `back` the seconds over the head must
+ * have been free before it returns. `gap` and `lift` are pixels at 1080p: between a pet's side and its tag, and
+ * between the point over its head and the tag's foot (the same lift the stylesheet gives it).
+ */
+const TAGS = { cover: 0.2, patience: 0.25, back: 0.9, gap: 18, lift: 14 };
+type TagState = { side: TagSide; compact: boolean; bad: number; clear: number; calm: number };
+type Box = { left: number; right: number; top: number; bottom: number };
+/** How much of `body` is under `tag`, 0 to 1. */
+const hidden = (tag: Box, body: Box) => {
+  const wide = Math.min(tag.right, body.right) - Math.max(tag.left, body.left);
+  const high = Math.min(tag.bottom, body.bottom) - Math.max(tag.top, body.top);
+  return wide <= 0 || high <= 0 ? 0 : (wide * high) / Math.max(1, (body.right - body.left) * (body.bottom - body.top));
+};
 /** How far past the floor's edge shadows are still cast, in metres: a pet knocked off the side has one on its way down, and a prop beside the floor casts one onto it. */
 const SHADOW_MARGIN = 2.5;
 /** How far over the winner's feet the camera looks as a round ends: over its head, so its bubble clears the banner that names it. */
@@ -100,6 +117,8 @@ export class GameStage {
   private winners = new Set<number>();
   private asleep = new Set<number>();
   private insets = { left: 0, bottom: 0, top: 0 };
+  /** Where each seat's name tag stands by its pet, and for how long that has been covering somebody. */
+  private readonly tags = new Map<number, TagState>();
   private size = { width: 1, height: 1 };
   private time = 0;
   private lastWord = -10;
@@ -618,7 +637,7 @@ export class GameStage {
     }
     this.rig.frame(this.focusPoints(game), dt);
     this.mapFrames++;
-    this.placeNames(game);
+    this.placeNames(game, dt);
     this.nameplates.tick(now);
     this.renderer.render(dt);
 
@@ -896,31 +915,92 @@ export class GameStage {
     return points;
   }
 
-  private placeNames(game: Game): void {
+  private placeNames(game: Game, dt: number): void {
     const placed = new Set<number>();
-    const project = (seat: number, x: number, y: number, z: number) => {
+    const { width, height } = this.size;
+    const screen = (x: number, y: number, z: number) => {
       this.point.set(x, y, z).project(this.rig.camera);
-      this.nameplates.place(seat, (this.point.x * 0.5 + 0.5) * this.size.width, (-this.point.y * 0.5 + 0.5) * this.size.height);
-      placed.add(seat);
+      return { x: (this.point.x * 0.5 + 0.5) * width, y: (-this.point.y * 0.5 + 0.5) * height };
     };
     // Who is within a player's reach right now. Bots do not get the hint; they do not need it.
     const reached = new Map<number, number>();
     const cleared = game.phase === 'matchEnd' || game.phase === 'finale';
+    // Each pet as the screen has it: the point its tag hangs from, and the box its body fills.
+    const bodies: (Box & { seat: number; headX: number; headY: number; half: number })[] = [];
     for (const pet of cleared ? [] : game.round.pets) {
       const view = this.pets.get(pet.id);
-      if (view && !pet.decoy && view.feet.y > -2) project(pet.seat, view.feet.x, view.feet.y + view.height + 0.15 + (this.map.headroom?.(game.round, pet.seat) ?? 0), view.feet.z);
+      if (view && !pet.decoy && view.feet.y > -2) {
+        const { x, y, z } = view.feet;
+        const feet = screen(x, y, z);
+        const top = screen(x, y + view.height, z);
+        const head = screen(x, y + view.height + 0.15 + (this.map.headroom?.(game.round, pet.seat) ?? 0), z);
+        // From this angle a pet is drawn about as wide as it is tall, and a little more.
+        const half = (feet.y - top.y) * 0.8;
+        bodies.push({ seat: pet.seat, headX: head.x, headY: head.y, half, left: feet.x - half, right: feet.x + half, top: top.y, bottom: feet.y });
+        this.nameplates.place(pet.seat, head.x, head.y);
+        placed.add(pet.seat);
+      }
       if (pet.decoy || pet.grabTarget?.kind !== 'pet' || game.seats.find(seat => seat.seat === pet.seat)?.bot !== null) continue;
       const target = game.round.petById(pet.grabTarget.id);
       if (target && !target.decoy) reached.set(target.seat, pet.seat);
     }
+    this.standTags(bodies, dt);
     for (const seat of game.seats) {
       const held = cleared ? null : (game.round.petOfSeat(seat.seat)?.held ?? null);
       this.nameplates.setHeld(seat.seat, held ? POWER_ICON[held] : null, held ? TIER_COLOR[POWERS[held].tier] : '');
       this.nameplates.setReach(seat.seat, reached.get(seat.seat) ?? null);
     }
-    for (const [seat, view] of this.ghosts) project(seat, view.group.position.x, view.headHeight, view.group.position.z);
+    for (const [seat, view] of this.ghosts) {
+      const at = screen(view.group.position.x, view.headHeight, view.group.position.z);
+      this.nameplates.place(seat, at.x, at.y);
+      this.nameplates.stand(seat, 'above', 0, 0, false);
+      placed.add(seat);
+    }
     // A seat with nothing on screen (between a fall and coming back) has its tag parked out of sight.
     for (const seat of game.seats) if (!placed.has(seat.seat)) this.nameplates.place(seat.seat, -9999, -9999);
+  }
+
+  /**
+   * Chooses where each pet's name tag stands: over its head, or beside it when over would cover another pet (see
+   * `TAGS`). A tag that would cover somebody wherever it stood keeps the best place there is and lets go of its
+   * name, down to the seat's colour and shape.
+   */
+  private standTags(bodies: readonly (Box & { seat: number; headX: number; headY: number; half: number })[], dt: number): void {
+    const unit = this.size.height / 1080;
+    for (const body of bodies) {
+      const state = this.tags.get(body.seat) ?? { side: 'above' as TagSide, compact: false, bad: 0, clear: 0, calm: 0 };
+      this.tags.set(body.seat, state);
+      const tag = this.nameplates.size(body.seat);
+      const reach = body.half + TAGS.gap * unit;
+      const drop = (body.bottom - body.headY) / 2;
+      const middle = body.headY + drop;
+      const places: Record<TagSide, Box> = {
+        above: { left: body.headX - tag.width / 2, right: body.headX + tag.width / 2, top: body.headY - TAGS.lift * unit - tag.height, bottom: body.headY - TAGS.lift * unit },
+        left: { left: body.headX - reach - tag.width, right: body.headX - reach, top: middle - tag.height / 2, bottom: middle + tag.height / 2 },
+        right: { left: body.headX + reach, right: body.headX + reach + tag.width, top: middle - tag.height / 2, bottom: middle + tag.height / 2 },
+      };
+      // The most of any other pet that a tag standing there would hide. Off the side of the screen is no place at all.
+      const covers = (side: TagSide) => {
+        const box = places[side];
+        if (side !== 'above' && (box.left < 0 || box.right > this.size.width)) return 1;
+        return bodies.reduce((most, other) => (other.seat === body.seat ? most : Math.max(most, hidden(box, other))), 0);
+      };
+      const now = tag.width === 0 ? 0 : covers(state.side);
+      state.bad = now > TAGS.cover ? state.bad + dt : 0;
+      state.calm = now <= TAGS.cover / 2 ? state.calm + dt : 0;
+      state.clear = state.side !== 'above' && covers('above') <= TAGS.cover / 2 ? state.clear + dt : 0;
+      if (state.bad > TAGS.patience) {
+        // Somewhere better, if there is one: over the head first, then whichever side hides less.
+        const best = (['above', 'left', 'right'] as const).reduce((kept, side) => (covers(side) < covers(kept) - 0.05 ? side : kept));
+        if (best !== state.side && covers(best) < now - 0.1) {
+          state.side = best;
+          state.bad = 0;
+        } else state.compact = true;
+      }
+      if (state.clear > TAGS.back) state.side = 'above';
+      if (state.calm > TAGS.back) state.compact = false;
+      this.nameplates.stand(body.seat, state.side, reach, drop, state.compact);
+    }
   }
 
   private fit(): void {

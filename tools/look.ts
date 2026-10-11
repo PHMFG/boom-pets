@@ -78,8 +78,18 @@ for (let tries = 0; tries < 120 && !(await reachable()); tries++) await new Prom
 
 mkdirSync(out, { recursive: true });
 // Measuring wants the real graphics card; pictures are the same either way.
-const browser = await chromium.launch(has('soak') ? { args: ['--js-flags=--expose-gc'] } : has('perf') ? { args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-frame-rate-limit', '--disable-gpu-vsync'] } : {});
 const filming = has('video');
+// A film is watched for its timing, so it is drawn on the graphics card like the real thing: without one the
+// 3D scene falls behind the page's own animations, and the film shows a mismatch nobody will ever see.
+const browser = await chromium.launch(
+  has('soak')
+    ? { args: ['--js-flags=--expose-gc'] }
+    : has('perf')
+      ? { args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-frame-rate-limit', '--disable-gpu-vsync'] }
+      : filming
+        ? { args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] }
+        : {},
+);
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, ...(filming ? { recordVideo: { dir: out, size: { width: 1280, height: 720 } } } : {}) });
 const page = await context.newPage();
 /** When the film started, to find a moment in it afterwards. */

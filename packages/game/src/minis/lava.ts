@@ -51,6 +51,7 @@ export function seatsOf(piece: Furniture): { x: number; z: number }[] {
 export class LavaRules implements MiniRules {
   readonly mode = 'lava' as const;
   readonly cap = lava.cap;
+  readonly stepUp = lava.stepUp;
   /** Calm: furniture is falling or down, and there is time to get on. Alarm: the lava is coming. Flood: it is here. */
   phase: 'calm' | 'alarm' | 'flood' = 'calm';
   /** Seconds left of the phase. */

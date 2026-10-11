@@ -325,7 +325,54 @@
   font: 400 calc(28 * var(--u)) / 1.1 var(--font-display);
   white-space: nowrap;
   translate: -50% calc(-14 * var(--u));
+  transition: translate var(--move);
   animation: pop-in var(--pop-in) both;
+}
+
+/* Over its pet's head a tag would sometimes cover the pet behind. Then it stands beside its own pet, level with
+   its middle, and points across at it (GameStage.placeNames chooses; --reach and --drop are in pixels). */
+.nameplate.is-left {
+  translate: calc(-100% - var(--reach)) calc(50% + var(--drop));
+}
+
+.nameplate.is-right {
+  translate: var(--reach) calc(50% + var(--drop));
+}
+
+.nameplate.is-left::after,
+.nameplate.is-right::after {
+  top: 50%;
+  border: calc(10 * var(--u)) solid transparent;
+  translate: 0 -50%;
+}
+
+.nameplate.is-left::after {
+  left: calc(100% + 4 * var(--u));
+  border-right-width: 0;
+  border-left-color: var(--ink);
+}
+
+.nameplate.is-right::after {
+  right: calc(100% + 4 * var(--u));
+  left: auto;
+  border-left-width: 0;
+  border-right-color: var(--ink);
+}
+
+/* In a crowd any place would cover somebody: the tag keeps its colour and its shape and lets go of the name. */
+.nameplate-name {
+  max-width: calc(320 * var(--u));
+  overflow: hidden;
+  transition: max-width var(--move);
+}
+
+.nameplate.is-compact {
+  gap: 0;
+  padding-right: calc(7 * var(--u));
+}
+
+.nameplate.is-compact .nameplate-name {
+  max-width: 0;
 }
 
 /* The tag points down at its pet. */
@@ -778,10 +825,12 @@
   animation: pop-in var(--pop-in) both calc(var(--pop-in-ms) + var(--i) * var(--stagger) * 2);
 }
 
+/* Hung on the card's right-hand corner, below the line that says which round it is: on a narrow card that line
+   reaches nearly to the corner, and a tag level with it would lie across its last word. */
 .intro-double {
   position: absolute;
-  top: calc(-34 * var(--u));
-  right: calc(-56 * var(--u));
+  top: calc(18 * var(--u));
+  right: calc(-150 * var(--u));
   padding: calc(8 * var(--u)) calc(26 * var(--u));
   background: var(--gold);
   font: 400 calc(40 * var(--u)) / 1 var(--font-display);
@@ -812,8 +861,14 @@
   animation-delay: var(--victory);
 }
 
+/* The name's letters arrive with the box, not after it: a box is never up with nothing in it. */
 .finale-winner .pop-letter {
-  animation-delay: calc(var(--victory) + var(--pop-in-ms) + var(--i) * var(--stagger));
+  animation-delay: calc(var(--victory) + var(--pop-in-ms) / 2 + var(--i) * var(--stagger));
+}
+
+.finale-winner .finale-won {
+  animation: pop-in var(--pop-in) both;
+  animation-delay: calc(var(--victory) + var(--pop-in-ms) / 2 + var(--letters) * var(--stagger));
 }
 
 .finale-winner .finale-trophy {
@@ -914,8 +969,10 @@
   text-align: center;
 }
 
+/* The hint is longer than most names of a network, and a size smaller so that all of it fits the field. */
 .join-network-input::placeholder {
   color: color-mix(in srgb, var(--ink) 45%, transparent);
+  font-size: calc(23 * var(--u));
 }
 
 .join-network-input:focus-visible,

@@ -34,6 +34,12 @@ const JUMP = { seconds: 0.5, size: 0.7 };
 const DUST = { rate: 7, inner: SIDE / 2 + 1.4, outer: SIDE / 2 + 5.5 };
 const MOTE = new Color(palette.bulb).multiplyScalar(1.4);
 const FIRE = new Color(palette.flame).multiplyScalar(1.7);
+/**
+ * What the camera keeps in the picture besides the pets: the whole floor, since a patch nobody can see cannot be
+ * run to. These are how far inside the floor's edges the corners it is asked to hold are: the camera adds its own
+ * margins round them (wider at the back, for a pet's height), and this takes most of that back.
+ */
+const VIEW = { side: 1.2, near: 1.4, far: 2.6 };
 /** Where the confetti of a call goes up from: the two dance pods, in the model's measure. */
 const PODS = { x: 9.5, y: -0.8, z: -1.75 };
 /** Who is here to dance: the piece of the model each group stands on, and where on it. They ride with it. */
@@ -217,6 +223,13 @@ export class ColorMap implements MapView {
       renderer.kick(0.2);
     } else if (event.t === 'roundWinner') {
       for (const crowd of this.crowds) crowd.cheer(4);
+    }
+  }
+
+  /** Every patch has to be seen, and none of them under the clock or the players' cards: the floor's corners are kept in the picture. */
+  focus(_round: AnyRound, points: { x: number; z: number }[]): void {
+    for (const side of [-1, 1]) {
+      points.push({ x: side * (SIDE / 2 - VIEW.side), z: SIDE / 2 - VIEW.near }, { x: side * (SIDE / 2 - VIEW.side), z: -SIDE / 2 + VIEW.far });
     }
   }
 

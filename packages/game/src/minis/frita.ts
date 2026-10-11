@@ -28,7 +28,8 @@ export class FritaRules implements MiniRules {
 
   /** In a row along the start line, on the left. */
   spawn(field: Field, index: number, count: number): { x: number; z: number } {
-    return { x: -field.columns / 2 + 1, z: ((index + 0.5) / Math.max(1, count) - 0.5) * (field.rows - 1.5) };
+    // Spread over nearly the whole depth of the lane: with six, every bit of room between two pets is a ring that can be seen.
+    return { x: -field.columns / 2 + 1, z: ((index + 0.5) / Math.max(1, count) - 0.5) * (field.rows - 0.8) };
   }
 
   step(field: Field, inputs: ReadonlyMap<number, SampledInput>): void {

@@ -35,8 +35,10 @@ export interface MiniRules {
   pressA?(field: Field, pet: Pet, stickX: number, stickZ: number): void;
   /** A lunging pet reached another. Returns true if that ends the lunge as a hit. */
   touch?(field: Field, pet: Pet, other: Pet): boolean;
-  /** How high the floor stands at a spot, for a game whose floor is not flat tile by tile. Never more than 0.3. */
+  /** How high the floor stands at a spot, for a game whose floor is not flat tile by tile. */
   floorY?(field: Field, x: number, z: number): number;
+  /** How high a pet steps up in one stride here, where that is more than the usual: onto furniture, in the lava game. */
+  readonly stepUp?: number;
   /** How fast this pet walks, as a share of normal. */
   speed?(field: Field, pet: Pet): number;
   /** Where a pet that fell comes back, in a game where it does. */
@@ -164,7 +166,7 @@ export class Field<Rules extends MiniRules = MiniRules> implements RoundCore {
   floorY(x: number, z: number): number {
     const index = this.index(x, z);
     if (index < 0) return 0;
-    return this.rules.floorY ? clamp(this.rules.floorY(this, x, z), 0, MAX_HEIGHT) : this.heights[index]!;
+    return this.rules.floorY ? Math.max(0, this.rules.floorY(this, x, z)) : this.heights[index]!;
   }
 
   ranking(): number[][] {
@@ -398,7 +400,7 @@ export class Field<Rules extends MiniRules = MiniRules> implements RoundCore {
     const floor = this.isFloor(position.x, position.z);
     const top = floor ? this.floorY(position.x, position.z) : 0;
     // "Was above the floor a step ago" catches fast falls that would otherwise skip past it in one step.
-    const landing = floor && position.y <= top + stand + 0.03 && pet.py > top + stand - petTune.stepUp && velocity.y <= 0.5;
+    const landing = floor && position.y <= top + stand + 0.03 && pet.py > top + stand - (this.rules.stepUp ?? petTune.stepUp) && velocity.y <= 0.5;
     if (landing) {
       if (!pet.grounded && velocity.y < -2) this.emit({ t: 'land', pet: pet.id, speed: -velocity.y });
       inner.body.setTranslation({ x: position.x, y: top + stand, z: position.z }, true);

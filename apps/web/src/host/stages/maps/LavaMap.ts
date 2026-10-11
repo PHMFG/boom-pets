@@ -27,7 +27,7 @@ const SMOKE = new Color(colors.smoke);
 /** How bright the lava's own colour is drawn where it only lies there, and how much brighter the cracks in the wall get at the height of the alarm. */
 const GLOW = { rest: 1.35, alarm: 1.5 };
 /** How high the lava stands: far below while it is calm, at the slab's lip when the alarm ends, over the floor in a flood. */
-const LEVEL = { calm: -0.75, alarm: -0.06, flood: 0.14 };
+const LEVEL = { calm: -0.75, alarm: -0.06, flood: 0.3 };
 /**
  * The slab the crater was modelled round, in Blender. The slab is bigger now, and the crater is spread to fit:
  * everything of the model lives in a group stretched by `FIT`, and a spot of the model is `fit()` in the world.
@@ -42,7 +42,7 @@ const DRAWN = Math.cbrt(FIT.x * FIT.z);
  * when its wave is over and how far under it goes (deeper than its tallest piece stands, tipped), how it squashes
  * as it lands, and how wide a mark each kind leaves on the floor beforehand.
  */
-const FURNITURE = { fall: 0.65, height: 22, sink: 0.45, under: 1.9, squash: 0.28, settle: 0.3, mark: { pouf: 0.95, armchair: 1.15, table: 1.55, sofa: 2.3, bed: 1.9 } };
+const FURNITURE = { fall: 0.65, height: 22, sink: 0.55, under: 2.5, squash: 0.28, settle: 0.3, mark: { pouf: 0.95, armchair: 1.15, table: 1.55, sofa: 2.3, bed: 1.9 } };
 /** Bubbles swelling out of the lava at any moment. */
 const BUBBLES = 9;
 /** Where the volcano stands and how high its mouth is, for what it throws. */

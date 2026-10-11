@@ -49,7 +49,7 @@ Host (`apps/web/src/host/`)
 - `pets/PetView.ts`: one pet. The model plays its clips; code-driven motion goes on wrapper groups above it.
 - `render/`: `Renderer.ts` (post-processing), `CameraRig.ts` (how close the camera stays, how fast it moves, and the low shots of one thing it takes outside a round: `look` and `cut`), `materials.ts` (toon and outline), `assets.ts` (pet models and their double outline), `models.ts` (the maps' models made in Blender), `Text3D.ts`, `emoji.ts`. What the camera frames in a round is `focusPoints` in `stages/GameStage.ts`.
 - `fx/Particles.ts`, `fx/Decals.ts`, `audio/AudioEngine.ts` (samples for impacts, recorded tracks for music, everything else synthesised). `app/Session.ts` chooses the track.
-- `hud/GameScreen.tsx` and `game.css`: the main menu on the title screen, and the flat HUD for every phase. `Nameplates.ts` is written to the DOM each frame.
+- `hud/GameScreen.tsx` and `game.css`: the main menu on the title screen, and the flat HUD for every phase. `Nameplates.ts` is written to the DOM each frame. Where each tag stands by its pet (over its head, or beside it when that would cover another pet) is chosen in `GameStage.placeNames`.
 - `hud/Interludes.tsx`: what is on screen when no round is: loading at start-up, the list of a round's places as it ends, the roulette and game card between rounds, the curtain that hides one world changing into another (`Session.syncCurtain` shuts and opens it), the winner's banner.
 - `studio/`: test bench at `/?studio` for pets, clips and the 3D font.
 

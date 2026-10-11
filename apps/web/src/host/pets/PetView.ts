@@ -11,6 +11,8 @@ import { bubbleTexture } from '../render/emoji';
 
 /** Model units to metres. A pet is drawn a little wider than the body the simulation pushes around, so it reads from across a room. */
 const MODEL_SCALE = 0.72;
+/** A step up onto something is drawn as a rise when it is between these heights, in metres; and how fast it rises (a second). Lower is a tile's own bump, higher is a pet set down from the sky. */
+const CLIMB = { least: 0.35, most: 1.2, rate: 20 };
 /** How far above its feet a pet's head ends, for a pet of normal size. */
 const HEAD = 2.38;
 const STAND = tuning.pet.radius + tuning.pet.halfHeight;
@@ -199,8 +201,12 @@ export class PetView {
     if (!frozen) {
       this.target.set(lerp(pet.px, pet.x, context.alpha), lerp(pet.py, pet.y, context.alpha) - STAND * pet.scale, lerp(pet.pz, pet.z, context.alpha));
       // Just out of a hit-stop the pet glides to where it really is instead of snapping there.
+      const rise = this.target.y - this.feet.y;
       if (this.catchUp > 0) this.feet.lerp(this.target, damp(40, dt));
-      else this.feet.copy(this.target);
+      else if (pet.grounded && rise > CLIMB.least && rise < CLIMB.most) {
+        // Up onto something taller than a tile (a sofa, in the lava game): a quick hop up, not a cut.
+        this.feet.set(this.target.x, this.feet.y + rise * damp(CLIMB.rate, dt), this.target.z);
+      } else this.feet.copy(this.target);
     }
     const speed = Math.hypot(pet.vx, pet.vz);
     const charging = pet.chargeTime > 0;
