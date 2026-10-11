@@ -36,6 +36,13 @@ pnpm models <map> --port=9877
 pnpm models --run=scratch.py --port=9877     # any Python; what it leaves in `result` is printed
 ```
 
+Two things to know:
+
+- A rebuild does not write the same bytes twice, so `pnpm models` always shows the `.glb` as changed in git.
+  Commit a model when its script changed, and `git checkout` the rest.
+- `join()` puts the new object's origin where its first piece was. A template made with `part()` is placed
+  by its origin, so build its first piece round (0, 0, 0).
+
 ## Rules of the look
 
 - **Chunky toys.** Bold silhouettes, fat bevels, nothing thinner than about 0.12 m, nothing realistic.
