@@ -303,6 +303,9 @@ export class Game {
         if ((this.roundKills.get(seat) ?? 0) === 0) this.stat(seat, 'accident', 1);
       }
     }
+    if (this.round.gameMode === 'paint') {
+      for (const [seat, tiles] of this.round.rules.counts) this.stat(seat, 'painter', tiles);
+    }
     this.emit({ t: 'roundWinner', seats: groups[0] ?? [] });
 
     const best = Math.max(...this.scores.values());
@@ -397,6 +400,16 @@ export class Game {
         break;
       case 'honk':
         this.stat(this.round.petById(event.pet)?.seat, 'honker', 1);
+        break;
+      // The simple games have their own things to stand out for.
+      case 'eat':
+        if (event.kind !== 'pepper') this.stat(event.seat, 'glutton', 1);
+        break;
+      case 'finish':
+        this.stat(event.seat, 'runner', event.place === 1 ? 2 : 1);
+        break;
+      case 'potato':
+        this.stat(event.holder, 'potato', 1);
         break;
     }
   }

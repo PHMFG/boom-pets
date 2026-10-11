@@ -32,10 +32,10 @@ export function rankOf(scores: ReadonlyMap<number, number>, seat: number): Rank 
 
 export type SeatStats = Record<AwardId, number>;
 
-export const emptyStats = (): SeatStats => ({ selfDestruct: 0, accident: 0, thrower: 0, unlucky: 0, meteor: 0, chain: 0, faller: 0, honker: 0 });
+export const emptyStats = (): SeatStats => ({ selfDestruct: 0, accident: 0, thrower: 0, unlucky: 0, meteor: 0, chain: 0, faller: 0, honker: 0, glutton: 0, painter: 0, runner: 0, potato: 0 });
 
 /** When nobody stands out, awards are handed out in this order: the ones that read fine with a zero come first. */
-const FALLBACK_ORDER: readonly AwardId[] = ['accident', 'unlucky', 'faller', 'honker', 'thrower', 'meteor', 'chain', 'selfDestruct'];
+const FALLBACK_ORDER: readonly AwardId[] = ['accident', 'unlucky', 'faller', 'honker', 'thrower', 'glutton', 'painter', 'runner', 'potato', 'meteor', 'chain', 'selfDestruct'];
 
 /** One award per seat, never the same award twice: each goes to whoever stands out most for it. */
 export function assignAwards(stats: ReadonlyMap<number, SeatStats>): Map<number, AwardId> {

@@ -3,7 +3,7 @@ import type { PetClip, PetId } from './pets';
 
 export const strings = {
   brand: 'BOOM PETS',
-  mode: 'Bate-Bate',
+  mode: 'Festa de Minijogos',
 
   pets: {
     beaver: 'Castor', bee: 'Abelha', bunny: 'Coelho', cat: 'Gato', caterpillar: 'Lagarta', chick: 'Pintinho',
@@ -144,6 +144,7 @@ export const strings = {
   awards: {
     selfDestruct: 'Rei da Autodestruição', accident: 'Sobreviveu Sem Querer', thrower: 'Arremessador de Amigos', unlucky: 'Pé-Frio',
     meteor: 'Terror dos Meteoros', chain: 'Maior Reação em Cadeia', faller: 'Caidor Profissional', honker: 'Buzina Sem Fim',
+    glutton: 'Barriga Sem Fundo', painter: 'Picasso do Chão', runner: 'Pé na Tábua', potato: 'Ímã de Batata',
   },
 
   studio: {
@@ -177,12 +178,7 @@ export const strings = {
     how: 'Como jogar',
     pets: 'Bichos',
     keys: '← → para escolher · ENTER para confirmar',
-    howGoal: 'Derrube todo mundo da plataforma. Quem somar mais pontos ganha.',
-    howStick: 'O polegar esquerdo mexe o bicho',
-    howA: 'Segure para carregar e solte para disparar. Um toque só empurra. Segurou demais? Bum!',
-    howB: 'Chegue perto e agarre bichos e barris. De novo para arremessar',
-    howPower: 'Pegou um Cubo Misterioso? O poder espera no botão que aparece',
-    howGhost: 'Caiu? Você vira fantasma e joga meteoros nos outros',
+    howGoal: 'Cada rodada sorteia um jogo. Quem somar mais pontos é o campeão!',
     back: 'ESC para voltar',
   },
 

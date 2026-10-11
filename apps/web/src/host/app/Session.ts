@@ -5,7 +5,7 @@ import { MAX_SEATS, type PadButton, type PhoneMode, type PhoneStatus, type Power
 import { motion } from '../../shared/motion';
 import { PET_IDS, type PetId } from '../../shared/pets';
 import { AWARD_ICON, CAUSE_ICON, EMOTES, POWER_ICON, TIER_COLOR } from '../../shared/powers';
-import { FLAVORS, GAME_A, GAME_ICON, GAME_LINE } from '../../shared/games';
+import { CALL_ICON, FLAVORS, GAME_A, GAME_ICON, GAME_LINE } from '../../shared/games';
 import { strings } from '../../shared/strings.pt-BR';
 import { colors, seats } from '../../shared/tokens';
 import { AudioEngine } from '../audio/AudioEngine';
@@ -439,7 +439,7 @@ export class Session {
       case 'potato':
         // The bomb changed hands: the new holder feels it, and the screen names them.
         this.socket?.send(event.holder, { t: 'haptic', pattern: 'warn' });
-        hud.set({ call: { icon: '💣', name: this.who(event.holder).name, color: seats[event.holder % seats.length]!.color } });
+        hud.set({ call: { icon: CALL_ICON.bomb, name: this.who(event.holder).name, color: seats[event.holder % seats.length]!.color, seat: event.holder } });
         this.syncPhones();
         break;
       case 'potatoBoom':
@@ -449,7 +449,7 @@ export class Session {
       case 'watch':
         // The cat turned, one way or the other: every pad says so at once.
         if (event.phase === 'watch') this.socket?.send('all', { t: 'haptic', pattern: 'tap' });
-        hud.set({ call: event.phase === 'sing' ? { icon: '🎵', name: strings.alerts.fritaGo, color: colors.go } : { icon: '👀', name: strings.alerts.fritaStop, color: colors.danger } });
+        hud.set({ call: event.phase === 'sing' ? { icon: CALL_ICON.sing, name: strings.alerts.fritaGo, color: colors.go } : { icon: CALL_ICON.watch, name: strings.alerts.fritaStop, color: colors.danger } });
         this.syncPhones();
         break;
       case 'caught':

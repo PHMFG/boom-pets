@@ -1,7 +1,7 @@
 // Every saved match read back together, to judge the balance of the game. Rules change from build to
 // build, so the balance section looks at one build at a time (the newest by default) and a table sets
 // the builds side by side. Bots are left out of everything that is about how people play.
-import { readLog, type CauseName, type PlayerStats, type ReadLog } from './log.ts';
+import { readLog, tallied, type CauseName, type PlayerStats, type ReadLog } from './log.ts';
 import { seconds, share, table, total } from './match.ts';
 
 export type Report = {
@@ -49,6 +49,15 @@ export const LIMITS = {
   gameSeconds: { low: 10, high: 62 },
   /** Share of a game's rounds one person may win before that game has a trick. */
   gameWinShare: 0.75,
+  /**
+   * Batatinha Frita: the share of looks that catch a person, judged once people have faced this many looks between them.
+   * Under the low mark the cat is no danger; over the high one nobody gets anywhere.
+   */
+  fritaCaught: { low: 0.03, high: 0.5 },
+  fritaChances: 60,
+  /** Batata Quente: times a bomb changes hands before it goes off, judged over at least this many bombs. Under it, whoever gets the bomb keeps it. */
+  potatoPasses: 1.5,
+  potatoBombs: 6,
   /** Share of rounds that may run out the clock. */
   clockShare: 0.3,
   idleShare: 0.2,
@@ -58,7 +67,7 @@ export const LIMITS = {
 
 type Person = { name: string; matches: number; wins: number; stats: PlayerStats[]; detail: ReadLog['detail'][] };
 const mean = (values: number[]): number | null => (values.length === 0 ? null : total(values) / values.length);
-const sum = (players: PlayerStats[], pick: (player: PlayerStats) => number): number => total(players.map(pick));
+const sum = <Item>(items: readonly Item[], pick: (item: Item) => number): number => total(items.map(pick));
 /** The powers a SUPER roll can give. This package does not read the game's own list, so a new SUPER is added here too. */
 const SUPER_POWERS = ['kaiju', 'meteorShower'];
 const kos = (by: Partial<Record<CauseName, number>>, cause?: CauseName): number => (cause ? (by[cause] ?? 0) : total(Object.values(by)));
@@ -268,11 +277,14 @@ export function analyse(raws: unknown[], options: { build?: string; folder?: str
       out.push('', '### The games', '');
       out.push(
         table(
-          ['Game', 'Rounds', 'Average length', 'Ended by the clock', 'Different winners'],
+          ['Game', 'Rounds', 'Average length', 'Ended by the clock', 'Different winners', 'In a round, on average'],
           modes.map(mode => {
             const played = m.everyRound.filter(round => round.mode === mode);
             const winners = new Set(played.flatMap(round => round.winners));
-            return [mode, played.length, seconds(mean(played.map(round => round.seconds)) ?? 0), share(played.filter(round => round.endedBy === 'time').length, played.length), winners.size];
+            // The game's own events, everyone's together: bombs passed, pets caught moving, falls in the race.
+            const events = [...new Set(played.flatMap(round => Object.keys(round.tally)))];
+            const inRound = events.map(what => `${what} ${(sum(played, round => tallied(round, what)) / played.length).toFixed(1)}`).join(', ');
+            return [mode, played.length, seconds(mean(played.map(round => round.seconds)) ?? 0), share(played.filter(round => round.endedBy === 'time').length, played.length), winners.size, inRound];
           }),
         ),
       );
@@ -288,6 +300,18 @@ export function analyse(raws: unknown[], options: { build?: string; folder?: str
         const most = Math.max(0, ...wins.values());
         if (played.length >= 5 && most / played.length > LIMITS.gameWinShare) warnings.push(`One player won ${most} of the ${played.length} rounds of "${mode}": the game may have a trick only they know.`);
       }
+      // Batatinha Frita, among people: how often a look of the cat's catches a person.
+      const frita = m.everyRound.filter(round => round.mode === 'frita');
+      const chances = sum(frita, round => tallied(round, 'looks') * round.people.length);
+      if (chances >= LIMITS.fritaChances) {
+        const caught = sum(frita, round => tallied(round, 'caught', round.people)) / chances;
+        if (caught > LIMITS.fritaCaught.high) warnings.push(`In "frita" a look of the cat's catches a person ${share(caught, 1)} of the time (over ${share(LIMITS.fritaCaught.high, 1)}): nobody gets anywhere. The grace may be too short for a thumb, or the turn too sudden.`);
+        if (caught < LIMITS.fritaCaught.low) warnings.push(`In "frita" a look of the cat's catches a person ${share(caught, 1)} of the time (under ${share(LIMITS.fritaCaught.low, 1)}): the cat is no danger, and the game is a walk.`);
+      }
+      // Batata Quente: a bomb that hardly changes hands means whoever is handed it cannot catch anyone.
+      const bombs = sum(m.everyRound, round => (round.mode === 'potato' ? tallied(round, 'bombs') : 0));
+      const passes = sum(m.everyRound, round => (round.mode === 'potato' ? tallied(round, 'passes') : 0));
+      if (bombs >= LIMITS.potatoBombs && passes / bombs < LIMITS.potatoPasses) warnings.push(`In "potato" a bomb is passed ${(passes / bombs).toFixed(1)} times before it goes off (under ${LIMITS.potatoPasses}): whoever gets it keeps it.`);
     }
 
     // Powers and luck.

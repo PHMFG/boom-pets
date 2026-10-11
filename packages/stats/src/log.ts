@@ -53,7 +53,19 @@ export type RoundStats = {
   knockouts: number;
   /** The game's own number for each seat when the round ended (tiles painted, food eaten), in games that have one. */
   metric: Record<number, number>;
+  /**
+   * What the game's own events came to in the round, by seat: bombs passed on, times caught moving, falls in
+   * the race, bites, buckets kicked. Under `all` where it is nobody's (how often the cat looked, how many
+   * bombs went off, waves of lava, colours called). Counted from build 0.6.0 on.
+   */
+  tally: Record<string, Record<string, number>>;
 };
+
+/** How often something in a round's tally happened: for every seat together, or for the seats given. */
+export function tallied(round: RoundStats, what: string, seats?: readonly number[]): number {
+  const counts = round.tally[what] ?? {};
+  return Object.entries(counts).reduce((sum, [who, times]) => sum + (!seats || seats.includes(Number(who)) ? times : 0), 0);
+}
 
 export type MatchLog = {
   format: number;
@@ -137,7 +149,7 @@ export function readLog(raw: unknown): ReadLog {
     seed: log.seed ?? 0,
     rounds: log.rounds ?? 0,
     players,
-    roundStats: (log.roundStats ?? []).map(round => ({ ...round, mode: round.mode ?? 'brawl', metric: round.metric ?? {} })),
+    roundStats: (log.roundStats ?? []).map(round => ({ ...round, mode: round.mode ?? 'brawl', metric: round.metric ?? {}, tally: round.tally ?? {} })),
     eliminations,
     eliminationsByCause: log.eliminationsByCause ?? {},
     rolls: log.rolls ?? [],

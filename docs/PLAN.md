@@ -387,3 +387,16 @@ Rules in this plan that no longer hold: a power no longer starts by itself (good
 - **More feedback.** The seat ring swells with the charge and turns to the danger colour at the warning; pets sweat at an edge, wave when they join and cheer when ready; lit barrels spit sparks; thrown things trail smoke; fireworks over the podium; drums in the music; the phone's A button grows a face that panics as the charge builds.
 - **Smoothness.** A pet glides out of a hit-stop instead of snapping. Measured at 120 Hz in a bot match: median frame 8.3 ms, worst 9.4 ms over 480 frames.
 - **Two game screens no longer fight.** The first keeps the room; a second waits. `?solo` runs without the relay for testing beside a real session.
+
+### 0.6.0: a party of games (2026-10-10)
+
+The plan above is for one game, the brawl. Since 0.6.0 a match is a run of different games, and the brawl is one of eight. What that changed against this plan:
+
+- **A round is whatever game the roulette drew.** `Game` deals from a shuffled bag and builds either the brawl's `Round` or a `Field` (`minis/field.ts`) with one game's rules. Both answer the same few questions (`RoundCore`): who is alive, who is out, the ranking, a number to show per player.
+- **Two new phases,** `intro` before every round (the roulette, then the game's card) and `finale` before the table (third, second, then the winner).
+- **One points table** for every game: 6, 4, 3, 2, 1 by place, and 1 for a knockout in the brawl. A knockout used to be worth more than winning the round.
+- **Each game has its own map** (`stages/maps/`), built from plain shapes, with a pale floor. The stage keeps the pets, the camera and the effects, and swaps the map.
+- **The phone shows the game being played:** only the buttons it uses, a word under A, a card between games, a word across the pad at the moments that matter. Protocol 4.
+- **Logs and the report** say which game each round was, and judge each game by its own length and its spread of winners.
+
+The rules of each game are in `docs/GAMEPLAY.md`, the look of each map in `docs/DESIGN.md`, and how to add another in `AGENTS.md`.

@@ -3,6 +3,7 @@
 // moments and goes muffled in slow motion. If a track's file is missing, a synthesised tune stands in.
 import type { Game, GameEvent } from '@boom/game';
 import { tuning } from '@boom/game';
+import { motion } from '../../shared/motion';
 import { strings } from '../../shared/strings.pt-BR';
 
 const SAMPLES = ['hit1', 'hit2', 'hit3', 'bump1', 'bump2', 'land1', 'land2', 'wood1', 'wood2', 'crack1', 'crack2', 'clang', 'lever', 'glass', 'ding', 'tick'] as const;
@@ -224,7 +225,8 @@ export class AudioEngine {
     if (game.phase === 'play' && round.gameMode === 'potato' && round.rules.holder !== null && context.currentTime >= this.nextTick) {
       const heat = 1 - Math.max(0, round.rules.fuse / round.rules.fuseTotal);
       this.tone(900 + heat * 700, 0.04, 'square', 0.06 + heat * 0.06);
-      this.nextTick = context.currentTime + 1 / (1 + heat * 1.7);
+      // In step with the bomb's beat on screen: never faster than the alarm.
+      this.nextTick = context.currentTime + 1 / (1 + heat * (1000 / motion.alarm.ms - 1));
     }
   }
 

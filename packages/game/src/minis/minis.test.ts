@@ -679,4 +679,14 @@ describe('a match of games', () => {
     expect(scores[0]).toBe(12);
     expect(result.seen.some(event => event.t === 'eliminated')).toBe(false);
   });
+
+  it('hands out awards for what the simple games are about', () => {
+    // A match with no brawl in it: every award has to come from eating, painting, racing or the bomb.
+    const result = playBots(7, ['grow', 'paint', 'race', 'potato']);
+    const awards = result.standings.map(entry => entry.award);
+    expect(awards.every(award => award !== null)).toBe(true);
+    expect(new Set(awards).size).toBe(awards.length);
+    // One seat can top two of them and still takes only one, so not all four need to go out.
+    expect(awards.filter(award => ['glutton', 'painter', 'runner', 'potato'].includes(award!)).length).toBeGreaterThanOrEqual(3);
+  });
 });

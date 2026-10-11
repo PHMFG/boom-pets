@@ -169,7 +169,7 @@
   display: flex;
   flex-direction: column;
   gap: calc(16 * var(--u));
-  width: calc(1120 * var(--u));
+  width: calc(1500 * var(--u));
   padding: calc(26 * var(--u)) calc(44 * var(--u)) calc(24 * var(--u));
   rotate: -1deg;
   cursor: pointer;
@@ -192,17 +192,61 @@
   text-align: center;
 }
 
-.how-row {
-  display: flex;
-  align-items: center;
-  gap: calc(24 * var(--u));
+/* The games, four to a column. */
+.how-games {
+  display: grid;
+  grid-template-rows: repeat(4, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: calc(14 * var(--u)) calc(48 * var(--u));
   margin: 0;
-  font: 400 calc(34 * var(--u)) / 1.15 var(--font-display);
-  animation: pop-in var(--pop-in) both calc(var(--i) * var(--stagger) * 2);
+  padding: 0;
+  list-style: none;
 }
 
-.how-row .key-glyph {
+.how-game {
+  display: flex;
+  align-items: center;
+  gap: calc(18 * var(--u));
+  animation: pop-in var(--pop-in) both calc(var(--i) * var(--stagger));
+}
+
+.how-icon {
   flex: none;
+  width: calc(76 * var(--u));
+  font-size: calc(62 * var(--u));
+  line-height: 1.1;
+  text-align: center;
+}
+
+.how-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(4 * var(--u));
+  min-width: 0;
+}
+
+.how-text strong {
+  font: 400 calc(36 * var(--u)) / 1 var(--font-display);
+  white-space: nowrap;
+}
+
+.how-text span {
+  font: 800 calc(24 * var(--u)) / 1.1 var(--font-text);
+}
+
+.how-keys {
+  display: flex;
+  flex: none;
+  gap: calc(8 * var(--u));
+}
+
+.how-keys .key-glyph {
+  width: calc(50 * var(--u));
+  border-width: calc(4 * var(--u));
+  box-shadow: 0 calc(4 * var(--u)) 0 var(--ink);
+  font-size: calc(28 * var(--u));
   /* The buttons press themselves one after another, like a row of thumbs. */
   animation-delay: calc(var(--i) * var(--nudge));
 }
@@ -379,6 +423,22 @@
 
 .call-name {
   font: 400 calc(92 * var(--u)) / 1 var(--font-display);
+}
+
+.call-shape {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: calc(76 * var(--u));
+  aspect-ratio: 1;
+  border: calc(5 * var(--u)) solid var(--ink);
+  border-radius: 50%;
+  background: var(--white);
+}
+
+.call-shape svg {
+  width: 62%;
+  height: 62%;
 }
 
 /* ── Loading, between games, and the winner ─────────────────────────────── */

@@ -1,6 +1,6 @@
 // One match, written out so a person can read it: who won and how, how each player used the buttons,
 // who knocked out whom, how each round went, and what the cubes gave. The relay saves this beside the log.
-import { CAUSES, readLog, type CauseName, type PlayerStats, type ReadLog } from './log.ts';
+import { CAUSES, readLog, tallied, type CauseName, type PlayerStats, type ReadLog } from './log.ts';
 
 export const share = (part: number, whole: number): string => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : '—');
 export const seconds = (value: number): string => `${value.toFixed(1)} s`;
@@ -111,7 +111,7 @@ export function summariseMatch(raw: unknown): string {
     out.push('', '## Rounds', '');
     out.push(
       table(
-        ['Round', 'Game', 'Length', 'First knockout', 'Ended by', 'Won by', 'Knockouts'],
+        ['Round', 'Game', 'Length', 'First knockout', 'Ended by', 'Won by', 'Knockouts', 'In the game'],
         log.roundStats.map(round => [
           round.round,
           round.mode,
@@ -120,6 +120,8 @@ export function summariseMatch(raw: unknown): string {
           round.endedBy === 'time' ? 'the clock' : 'the last knockout',
           round.winners.map(name).join(', ') || '—',
           round.knockouts,
+          // The game's own events: bombs passed, pets caught moving, falls in the race.
+          Object.keys(round.tally).map(what => `${what} ${tallied(round, what)}`).join(', '),
         ]),
       ),
     );

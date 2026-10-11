@@ -207,7 +207,11 @@ export type AwardId =
   | 'meteor'
   | 'chain'
   | 'faller'
-  | 'honker';
+  | 'honker'
+  | 'glutton'
+  | 'painter'
+  | 'runner'
+  | 'potato';
 
 export type Standing = { seat: number; score: number; place: number; award: AwardId | null };
 

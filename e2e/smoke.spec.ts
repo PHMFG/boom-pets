@@ -193,12 +193,15 @@ test('four phones join, play a match with a SUPER gacha, and see their results',
   await expect(page.locator('.menu-item.is-selected')).toHaveText(/Jogar/, { timeout: 60_000 });
   // ── The soundtrack is served: every track the game asks for is there ──
   for (const track of ['title', 'lobby', 'battle-a', 'battle-b', 'rio-rumble']) expect((await page.request.head(`/music/${track}.mp3`)).ok(), `${track}.mp3 is served`).toBe(true);
-  // ── The main menu: arrows choose, Enter confirms, and Como jogar explains every button ──
+  // ── The main menu: arrows choose, Enter confirms, and Como jogar lists every game with its one line and its buttons ──
   await page.keyboard.press('ArrowRight');
   await expect(page.locator('.menu-item.is-selected')).toHaveText(/Como jogar/);
   await page.keyboard.press('Enter');
-  await expect(page.locator('.how')).toContainText('Segure para carregar e solte para disparar');
-  await expect(page.locator('.how .key-glyph')).toHaveCount(5);
+  await expect(page.locator('.how .how-game')).toHaveCount(Object.keys(strings.games).length);
+  for (const game of Object.values(strings.games)) await expect(page.locator('.how')).toContainText(game.line);
+  // The brawl uses all four controls; a joystick-only game shows the joystick alone.
+  await expect(page.locator('.how .how-game').first().locator('.key-glyph')).toHaveCount(4);
+  await expect(page.locator('.how .how-game').last().locator('.key-glyph')).toHaveCount(1);
   await page.keyboard.press('Escape');
   await expect(page.locator('.how')).toBeHidden();
   await expect(page.locator('.menu-item')).toHaveCount(3);

@@ -3,6 +3,7 @@
 import type { AnyRound, GameEvent } from '@boom/game';
 import { tuning } from '@boom/game';
 import { BoxGeometry, Color, ConeGeometry, CylinderGeometry, Group, IcosahedronGeometry, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, TorusGeometry, type MeshToonMaterial } from 'three';
+import { motion } from '../../../shared/motion';
 import { colors, maps, seats } from '../../../shared/tokens';
 import { DANGER, HOT, random, type MapView, type SkyId, type StageKit } from '../kit';
 import { disposeToys, toy } from './toys';
@@ -13,8 +14,8 @@ const palette = maps.potato;
 const COOL = new Color(palette.bomb);
 const FLAME = new Color(palette.flame).multiplyScalar(1.5);
 const FLAME_HOT = new Color(palette.flameHot).multiplyScalar(1.7);
-/** Beats a second: slow on a fresh fuse, quick on a short one, and never as many as three. */
-const BEAT = { slow: 1, fast: 2.7 };
+/** Beats a second: slow on a fresh fuse, and on a short one as quick as anything in the game may pulse. */
+const BEAT = { slow: 1, fast: 1000 / motion.alarm.ms };
 /** The last seconds of a fuse, when the reach of the blast is drawn round the holder. */
 const WARN_SECONDS = 1.4;
 /** How far over the holder's middle the bomb rides: just clear of its head. Its name moves up to make room. */
@@ -80,7 +81,7 @@ class Bomb {
     this.fuse.scale.y = length;
     this.spark.position.set(-Math.sin(FUSE.lean) * FUSE.length * length, FUSE.foot + Math.cos(FUSE.lean) * FUSE.length * length, 0);
     this.spark.rotation.set(time * 9, time * 7, 0);
-    this.spark.scale.setScalar(1 + Math.sin(time * 23) * 0.25);
+    this.spark.scale.setScalar(1 + Math.sin(time * 14) * 0.25);
     const scale = this.group.scale.x;
     this.tip.x = position.x + this.spark.position.x * scale;
     this.tip.y = position.y + this.spark.position.y * scale;

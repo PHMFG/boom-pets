@@ -4,30 +4,37 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.6.0] - 2026-10-10
+
+Boom Pets becomes a party of games. Every round is a different game, drawn by a roulette, each in a world of its own, and most of them need only the joystick: the brawl asked a lot of thumbs that had never held this pad before.
+
 ### Added
 
 - **Every round is a different game.** A roulette draws the game for each round from a bag, so every game comes up once before any comes round again. The brawl (Bate-Bate) is one of them. There is no brawl-only match any more.
+- **A screen between games.** Before every round a roulette of game pictures spins, stops, and the game that came up is shown on a card: its picture, its name, the one line that says what to do, and what each control does. The announcer names it. On the last round the card wears a "VALE DOBRADO!" tag.
 - **Pinta o Chão**, the first of the simple games: the tile under your pet turns your colour, others paint over it, buckets of paint drop and splash a whole patch for whoever kicks them over, and after 40 seconds the most tiles wins. The count is hidden for the last 8. Joystick only; nobody is knocked out. It is played on a sheet of paper taped to a desk, among giant pencils.
-- **Corrida Maluca**, the parkour race. A track three tiles wide winds in an S over the clouds: gaps to jump, tiles that shake and blink away, beams one tile wide, bars that sweep across. A is a jump. A fall puts you back at the last flag you passed. First over the line wins, and eight seconds later the round is called, with everyone else ranked by how far they got. The camera keeps the track ahead of every pet in view.
-- **Come e Cresce.** Food rains on a picnic blanket: apples, doughnuts, slices of watermelon. Eating makes a pet bigger and a little slower, and the biggest after 40 seconds wins. A is a lunging bite: on a pet two sizes smaller it shakes a quarter of its food out as crumbs. A purple pepper shrinks whoever eats it, and every few seconds a feast lands beside the smallest pet. Nobody is knocked out.
 - **O Chão é Lava.** Rocks rise out of the floor, one fewer than there are pets, and a rock holds one. An alarm sounds while the lava climbs, then it covers everything else: whoever is not on a rock is out. The rocks sink, fewer rise somewhere else, and each calm is shorter. A is a shove, for when two pets want the same rock. The phone buzzes and says "Suba numa pedra!" at the alarm.
+- **Come e Cresce.** Food rains on a picnic blanket: apples, doughnuts, slices of watermelon. Eating makes a pet bigger and a little slower, and the biggest after 40 seconds wins. A is a lunging bite: on a pet two sizes smaller it shakes a quarter of its food out as crumbs. A purple pepper shrinks whoever eats it, and every few seconds a feast lands beside the smallest pet. Nobody is knocked out.
+- **Corrida Maluca**, the parkour race. A track three tiles wide winds in an S over the clouds: gaps to jump, tiles that shake and blink away, beams one tile wide, bars that sweep across. A is a jump. A fall puts you back at the last flag you passed. First over the line wins, and eight seconds later the round is called, with everyone else ranked by how far they got. The camera keeps the track ahead of every pet in view.
 - **Cor Certa.** A dance floor of sixteen patches in four colours, each marked with a fruit. A colour is called (the announcer says it, a card on the TV and every phone show it with its fruit), and after a count every other patch drops away. Then a new floor is dealt with fewer safe patches and a shorter count. Joystick only; last pet standing.
 - **Batata Quente.** In a frying pan on a stove, one pet carries a lit bomb on its head and bumping into anyone hands it over, but not straight back. It swells, reddens and ticks faster, and when the fuse runs out its holder is out and everyone close is thrown back. Each fuse is shorter than the last. Whoever holds it is a little faster, feels a buzz, and reads "PASSE A BATATA!" on the phone; the TV names them on a card. Joystick only; nobody falls off.
-- **Batatinha Frita 1, 2, 3.** A lane across a playground with a giant cat behind it. While it sings, tiptoe toward the line: the strips beside the lane are green and the phone says "CORRA!". It counts one, two, three, turns round, everything goes red and the phone says "PARADO!": anyone still pushing the joystick a third of a second later goes back to the start. The song is never the same length twice. Joystick only; nobody is knocked out.
-- **The phone is the game being played.** It shows only the buttons that game uses, with a word under A for what it does there. Between games the next game's card sits over the pad, and as a simple game starts its one line stays on the pad for a few seconds. The winner's phone turns gold.
-- Each player's card on the TV shows the game's own number where it has one (tiles painted), and "?" while it is kept secret.
-- The match log says which game each round was and each player's number in it. `pnpm report` has a row for each game (how long it lasts, how it ends, how many different winners) and warns when one drags, is over too soon, or is always won by the same person. `pnpm balance` prints the same for bots, and `--mode=` plays one game only. `?modes=paint,brawl` in the address bar plays those games in that order.
-
-- **A screen between games.** Before every round a roulette of game pictures spins, stops, and the game that came up is shown on a card: its picture, its name, the one line that says what to do, and what each control does. The announcer names it. On the last round the card wears a "VALE DOBRADO!" tag.
+- **Batatinha Frita 1, 2, 3.** A lane across a playground with a giant cat behind it. While it sings, tiptoe toward the line: the strips beside the lane are green and the phone says "CORRA!". It counts one, two, three, turns round, everything goes red and the phone says "PARADO!": anyone still pushing the joystick half a second later goes back to the start. The song is never the same length twice. Joystick only; nobody is knocked out.
 - **A winner's moment.** After the last round the colour drains, the drums roll under "E o campeão é…", third place and then second step onto a podium whose steps stay plain until then, and then the winner drops in under a spotlight with a crown, bigger than the rest, to confetti from both sides, fireworks, the game's theme and "Temos um campeão!". The winner's name fills a banner in their colour and their phone buzzes. Everyone who missed the podium watches from the sides. Only then does the table appear.
 - **A loading screen.** While the pets load at start-up there is a bar that fills, the six player shapes hopping in turn and a tip that changes, instead of the word "Carregando…".
+- **The phone is the game being played.** It shows only the buttons that game uses, with a word under A for what it does there. Between games the next game's card sits over the pad, and as a simple game starts its one line stays on the pad for a few seconds. The winner's phone turns gold.
+- Each player's card on the TV shows the game's own number where it has one (tiles painted), and "?" while it is kept secret.
+- **Awards for the new games.** Barriga Sem Fundo for whoever ate the most, Picasso do Chão for the most tiles painted, Pé na Tábua for crossing finish lines and Ímã de Batata for whoever the bomb kept finding, so a match with no brawl in it still hands everyone a title.
+- The match log says which game each round was and each player's number in it. `pnpm report` has a row for each game (how long it lasts, how it ends, how many different winners) and warns when one drags, is over too soon, or is always won by the same person. `pnpm balance` prints the same for bots, and `--mode=` plays one game only. `?modes=paint,brawl` in the address bar plays those games in that order. Each round also carries a tally of its game's own events (bombs passed on, times caught by the cat, falls in the race, bites, buckets kicked), and the report warns when the cat catches a person on more than half of its looks or almost never, and when a bomb hardly changes hands.
 
 ### Changed
 
-- Phones that still have an older copy of the pad reload themselves once: the pad and the game screen now talk about which game is being played.
-- A press made while waiting for GO is forgotten. Before, every button pressed during the countdown fired the moment the round began.
-
 - **One points table for every game.** Where a player finishes pays 6, 4, 3, 2 and 1 (it was 5, 3, 1), and in the brawl a knockout, a ghost's swap back in and knocking out the leader add 1 each (they were 3, 2 and 2, with 1 more for a throw). Rounds are about to become different games, and no game should weigh more than another.
+- **"Como jogar" lists the games.** It shows all eight with their picture, their one line and the buttons each uses, instead of explaining the brawl's buttons one by one; each game's card explains it again right before it is played. The tag under the logo reads "Festa de Minijogos".
+- A press made while waiting for GO is forgotten. Before, every button pressed during the countdown fired the moment the round began.
+- Phones that still have an older copy of the pad reload themselves once: the pad and the game screen now talk about which game is being played.
+- A round in which standing still is the game (the cat is looking) no longer counts as idle time in the match log.
 
 ## [0.5.0] - 2026-10-10
 

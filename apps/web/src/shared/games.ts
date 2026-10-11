@@ -42,6 +42,9 @@ export const FLAVORS = [
   { icon: '🌿', color: maps.color.mint, line: 'flavor3' },
 ] as const;
 
+/** Pictures for the card that says what is happening right now: who has the bomb, and what the cat is doing. */
+export const CALL_ICON = { bomb: '💣', sing: '🎵', watch: '👀' } as const;
+
 /** The announcer's line for each game's name. */
 export const GAME_LINE: Record<GameMode, keyof typeof strings.announcer> = {
   brawl: 'gameBrawl', lava: 'gameLava', grow: 'gameGrow', race: 'gameRace', color: 'gameColor', potato: 'gamePotato', paint: 'gamePaint', frita: 'gameFrita',

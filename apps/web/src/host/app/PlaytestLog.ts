@@ -17,7 +17,7 @@ type Seat = {
   /** Round time at which a power began waiting on its button. */
   readyAt: number | null;
 };
-type RoundCount = { firstKnockoutAt: number | null; knockouts: number; winners: number[] };
+type RoundCount = { firstKnockoutAt: number | null; knockouts: number; winners: number[]; tally: RoundStats['tally'] };
 
 const round2 = (value: number) => Number(value.toFixed(2));
 
@@ -34,7 +34,7 @@ export class PlaytestLog {
   private readonly lastPower = new Map<number, string>();
   private roundStats: RoundStats[] = [];
   private winners: number[][] = [];
-  private current: RoundCount = { firstKnockoutAt: null, knockouts: 0, winners: [] };
+  private current: RoundCount = { firstKnockoutAt: null, knockouts: 0, winners: [], tally: {} };
   /** Follows the phase events, so the knockout that ends a round still counts as part of it. */
   private playing = false;
 
@@ -75,7 +75,7 @@ export class PlaytestLog {
     if (event.t === 'phase') {
       if (event.phase === 'play') {
         this.playing = true;
-        this.current = { firstKnockoutAt: null, knockouts: 0, winners: [] };
+        this.current = { firstKnockoutAt: null, knockouts: 0, winners: [], tally: {} };
         for (const seat of this.seats.values()) {
           seat.aliveSince = 0;
           seat.readyAt = null;
@@ -225,6 +225,37 @@ export class PlaytestLog {
         if (seat) seat.stats.points[event.reason] += event.points;
         break;
       }
+      // The simple games' own events, tallied by round: the report judges each game by them.
+      case 'potato':
+        if (event.from !== null) this.tally('passes', event.from);
+        break;
+      case 'potatoBoom':
+        this.tally('bombs', null);
+        break;
+      case 'watch':
+        if (event.phase === 'watch') this.tally('looks', null);
+        break;
+      case 'caught':
+        this.tally('caught', event.seat);
+        break;
+      case 'respawn':
+        if (game.gameMode === 'race') this.tally('falls', event.seat);
+        break;
+      case 'swept':
+        this.tally('swept', game.round.petById(event.pet)?.seat ?? null);
+        break;
+      case 'bite':
+        this.tally('bites', event.seat);
+        break;
+      case 'splash':
+        this.tally('buckets', event.seat);
+        break;
+      case 'lava':
+        if (event.phase === 'flood') this.tally('waves', null);
+        break;
+      case 'colorCall':
+        this.tally('calls', null);
+        break;
       case 'roundWinner':
         this.current.winners = event.seats;
         this.winners.push(event.seats);
@@ -283,6 +314,13 @@ export class PlaytestLog {
     void fetch('/api/playtest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(this.build(game)) }).catch(() => undefined);
   }
 
+  /** One more of something in this round, for a seat or (null) for nobody in particular. */
+  private tally(what: string, seat: number | null): void {
+    const counts = (this.current.tally[what] ??= {});
+    const who = seat === null ? 'all' : String(seat);
+    counts[who] = (counts[who] ?? 0) + 1;
+  }
+
   private power(id: string): MatchLog['powers'][string] {
     return (this.powers[id] ??= { rolled: 0, used: 0, knockouts: 0 });
   }
@@ -302,6 +340,7 @@ export class PlaytestLog {
       round: game.roundIndex,
       mode: game.gameMode,
       metric,
+      tally: this.current.tally,
       seconds: round2(length),
       firstKnockoutAt: this.current.firstKnockoutAt,
       endedBy: length >= game.round.cap - tuning.STEP ? 'time' : 'knockout',

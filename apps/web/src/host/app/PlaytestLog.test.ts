@@ -1,5 +1,5 @@
 import { Game, initPhysics, type GameMode, type SampledInput } from '@boom/game';
-import { LOG_FORMAT, readLog, summariseMatch } from '@boom/stats';
+import { LOG_FORMAT, readLog, summariseMatch, tallied } from '@boom/stats';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { PlaytestLog } from './PlaytestLog';
 
@@ -80,6 +80,25 @@ describe('the match log', () => {
     const summary = summariseMatch(log);
     expect(summary).toContain('| paint');
     expect(readLog(JSON.parse(JSON.stringify(log))).roundStats[0]).toMatchObject({ mode: 'paint' });
+  });
+
+  it('tallies what happens inside each simple game, by seat', () => {
+    const log = playAndLog(9, 3, ['potato', 'frita', 'race']);
+    const [potato, frita, race] = log.roundStats;
+    // Four bots, so three bombs; and each one was handed on at least once.
+    expect(tallied(potato!, 'bombs')).toBe(3);
+    expect(tallied(potato!, 'passes')).toBeGreaterThanOrEqual(3);
+    expect(Object.keys(potato!.tally.passes!).every(seat => seat !== 'all')).toBe(true);
+    // The cat looked several times, and whoever it caught is a seat in the match.
+    expect(tallied(frita!, 'looks')).toBeGreaterThanOrEqual(2);
+    expect(tallied(frita!, 'caught')).toBe(tallied(frita!, 'caught', [0, 1, 2, 3]));
+    // Falls in the race belong to the race: the cat sending a pet back is not one.
+    expect(frita!.tally.falls).toBeUndefined();
+    expect(race!.tally.caught).toBeUndefined();
+    const summary = summariseMatch(log);
+    expect(summary).toContain('In the game');
+    expect(summary).toMatch(/bombs 3/);
+    expect(readLog(JSON.parse(JSON.stringify(log))).roundStats[0]!.tally).toEqual(potato!.tally);
   });
 
   it('is the same log every time for the same seed', () => {

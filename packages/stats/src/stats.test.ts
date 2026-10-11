@@ -16,7 +16,7 @@ function match(change: (players: PlayerStats[], log: MatchLog) => void = () => u
   });
   const log: MatchLog = {
     format: LOG_FORMAT, version, startedAt: `2026-10-11T10:00:0${Math.floor(Math.random() * 9)}.000Z`, seconds: 150, seed: 1, rounds: 5, players,
-    roundStats: [1, 2, 3, 4, 5].map(round => ({ round, mode: 'brawl', metric: {}, seconds: 30, firstKnockoutAt: 9, endedBy: 'knockout' as const, winners: [round === 1 ? 0 : round % 4], knockouts: 4 })),
+    roundStats: [1, 2, 3, 4, 5].map(round => ({ round, mode: 'brawl', metric: {}, tally: {}, seconds: 30, firstKnockoutAt: 9, endedBy: 'knockout' as const, winners: [round === 1 ? 0 : round % 4], knockouts: 4 })),
     eliminations: [],
     eliminationsByCause: { dash: 12, throw: 4, fall: 4 },
     rolls: [{ round: 1, seat: 0, tier: 'common', power: 'rocket', rank: 'middle' }],
@@ -93,7 +93,7 @@ describe('the report', () => {
   it('gives each game its own row, and keeps a timed game from tripping the brawl\'s limits', () => {
     const mixed = (winner: (round: number) => number, length = 40) =>
       match((_, log) => {
-        log.roundStats = [1, 2, 3, 4, 5].map(round => ({ round, mode: round % 2 === 0 ? 'brawl' : 'paint', metric: (round % 2 === 0 ? {} : { 0: 30, 1: 20 }) as Record<number, number>, seconds: round % 2 === 0 ? 30 : length, firstKnockoutAt: round % 2 === 0 ? 9 : null, endedBy: round % 2 === 0 ? ('knockout' as const) : ('time' as const), winners: [winner(round)], knockouts: round % 2 === 0 ? 4 : 0 }));
+        log.roundStats = [1, 2, 3, 4, 5].map(round => ({ round, tally: {}, mode: round % 2 === 0 ? 'brawl' : 'paint', metric: (round % 2 === 0 ? {} : { 0: 30, 1: 20 }) as Record<number, number>, seconds: round % 2 === 0 ? 30 : length, firstKnockoutAt: round % 2 === 0 ? 9 : null, endedBy: round % 2 === 0 ? ('knockout' as const) : ('time' as const), winners: [winner(round)], knockouts: round % 2 === 0 ? 4 : 0 }));
       });
     const report = analyse([mixed(round => round % 4), mixed(round => (round + 1) % 4)]);
     expect(report.text).toContain('### The games');
@@ -108,6 +108,30 @@ describe('the report', () => {
     // A log from before rounds had a game reads as all brawl, with no games section.
     const old = analyse([match((_, log) => { log.format = 3; for (const round of log.roundStats) delete (round as Partial<typeof round>).mode; })]);
     expect(old.text).not.toContain('### The games');
+  });
+
+  it('counts what happens inside a game, and says so when the cat catches everyone or nobody, or a bomb never moves', () => {
+    // Four people (the default match has no bots). Each round of the cat's game has 5 looks, and each match two such rounds: 40 chances to be caught.
+    const games = (caught: number, passes: number) =>
+      match((_, log) => {
+        log.roundStats = [1, 2, 3, 4].map(round => ({
+          round, metric: {}, seconds: 25, firstKnockoutAt: null, endedBy: 'knockout' as const, winners: [round % 4], knockouts: 0,
+          mode: round % 2 === 0 ? 'frita' : 'potato',
+          tally: (round % 2 === 0 ? { looks: { all: 5 }, caught: { 0: caught, 1: caught } } : { bombs: { all: 3 }, passes: { 0: passes, 2: passes } }) as Record<string, Record<string, number>>,
+        }));
+      });
+    const fair = analyse([games(1, 6), games(1, 6)]);
+    expect(fair.text).toMatch(/\| frita\s+\| 4\s+.*looks 5\.0, caught 2\.0/);
+    expect(fair.text).toMatch(/\| potato\s+\| 4\s+.*bombs 3\.0, passes 12\.0/);
+    expect(fair.warnings.some(warning => warning.includes('"frita"') || warning.includes('"potato"'))).toBe(false);
+    // Two people caught 6 times each in the 20 chances of a round: more than half of all looks.
+    expect(analyse([games(6, 6), games(6, 6)]).warnings.some(warning => warning.includes('nobody gets anywhere'))).toBe(true);
+    expect(analyse([games(0, 6), games(0, 6)]).warnings.some(warning => warning.includes('the game is a walk'))).toBe(true);
+    expect(analyse([games(1, 1), games(1, 1)]).warnings.some(warning => warning.includes('whoever gets it keeps it'))).toBe(true);
+    // Too few looks to judge by, and a log from before games were tallied: no verdict.
+    expect(analyse([games(6, 6)]).warnings.some(warning => warning.includes('"frita"'))).toBe(false);
+    const untallied = analyse([match((_, log) => { for (const round of log.roundStats) { round.mode = 'frita'; delete (round as Partial<typeof round>).tally; } })]);
+    expect(untallied.warnings.some(warning => warning.includes('the game is a walk'))).toBe(false);
   });
 
   it('says so when a SUPER is not worth getting, and when it decides rounds by itself', () => {

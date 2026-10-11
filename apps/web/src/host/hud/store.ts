@@ -80,8 +80,11 @@ export type HudState = {
   intro: { mode: GameMode | null; final: boolean } | null;
   /** The end of a match: a drum roll until `winners` is filled in. */
   finale: { winners: { seat: number; name: string }[] } | null;
-  /** Cor Certa: the colour that was just called, shown where the tips go. */
-  call: { icon: string; name: string; color: string } | null;
+  /**
+   * What is happening right now, shown where the tips go: the colour called in Cor Certa, what the cat is
+   * doing, who has the bomb. With `seat` it names a player, and wears that seat's shape as well as its colour.
+   */
+  call: { icon: string; name: string; color: string; seat?: number } | null;
   /** How much has loaded at start-up, 0 to 1. */
   loadProgress: number;
   /** Seconds the round being played may last, for the timer's ring. */

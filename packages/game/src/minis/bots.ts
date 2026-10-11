@@ -210,7 +210,7 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
       // a careful one around "three", a bold one nearer the end, and neither the same way twice.
       if (rules.phase === 'sing') return rules.left > (careful ? 0.35 + roll * 0.4 : 0.25 + roll * 0.35) ? run : STILL;
       // Now and then one twitches after the cat has turned, and pays for it; the bold ones more often.
-      return roll < (careful ? 0.06 : 0.26) && rules.total - rules.left < 0.2 && me.x > -round.columns / 2 + 2 ? run : STILL;
+      return roll < (careful ? 0.06 : 0.26) && rules.total - rules.left < 0.3 && me.x > -round.columns / 2 + 2 ? run : STILL;
     }
     default:
       return STILL;

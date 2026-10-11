@@ -1,9 +1,10 @@
 import { MAX_SEATS } from '@boom/protocol';
-import { tuning } from '@boom/game';
+import { PLAYABLE_MODES, tuning } from '@boom/game';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { renderSVG } from 'uqr';
 import { seatShapeSvg } from '../../shared/glyphs';
-import { HOW_ROWS, MENU_ICON } from '../../shared/powers';
+import { GAME_CONTROLS, GAME_ICON } from '../../shared/games';
+import { MENU_ICON } from '../../shared/powers';
 import { strings } from '../../shared/strings.pt-BR';
 import { VERSION } from '../../shared/version';
 import { colors, seats as seatTokens } from '../../shared/tokens';
@@ -243,14 +244,25 @@ export function GameScreen() {
                 <section className="how sticker" onClick={() => setHelp(false)}>
                   <h2>{strings.menu.how}</h2>
                   <p className="how-goal">{strings.menu.howGoal}</p>
-                  {HOW_ROWS.map((row, index) => (
-                    <p key={row.text} className="how-row" style={{ '--i': index } as CSSProperties}>
-                      <span className={`key-glyph is-${row.kind}`} aria-hidden="true">
-                        {row.glyph}
-                      </span>
-                      {strings.menu[row.text]}
-                    </p>
-                  ))}
+                  {/* Every game a round can be: its picture, its name, its one line, and the buttons it uses. */}
+                  <ul className="how-games">
+                    {PLAYABLE_MODES.map((game, index) => (
+                      <li key={game} className="how-game" style={{ '--i': index } as CSSProperties}>
+                        <span className="how-icon">{GAME_ICON[game]}</span>
+                        <span className="how-text">
+                          <strong>{strings.games[game].name}</strong>
+                          <span>{strings.games[game].line}</span>
+                        </span>
+                        <span className="how-keys" aria-hidden="true">
+                          {GAME_CONTROLS[game].map(row => (
+                            <span key={row.kind} className={`key-glyph is-${row.kind}`}>
+                              {row.glyph}
+                            </span>
+                          ))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                   <p className="how-back">{strings.menu.back}</p>
                 </section>
               )}
@@ -320,14 +332,20 @@ export function GameScreen() {
         )}
       </Presence>
 
-      {/* Cor Certa: the colour that was called, with its fruit, in the slot where explanations go. */}
+      {/* What is happening right now, in the slot where explanations go: the colour called, what the cat is doing, who has the bomb. */}
       <Presence show={!title && phase === 'play' && call !== null}>
-        {() => (
-          <div className="call-note sticker" style={{ '--call': shownCall.current?.color } as CSSProperties}>
-            <span className="call-icon">{shownCall.current?.icon}</span>
-            <span className="call-name">{shownCall.current?.name}</span>
-          </div>
-        )}
+        {() => {
+          const shown = shownCall.current;
+          const token = shown?.seat === undefined ? null : seatTokens[shown.seat % seatTokens.length]!;
+          return (
+            <div className="call-note sticker" style={{ '--call': shown?.color } as CSSProperties}>
+              <span className="call-icon">{shown?.icon}</span>
+              {/* A player is colour and shape together: the shape goes on a white disc, so it shows on its own colour. */}
+              {token && <span className="call-shape" dangerouslySetInnerHTML={{ __html: seatShapeSvg(token.shape, token.color) }} />}
+              <span className="call-name">{shown?.name}</span>
+            </div>
+          );
+        }}
       </Presence>
 
       <Presence show={!title && inMatch}>

@@ -211,7 +211,9 @@ export const frita = {
   watchMin: 1.4,
   watchMax: 2.4,
   /** Seconds after it turns before anyone is judged: time for a thumb to let go, and for a slow network. */
-  grace: 0.35,
+  // Wide enough that a phone's lag alone catches nobody: the slower phones in the playtests ran 120 to 180 ms behind,
+  // which leaves about a quarter of a second for the thumb itself.
+  grace: 0.45,
   /** How far the joystick may still be pushed while the cat looks. */
   stickLimit: 0.25,
 } as const;
