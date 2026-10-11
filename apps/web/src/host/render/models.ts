@@ -10,6 +10,7 @@ import { outlineMaterial, prepareOutline, toonMaterial } from './materials';
 export const MODEL_IDS = [
   'potato',
   'brawl',
+  'finale',
 ] as const;
 export type ModelId = (typeof MODEL_IDS)[number];
 

@@ -1,13 +1,11 @@
 // Everything on the platform that is not a pet: barrels, the Mystery Cube, meteors, ghosts,
 // slot reels, the capsule machine, pop-up words and the podium. The props are modelled in Blender
-// (tools/blender/maps/brawl.py); light, what carries a picture, and the podium are made here.
+// (tools/blender/maps/brawl.py and finale.py); light, and what carries a picture, is made here.
 import type { Barrel, Cube, GachaView, Ghost, Meteor, PowerId, Tier } from '@boom/game';
 import { tuning } from '@boom/game';
 import {
-  BackSide,
   BoxGeometry,
   Color,
-  ConeGeometry,
   CylinderGeometry,
   DoubleSide,
   Group,
@@ -21,17 +19,15 @@ import {
 } from 'three';
 import type { PetId } from '../../shared/pets';
 import { POWER_ICON, TIER_COLOR } from '../../shared/powers';
-import { colors, seats as seatTokens } from '../../shared/tokens';
+import { colors, maps, seats as seatTokens } from '../../shared/tokens';
 import { createPet, type PetInstance } from '../render/assets';
 import { tileTexture } from '../render/emoji';
-import { toonMaterial } from '../render/materials';
 import { Model } from '../render/models';
 import { Word3D } from '../render/Text3D';
 
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 const backOut = (t: number, strength = 2.2) => 1 + (strength + 1) * (t - 1) ** 3 + strength * (t - 1) ** 2;
-const inkShell = new MeshBasicMaterial({ color: colors.ink, side: BackSide });
 export const seatColor = (seat: number): string => seatTokens[seat % seatTokens.length]!.color;
 
 /**
@@ -431,29 +427,49 @@ const STEP_HEIGHTS = [1.5, 1.0, 0.6];
 const STEP_X = [0, -1.9, 1.9];
 /** How much bigger than the others the winner stands. */
 const WINNER_SCALE = 1.35;
-const crownBand = new CylinderGeometry(0.34, 0.3, 0.2, 10, 1, true);
-const crownPoint = new ConeGeometry(0.09, 0.26, 4);
+/** The lamp towers at the corners of the stage, and how high their lamps sit on them. */
+const TOWER = { corner: 6.6, lamp: 4.05 };
+/** Where the two cannons stand. The stage fires the winner's confetti from just inside each. */
+const CANNON = { x: 4.6, z: 1.6 };
+/** The footlights round the rug. */
+const BULBS = { count: 16, radius: 4.34 };
+/** A lamp's light: a cone from its lens, over-bright so the glow picks it up. It opens when the lamp comes on; it does not fade in. */
+const BEAM_LENGTH = 11;
+const lampBeam = new CylinderGeometry(1.05, 0.14, BEAM_LENGTH, 20, 1, true).rotateX(Math.PI / 2).translate(0, 0, BEAM_LENGTH / 2 + 0.45);
+const lampLight = new MeshBasicMaterial({ color: new Color(maps.finale.lamp).multiplyScalar(1.5), transparent: true, opacity: 0.07, depthWrite: false, side: DoubleSide });
 
 export type PodiumEntry = { seat: number; model: PetId; place: number };
 
-type Spot = { pet: PetInstance; holder: Group; step: Mesh; seat: number; place: number; height: number; x: number; shownAt: number | null; crown: Group | null };
+type Spot = { pet: PetInstance; holder: Group; step: Object3D; paint: MeshToonMaterial | null; seat: number; place: number; height: number; x: number; shownAt: number | null; crown: Object3D | null };
 
 /**
- * The end of a match. The steps are there from the start but empty: each place is revealed when the
- * simulation says so, third place first. The winner gets a crown and a spotlight and stands bigger than
- * the rest; everyone who did not reach the podium watches from the sides.
+ * The end of a match, on a stage of its own (tools/blender/maps/finale.py). The steps are there from the
+ * start but empty: each place is revealed when the simulation says so, third place first. The lamps at the
+ * corners search the stage while the drums roll. The winner gets a crown and a spotlight and stands bigger
+ * than the rest; everyone who did not reach the podium watches from the sides.
  */
 export class Podium {
   readonly group = new Group();
+  private readonly model = new Model('finale');
   private readonly spots: Spot[] = [];
   private readonly crowd: { pet: PetInstance; holder: Group }[] = [];
   private readonly beam: Mesh;
-  private readonly crownMaterial = toonMaterial({ color: colors.gold });
+  private readonly lamps: { head: Object3D; beam: Mesh; aim: Vector3 }[] = [];
+  private readonly cannons: { root: Object3D; barrel: Object3D | undefined; side: number }[] = [];
+  private readonly bulbs: Object3D[] = [];
+  /** What stands on the stage from the start, in the order it is set out. */
+  private readonly scenery: Object3D[];
+  private readonly target = new Vector3();
   private celebrating: number | null = null;
+  /** When the cannons went off, if they have. */
+  private firedAt: number | null = null;
   private time = 0;
 
   /** `entries` are the final standings, best first. Seats sharing a place stand on steps of the same height. */
   constructor(entries: PodiumEntry[]) {
+    this.scenery = [...this.model.scene.children];
+    for (const piece of this.scenery) piece.scale.setScalar(0.001);
+    this.group.add(this.model.scene);
     entries.forEach((entry, index) => {
       const pet = createPet(entry.model, seatColor(entry.seat));
       pet.model.scale.setScalar(0.72);
@@ -462,10 +478,10 @@ export class Podium {
       holder.scale.setScalar(0.001);
       this.group.add(holder);
       if (index >= 3 || entry.place > 3) {
-        // Off the podium: a place at the side, turned toward it.
+        // Off the podium: a place at the side, out past the cannons and nearer the front, turned toward it.
         const side = this.crowd.length % 2 === 0 ? -1 : 1;
         const row = Math.floor(this.crowd.length / 2);
-        holder.position.set(side * (4 + row * 1.5), 0, 1.2 + row * 0.5);
+        holder.position.set(side * (5.8 + row * 1.5), 0, 3 + row * 0.5);
         holder.rotation.y = -side * 0.9;
         pet.actions.get('idle')?.play();
         this.crowd.push({ pet, holder });
@@ -474,15 +490,11 @@ export class Podium {
       const height = STEP_HEIGHTS[entry.place - 1]!;
       const x = STEP_X[index]!;
       // A step is plain until its place is revealed: its colour would give the name away.
-      const step = new Mesh(new BoxGeometry(1.7, height, 1.7), toonMaterial({ color: colors.cream }));
-      step.position.set(x, height / 2, 0);
-      step.castShadow = true;
-      const shell = new Mesh(step.geometry, inkShell);
-      shell.scale.set(1.05, 1.03, 1.05);
-      step.add(shell);
+      const step = this.model.part(`step_${entry.place}`);
+      step.position.set(x, 0, 0);
       holder.position.set(x, height, 0);
       pet.actions.get('idle')?.play();
-      this.spots.push({ pet, holder, step, seat: entry.seat, place: entry.place, height, x, shownAt: null, crown: null });
+      this.spots.push({ pet, holder, step, paint: this.model.own(step, 'step'), seat: entry.seat, place: entry.place, height, x, shownAt: null, crown: null });
       this.group.add(step);
     });
 
@@ -494,6 +506,32 @@ export class Podium {
     this.beam.position.set(0, 7, 0);
     this.beam.scale.set(0.001, 1, 0.001);
     this.group.add(this.beam);
+
+    // A lamp on each tower, with its light.
+    for (const [x, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+      const head = this.model.part('lamp');
+      head.position.set(x * TOWER.corner, TOWER.lamp, z * TOWER.corner);
+      const beam = new Mesh(lampBeam, lampLight);
+      beam.scale.set(0.001, 0.001, 1);
+      head.add(beam);
+      this.lamps.push({ head, beam, aim: new Vector3(x * 2, 0.4, z * 2) });
+      this.group.add(head);
+    }
+    // The cannons are built aiming to the left, so the one on the left is turned round: both aim over the podium.
+    for (const side of [-1, 1]) {
+      const root = this.model.part('cannon');
+      root.position.set(side * CANNON.x, 0, CANNON.z);
+      root.rotation.y = side < 0 ? Math.PI : 0;
+      this.cannons.push({ root, barrel: root.getObjectByName('cannon_barrel'), side });
+      this.group.add(root);
+    }
+    for (let index = 0; index < BULBS.count; index++) {
+      const angle = ((index + 0.5) / BULBS.count) * Math.PI * 2;
+      const bulb = this.model.part('bulb');
+      bulb.position.set(Math.cos(angle) * BULBS.radius, 0, Math.sin(angle) * BULBS.radius);
+      this.bulbs.push(bulb);
+      this.group.add(bulb);
+    }
   }
 
   /** Shows everyone at that place, and returns where they stand so the stage can mark the moment. */
@@ -501,17 +539,21 @@ export class Podium {
     const shown = this.spots.filter(spot => spot.place === place && spot.shownAt === null);
     for (const spot of shown) {
       spot.shownAt = this.time;
-      (spot.step.material as MeshToonMaterial).color.set(seatColor(spot.seat));
+      spot.paint?.color.set(seatColor(spot.seat));
       // The winner dances; the others clap along.
       spot.pet.mixer.stopAllAction();
       spot.pet.actions.get(place === 1 ? 'dance' : 'gesture-positive')?.play();
       if (place === 1) {
-        spot.crown = this.crown();
+        spot.crown = this.model.part('crown');
+        spot.crown.position.y = 1.45;
+        spot.crown.scale.setScalar(0.001);
         spot.holder.add(spot.crown);
       }
     }
     if (place === 1) {
       this.celebrating = this.time;
+      // The cannons go off with the winner. Shown all at once, with no finale, nothing is fired.
+      if (this.time > 0) this.firedAt = this.time;
       for (const { pet } of this.crowd) {
         pet.mixer.stopAllAction();
         pet.actions.get('gesture-positive')?.play();
@@ -527,12 +569,15 @@ export class Podium {
 
   update(dt: number): void {
     this.time += dt;
+    // The stage is set as the drums start: the rug rolls out from the middle, then each piece pops up, one after another.
+    const arrive = (delay: number) => Math.max(0.001, backOut(clamp01((this.time - delay) / 0.3)));
+    this.scenery.forEach((piece, index) => piece.scale.setScalar(arrive(index * 0.03)));
     for (const { pet, holder } of this.crowd) {
       // The crowd walks on while the drums roll.
       holder.scale.setScalar(backOut(clamp01(this.time / 0.3)));
       pet.mixer.update(dt);
     }
-    for (const spot of this.spots) {
+    this.spots.forEach((spot, index) => {
       const since = spot.shownAt === null ? -1 : this.time - spot.shownAt;
       const winner = spot.place === 1;
       const size = since < 0 ? 0.001 : backOut(clamp01(since / 0.3)) * (winner ? WINNER_SCALE : 1);
@@ -540,43 +585,52 @@ export class Podium {
       // The winner drops in from above; then keeps hopping.
       const drop = winner && since >= 0 ? Math.max(0, 1 - since / 0.25) * 5 : 0;
       spot.holder.position.y = spot.height + drop + (winner && since > 0.25 ? Math.abs(Math.sin((since - 0.25) * 6)) * 0.35 : 0);
+      // The step takes the weight: a short squash as its pet lands on it.
+      const squash = since < 0 ? 0 : Math.exp(-since * 9) * Math.sin(since * 26) * 0.07;
+      const set = arrive(0.1 + index * 0.07);
+      spot.step.scale.set((1 + squash * 0.5) * set, (1 - squash) * set, (1 + squash * 0.5) * set);
       if (spot.crown) {
         spot.crown.scale.setScalar(backOut(clamp01((since - 0.45) / 0.3)) || 0.001);
         spot.crown.rotation.y = this.time * 1.4;
       }
       spot.pet.mixer.update(dt);
-    }
+    });
     const open = this.celebrating === null ? 0.001 : Math.max(0.001, backOut(clamp01((this.time - this.celebrating) / 0.35)));
     this.beam.scale.set(open, 1, open);
+
+    // The lamps come on one after another and wander the stage, each its own way. Once there is a winner they
+    // chase each other round the podium instead: four lights on the winner as well as the spotlight wash it out.
+    this.lamps.forEach(({ head, beam, aim }, index) => {
+      if (this.celebrating === null) this.target.set(Math.sin(this.time * 0.8 + index * 1.7) * 3.6, 0.4, Math.cos(this.time * 0.63 + index * 2.3) * 2.8);
+      else this.target.set(Math.cos(this.time * 1.1 + index * (Math.PI / 2)) * 3.4, 0.3, Math.sin(this.time * 1.1 + index * (Math.PI / 2)) * 2.9 + 0.3);
+      aim.lerp(this.target, 1 - Math.exp(-7 * dt));
+      head.lookAt(aim);
+      head.scale.setScalar(arrive(0.3 + index * 0.14));
+      const lit = Math.max(0.001, backOut(clamp01((this.time - 0.6 - index * 0.14) / 0.35)));
+      beam.scale.set(lit, lit, 1);
+    });
+
+    // A cannon that has fired kicks back and rings like a bell for a moment.
+    const kick = this.firedAt === null ? 0 : Math.exp(-(this.time - this.firedAt) * 6) * Math.cos((this.time - this.firedAt) * 22);
+    for (const { root, barrel, side } of this.cannons) {
+      root.scale.setScalar(arrive(0.45));
+      root.position.x = side * (CANNON.x + kick * 0.16);
+      barrel?.scale.set(1 + kick * 0.2, 1 - kick * 0.32, 1 + kick * 0.2);
+    }
+
+    // The footlights take turns, slowly, while the drums roll; for the winner a wave of light runs round the rug.
+    this.bulbs.forEach((bulb, index) => {
+      const wave = this.celebrating === null ? Math.sin(this.time * Math.PI * 1.6 + index * Math.PI) : Math.sin(this.time * Math.PI * 2.4 - (index / BULBS.count) * Math.PI * 6);
+      bulb.scale.setScalar(arrive(0.3 + index * 0.03) * (1 + Math.max(0, wave) * 0.45));
+    });
+    this.model.update(dt);
   }
 
   dispose(): void {
     this.group.removeFromParent();
     [...this.spots, ...this.crowd].forEach(({ pet }) => pet.dispose());
-    this.spots.forEach(({ step }) => {
-      step.geometry.dispose();
-      (step.material as MeshToonMaterial).dispose();
-    });
     this.beam.geometry.dispose();
     (this.beam.material as MeshBasicMaterial).dispose();
-    this.crownMaterial.dispose();
-  }
-
-  /** A gold crown: a band with five points, sitting on the pet's head. */
-  private crown(): Group {
-    const crown = new Group();
-    const band = new Mesh(crownBand, this.crownMaterial);
-    const shell = new Mesh(crownBand, inkShell);
-    shell.scale.set(1.12, 1.15, 1.12);
-    crown.add(band, shell);
-    for (let index = 0; index < 5; index++) {
-      const angle = (index / 5) * Math.PI * 2;
-      const point = new Mesh(crownPoint, this.crownMaterial);
-      point.position.set(Math.sin(angle) * 0.31, 0.2, Math.cos(angle) * 0.31);
-      crown.add(point);
-    }
-    crown.position.y = 1.5;
-    crown.scale.setScalar(0.001);
-    return crown;
+    this.model.dispose();
   }
 }
