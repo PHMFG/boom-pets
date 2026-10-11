@@ -9,7 +9,7 @@ import { strings } from '../../shared/strings.pt-BR';
 import { VERSION } from '../../shared/version';
 import { colors, seats as seatTokens } from '../../shared/tokens';
 import { Session } from '../app/Session';
-import { Finale, Loading, ModeIntro } from './Interludes';
+import { Finale, Iris, Loading, ModeIntro, RoundResults } from './Interludes';
 import { Nameplates } from './Nameplates';
 import { Presence } from './Presence';
 import { hud, useStore, type FeedWho, type PlayerCard } from './store';
@@ -59,6 +59,10 @@ export function GameScreen() {
   const shownCall = useRef(call);
   if (call) shownCall.current = call;
   const finale = useStore(hud, state => state.finale);
+  const curtain = useStore(hud, state => state.curtain);
+  const roundResult = useStore(hud, state => state.roundResult);
+  const shownRoundResult = useRef(roundResult);
+  if (roundResult) shownRoundResult.current = roundResult;
   const loadProgress = useStore(hud, state => state.loadProgress);
   // What these screens last showed, so they still show it while they squish out.
   const shownIntro = useRef(intro);
@@ -323,7 +327,12 @@ export function GameScreen() {
       <Presence show={lobbyUp && !problem && waitedLong}>{() => <p className="lobby-hint sticker">{text.hintNoOne}</p>}</Presence>
       <Presence show={lobbyUp && !problem && seats.length > 0}>{() => <p className="lobby-tip">{text.tryIt}</p>}</Presence>
 
-      <Presence show={!title && phase === 'intro' && intro !== null}>{() => <ModeIntro mode={shownIntro.current?.mode ?? null} final={shownIntro.current?.final ?? false} />}</Presence>
+      {/* The curtain is under the roulette and the card, and over everything of the round. */}
+      <Iris closed={curtain} />
+      <Presence show={!title && phase === 'intro' && intro !== null}>
+        {() => <ModeIntro mode={shownIntro.current?.mode ?? null} upcoming={shownIntro.current?.upcoming ?? null} final={shownIntro.current?.final ?? false} />}
+      </Presence>
+      <Presence show={!title && phase === 'roundEnd' && roundResult !== null}>{() => <RoundResults result={shownRoundResult.current ?? { mode: 'brawl', double: false, rows: [] }} />}</Presence>
       <Presence show={!title && phase === 'finale' && finale !== null}>
         {() => (
           <div className="finale" ref={finaleBox}>

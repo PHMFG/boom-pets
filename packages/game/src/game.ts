@@ -39,6 +39,8 @@ export class Game {
   phaseLeft = 0;
   /** The game of the round being played, or about to be. In the lobby, the brawl. */
   gameMode: GameMode = 'brawl';
+  /** While the roulette spins: the game it will stop on. It is drawn as the spin starts, so the reel can land on it; phones are not told. */
+  upcoming: GameMode | null = null;
   /** During an intro: false while the roulette still spins, true once the game is drawn and its round built. */
   revealed = true;
   seats: SeatSetup[] = [];
@@ -154,6 +156,7 @@ export class Game {
     this.phase = 'lobby';
     this.roundIndex = 0;
     this.gameMode = 'brawl';
+    this.upcoming = null;
     this.revealed = true;
     this.gacha = null;
     this.slowLeft = 0;
@@ -227,6 +230,7 @@ export class Game {
     this.gacha = null;
     this.edges.clear();
     this.revealed = false;
+    this.upcoming = this.drawMode();
     this.phase = 'intro';
     this.phaseLeft = match.introRoulette;
     this.emit({ t: 'phase', phase: 'intro', round: this.roundIndex });
@@ -236,8 +240,9 @@ export class Game {
     this.phaseLeft -= STEP;
     if (this.phaseLeft > 0) return;
     if (this.revealed) return this.startCountdown();
-    // The game is drawn only now: nothing on a screen or a phone can give it away while the roulette spins.
-    this.gameMode = this.drawMode();
+    // The reel has stopped: the game it was always going to stop on becomes the game being played.
+    this.gameMode = this.upcoming ?? this.drawMode();
+    this.upcoming = null;
     const first = !this.seen.has(this.gameMode);
     this.seen.add(this.gameMode);
     this.round.free();

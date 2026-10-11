@@ -1,13 +1,14 @@
 // The screens that are not a round: loading at start-up, the roulette and card between games, and the
 // winner's banner at the end of a match. Each is shown and timed by the simulation's phases.
 import { PLAYABLE_MODES, tuning, type GameMode } from '@boom/game';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { GAME_CONTROLS, GAME_ICON } from '../../shared/games';
 import { seatShapeSvg } from '../../shared/glyphs';
 import { motion } from '../../shared/motion';
 import { strings } from '../../shared/strings.pt-BR';
 import { seats as seatTokens } from '../../shared/tokens';
 import { Presence } from './Presence';
+import type { RoundResult } from './store';
 
 const letters = (text: string) =>
   Array.from(text).map((letter, index) => (
@@ -42,13 +43,20 @@ export function Loading({ progress }: { progress: number }) {
   );
 }
 
+/** How many pictures run past before the reel stops. Enough that its start is a blur. */
+const REEL = 22;
+
 /**
- * Between games. While the game is still being drawn a reel of game pictures spins; then the card of the
- * game that came up: its picture, name, the one line that says what to do, and what each control does.
+ * Between games. A reel of game pictures runs past a window, slows, and stops on the game to come; then
+ * that game's card takes its place: its picture, name, the one line that says what to do, and what each
+ * control does.
  */
-export function ModeIntro({ mode, final }: { mode: GameMode | null; final: boolean }) {
-  // Enough pictures for the reel to run its whole spin without showing its end.
-  const reel = Array.from({ length: 14 }, (_, index) => PLAYABLE_MODES[index % PLAYABLE_MODES.length]!);
+export function ModeIntro({ mode, upcoming, final }: { mode: GameMode | null; upcoming: GameMode | null; final: boolean }) {
+  // The games in their usual order, round and round, arranged so that the last picture is the one to stop on.
+  const reel = useMemo(() => {
+    const last = Math.max(0, PLAYABLE_MODES.indexOf(upcoming ?? 'brawl'));
+    return Array.from({ length: REEL }, (_, index) => PLAYABLE_MODES[(((last - (REEL - 1) + index) % PLAYABLE_MODES.length) + PLAYABLE_MODES.length) % PLAYABLE_MODES.length]!);
+  }, [upcoming]);
   const shown = useRef<GameMode>('brawl');
   if (mode) shown.current = mode;
   return (
@@ -56,10 +64,12 @@ export function ModeIntro({ mode, final }: { mode: GameMode | null; final: boole
       <p className="intro-next">{strings.intro.next}</p>
       <Presence show={mode === null}>
         {() => (
-          <div className="intro-reel sticker">
-            <div className="intro-reel-strip" style={{ '--spin': `${tuning.match.introRoulette * 1000}ms`, '--count': reel.length } as CSSProperties}>
+          <div className="intro-reel sticker" style={{ '--spin': `${tuning.match.introRoulette * 1000}ms`, '--count': reel.length } as CSSProperties}>
+            <div className="intro-reel-strip">
               {reel.map((game, index) => (
-                <span key={index}>{GAME_ICON[game]}</span>
+                <span key={index} className={index === reel.length - 1 ? 'is-landing' : undefined}>
+                  {GAME_ICON[game]}
+                </span>
               ))}
             </div>
           </div>
@@ -87,6 +97,40 @@ export function ModeIntro({ mode, final }: { mode: GameMode | null; final: boole
         }}
       </Presence>
     </div>
+  );
+}
+
+/**
+ * A curtain that closes to a point and opens again. The world is changed behind it while it is shut,
+ * so one map is never seen snapping into another.
+ */
+export function Iris({ closed }: { closed: boolean }) {
+  return <div className={closed ? 'iris is-closed' : 'iris'} aria-hidden="true" />;
+}
+
+/** As a round ends: every player's place in it and what it paid them, best first. */
+export function RoundResults({ result }: { result: RoundResult }) {
+  return (
+    <section className="round-results sticker">
+      <h3>
+        <span className="round-results-icon">{GAME_ICON[result.mode]}</span>
+        {strings.games[result.mode].name}
+        {result.double && <span className="round-results-double">{strings.hud.double}</span>}
+      </h3>
+      <ol>
+        {result.rows.map((row, index) => {
+          const token = seatTokens[row.seat % seatTokens.length]!;
+          return (
+            <li key={row.seat} className={row.place === 1 ? 'round-row is-first' : 'round-row'} style={{ '--i': index, '--seat': token.color } as CSSProperties}>
+              <span className="round-place">{strings.hud.place(row.place)}</span>
+              <span className="round-shape" dangerouslySetInnerHTML={{ __html: seatShapeSvg(token.shape, token.color) }} />
+              <span className="round-name">{row.name}</span>
+              <span className="round-points">+{row.points}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 

@@ -72,6 +72,10 @@ export class Session {
   private feed: (FeedItem & { until: number })[] = [];
   private feedId = 0;
   private banner: { seat: number; text: string } | null = null;
+  /** Points each seat has made in the round being played, for the list at its end. */
+  private readonly gained = new Map<number, number>();
+  /** The curtain is being kept shut for something started by a key (back to the lobby, a rematch). */
+  private curtainHeld = false;
   private powerNote: (PowerNote & { until: number }) | null = null;
   private matchesStarted = 0;
   /** The seats that won the match, once the finale has named them. */
@@ -173,6 +177,8 @@ export class Session {
   startMatch(): void {
     const game = this.game;
     if (!game || (game.phase !== 'lobby' && game.phase !== 'matchEnd')) return;
+    // A rematch: the podium's stage is cleared away behind the curtain first.
+    if (game.phase === 'matchEnd' && !this.curtainHeld) return this.behindCurtain(() => this.startMatch());
     if (game.phase === 'matchEnd') game.returnToLobby();
     const options = hud.get().options;
     // With nobody on a phone there is nothing to play unless bots fill in.
@@ -194,6 +200,7 @@ export class Session {
   backToLobby(): void {
     const game = this.game;
     if (!game || game.phase === 'lobby') return;
+    if (!this.curtainHeld) return this.behindCurtain(() => this.backToLobby());
     game.returnToLobby();
     for (const event of game.events) this.onEvent(event);
     game.setLobbySeats(this.lobbySeats());
@@ -350,6 +357,7 @@ export class Session {
     const alpha = Math.min(1, game.stepFraction + (this.pending / STEP) * game.dilation);
     this.audio.update(game);
     this.stage.frame(dt, alpha, now);
+    this.syncCurtain(game);
 
     if (now - this.hudAt >= HUD_EVERY_MS) {
       this.hudAt = now;
@@ -371,6 +379,29 @@ export class Session {
     }
   }
 
+  /** Shuts the curtain, does something that changes the world, and lets the curtain open again once the new world is drawn. */
+  private behindCurtain(action: () => void): void {
+    if (this.curtainHeld) return;
+    this.curtainHeld = true;
+    hud.set({ curtain: true });
+    window.setTimeout(() => {
+      if (this.disposed) return;
+      action();
+      this.curtainHeld = false;
+    }, motion.iris.ms);
+  }
+
+  /**
+   * The curtain shuts just before the world changes behind it (as the roulette stops, and as the last round's
+   * end gives way to the podium), on the simulation's clock, and opens only once the new world has been drawn.
+   */
+  private syncCurtain(game: Game): void {
+    const changing = (game.phase === 'intro' && !game.revealed) || (game.phase === 'roundEnd' && game.isFinalRound);
+    const shutting = changing && game.phaseLeft <= motion.iris.ms / 1000;
+    const shut = this.curtainHeld || shutting || (hud.get().curtain && !this.stage.settled);
+    if (shut !== hud.get().curtain) hud.set({ curtain: shut });
+  }
+
   private onEvent(event: GameEvent): void {
     const game = this.game!;
     this.stage.handle(event);
@@ -378,6 +409,9 @@ export class Session {
     this.log.handle(event, game);
 
     switch (event.t) {
+      case 'score':
+        this.gained.set(event.seat, (this.gained.get(event.seat) ?? 0) + event.points);
+        break;
       case 'dashHit':
         this.socket?.send(event.seat, { t: 'haptic', pattern: 'tap' });
         for (const id of event.victims) {
@@ -427,6 +461,14 @@ export class Session {
         for (const seat of event.seats) this.socket?.send(seat, { t: 'haptic', pattern: 'win' });
         const first = event.seats[0];
         this.banner = first === undefined ? null : { seat: first, text: event.seats.length === 1 ? strings.hud.roundTo(this.who(first).name) : strings.hud.roundTie };
+        // The places of the round, best first, with what the round paid each player. Seats that tied share a place.
+        let place = 1;
+        const rows = game.round.ranking().flatMap(group => {
+          const shared = place;
+          place += group.length;
+          return group.map(seat => ({ seat, name: this.who(seat).name, place: shared, points: this.gained.get(seat) ?? 0 }));
+        });
+        hud.set({ roundResult: { mode: game.gameMode, double: game.isFinalRound && game.rounds > 1, rows } });
         break;
       }
       case 'bounty':
@@ -487,7 +529,7 @@ export class Session {
         break;
       case 'reveal':
         // The roulette has stopped: the card, the phones and the announcer all name the game.
-        hud.set({ gameMode: event.mode, intro: { mode: event.mode, final: event.final } });
+        hud.set({ gameMode: event.mode, intro: { mode: event.mode, upcoming: null, final: event.final } });
         this.audio.announce(GAME_LINE[event.mode]);
         this.refreshNames();
         this.syncHud(performance.now());
@@ -510,8 +552,10 @@ export class Session {
         break;
       case 'phase':
         if (event.phase !== 'play') hud.set({ call: null });
+        if (event.phase === 'play') this.gained.clear();
+        if (event.phase !== 'roundEnd') hud.set({ roundResult: null });
         if (event.phase === 'intro') {
-          hud.set({ intro: { mode: null, final: game.isFinalRound } });
+          hud.set({ intro: { mode: null, upcoming: game.upcoming, final: game.isFinalRound } });
           // The last round counts double, and gets its own track from here on.
           if (game.isFinalRound && game.rounds > 1) {
             this.audio.setSong('final', true);

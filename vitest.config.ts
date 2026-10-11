@@ -4,5 +4,6 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   // Vite stamps the real version at build time; tests only need the name to exist.
   define: { __BOOM_VERSION__: JSON.stringify('test') },
-  test: { exclude: ['e2e/**', '**/node_modules/**', '**/dist/**'] },
+  // `.claude/` holds other checkouts of this repository (worktrees) with tests of their own.
+  test: { exclude: ['e2e/**', '**/node_modules/**', '**/dist/**', '.claude/**'] },
 });

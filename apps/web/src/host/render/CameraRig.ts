@@ -1,6 +1,7 @@
 // The game camera: tilted 52 degrees down through a narrow lens. It stays as close as it can while keeping
 // every point of interest in frame, so it moves in and out with the fight. It shakes with impacts, punches
-// in on big moments and can be pointed at one spot for a beat.
+// in on big moments, and for a beat it can leave the fight and look at one thing from lower down, the way
+// a hero is shown: a round's winner, the podium.
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
 const PITCH = MathUtils.degToRad(52);
@@ -15,7 +16,22 @@ const MARGIN = { side: 1.7, near: 1.9, head: 4 };
 const ZOOM_OUT = 5;
 const ZOOM_IN = 1.4;
 const FOLLOW = 3.2;
+/** How fast it tips down to a hero's eye level and back up. */
+const TIP = 2.6;
 const damp = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
+
+/** A shot of one thing. `at` is asked every frame, so the thing may move. */
+export type Shot = {
+  at(): { x: number; y?: number; z: number };
+  distance: number;
+  seconds: number;
+  /** Degrees down from level. The game's own angle (52) when left out; lower shows faces instead of heads. */
+  pitch?: number;
+  /** Radians a second to circle it, or */
+  spin?: number;
+  /** how far (radians) to swing from side to side in front of it, which keeps its face in view. */
+  sway?: number;
+};
 
 export type Insets = { left: number; bottom: number; top: number };
 
@@ -33,7 +49,8 @@ export class CameraRig {
   private punchSpeed = 0;
   private size = { width: 1, height: 1 };
   private insets: Insets = { left: 0, bottom: 0, top: 0 };
-  private hold: { x: number; z: number; distance: number; left: number; spin: number } | null = null;
+  private hold: (Shot & { left: number }) | null = null;
+  private pitch = PITCH;
   private time = 0;
 
   setViewport(width: number, height: number, insets: Insets): void {
@@ -54,9 +71,14 @@ export class CameraRig {
     this.punchSpeed -= amount * 9;
   }
 
-  /** Looks at one spot for a while (a gacha, a round winner), optionally circling it. */
+  /** Looks at one spot for a while (a gacha, the podium), optionally circling it. */
   focus(x: number, z: number, distance: number, seconds: number, spin = 0): void {
-    this.hold = { x, z, distance, left: seconds, spin };
+    this.hold = { at: () => ({ x, z }), distance, seconds, left: seconds, spin };
+  }
+
+  /** Looks at one thing for a while, following it if it moves. */
+  look(shot: Shot): void {
+    this.hold = { ...shot, left: shot.seconds };
   }
 
   release(): void {
@@ -78,12 +100,18 @@ export class CameraRig {
     }
     if (points.length === 0) minX = maxX = minZ = maxZ = 0;
 
+    let pitch = PITCH;
     if (this.hold) {
-      this.hold.left -= dt;
-      this.goal.set(this.hold.x, 0.6, this.hold.z);
-      this.goalDistance = this.hold.distance;
-      this.yaw += this.hold.spin * dt;
-      if (this.hold.left <= 0) this.hold = null;
+      const hold = this.hold;
+      hold.left -= dt;
+      const at = hold.at();
+      this.goal.set(at.x, at.y ?? 0.6, at.z);
+      this.goalDistance = hold.distance;
+      if (hold.pitch !== undefined) pitch = MathUtils.degToRad(hold.pitch);
+      // Swinging keeps to the front of the thing; circling goes all the way round it.
+      if (hold.sway) this.yaw += (Math.sin(this.time * 0.6) * hold.sway - this.yaw) * damp(2, dt);
+      else this.yaw += (hold.spin ?? 0) * dt;
+      if (hold.left <= 0) this.hold = null;
     } else {
       // The closest distance at which everything fits, worked out exactly. A point `z` metres nearer than what the
       // camera looks at and `y` metres up is `distance - y sin - z cos` from the lens, and must project inside the
@@ -114,9 +142,11 @@ export class CameraRig {
     this.punch += this.punchSpeed * dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.7);
 
+    this.pitch += (pitch - this.pitch) * damp(TIP, dt);
+
     const distance = this.distance * (1 + this.punch);
-    const flat = Math.cos(PITCH) * distance;
-    this.camera.position.set(this.center.x + Math.sin(this.yaw) * flat, this.center.y + Math.sin(PITCH) * distance, this.center.z + Math.cos(this.yaw) * flat);
+    const flat = Math.cos(this.pitch) * distance;
+    this.camera.position.set(this.center.x + Math.sin(this.yaw) * flat, this.center.y + Math.sin(this.pitch) * distance, this.center.z + Math.cos(this.yaw) * flat);
     this.camera.lookAt(this.center);
     // Shake grows with the square of trauma: small hits barely move the picture, big ones throw it.
     const shake = this.trauma * this.trauma * this.shakeScale;

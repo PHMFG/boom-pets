@@ -14,6 +14,12 @@ export type ModelId = (typeof MODEL_IDS)[number];
 
 /** Outline thickness in metres for a piece that does not say (`tag(obj, outline=..)` in its script). */
 const OUTLINE = 0.04;
+/**
+ * How a model arrives: after a short wait its pieces grow out from the middle of the map to their places,
+ * the near ones first, the way the floor's tiles ripple in. Seconds.
+ */
+const ENTER = { wait: 0.12, spread: 0.45, grow: 0.5, overshoot: 1.2, reach: 28 };
+const backOut = (t: number, strength: number) => 1 + (strength + 1) * (t - 1) ** 3 + strength * (t - 1) ** 2;
 
 const loader = new GLTFLoader();
 const sources = new Map<ModelId, GLTF>();
@@ -53,6 +59,9 @@ export class Model {
   private readonly painted = new Map<string, Material>();
   private readonly outlines = new Map<number, Material>();
   private readonly palette: Record<string, string>;
+  /** Each piece of the scene inside a holder that grows from nothing, so the piece's own motion is left alone. */
+  private arriving: { holder: Group; delay: number }[] = [];
+  private age = 0;
 
   constructor(id: ModelId) {
     const source = sources.get(id);
@@ -75,6 +84,15 @@ export class Model {
       template.removeFromParent();
       template.position.set(0, 0, 0);
       this.parts.set(template.name.replace(/^part_/, ''), template);
+    }
+
+    // The scene arrives piece by piece: see ENTER.
+    for (const piece of [...this.scene.children]) {
+      const holder = new Group();
+      holder.scale.setScalar(0.0001);
+      this.scene.add(holder);
+      holder.add(piece);
+      this.arriving.push({ holder, delay: ENTER.wait + Math.min(1, Math.hypot(piece.position.x, piece.position.z) / ENTER.reach) * ENTER.spread });
     }
 
     // Whatever was animated in Blender plays for ever, each clip at its own pace.
@@ -112,6 +130,13 @@ export class Model {
   /** Once a frame. */
   update(dt: number): void {
     this.mixer.update(dt);
+    if (this.arriving.length === 0) return;
+    this.age += dt;
+    for (const { holder, delay } of this.arriving) {
+      const t = Math.max(0, Math.min(1, (this.age - delay) / ENTER.grow));
+      holder.scale.setScalar(Math.max(0.0001, backOut(t, ENTER.overshoot)));
+    }
+    if (this.age > ENTER.wait + ENTER.spread + ENTER.grow) this.arriving = [];
   }
 
   /** Frees this copy's materials. The shapes belong to the loaded file and stay. */

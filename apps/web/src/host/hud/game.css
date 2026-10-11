@@ -530,29 +530,66 @@
   animation: pop-in var(--pop-in) both;
 }
 
-/* The reel: a window one picture tall, and a strip of pictures that runs past it and slows. */
+/*
+ * The reel: a window three pictures wide, and a strip of pictures that runs past it, slows and stops with
+ * the game to come in the middle, under the two gold pointers. It stops a moment before the card takes
+ * its place, and the picture it stopped on swells.
+ */
 .intro-reel {
   --cell: calc(250 * var(--u));
 
-  width: var(--cell);
-  height: var(--cell);
+  position: relative;
+  width: calc(var(--cell) * 3.1);
+  height: calc(var(--cell) * 1.04);
   padding: 0;
   overflow: hidden;
   border-radius: calc(48 * var(--u));
-  rotate: -3deg;
+  rotate: -2deg;
+}
+
+/* The pointers: one hanging from the top edge, one standing on the bottom, both at the middle. */
+.intro-reel::before,
+.intro-reel::after {
+  position: absolute;
+  left: 50%;
+  z-index: 1;
+  width: calc(64 * var(--u));
+  height: calc(38 * var(--u));
+  background: var(--gold);
+  translate: -50% 0;
+  content: '';
+}
+
+.intro-reel::before {
+  top: 0;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.intro-reel::after {
+  bottom: 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
 .intro-reel-strip {
-  display: grid;
-  animation: reel-spin var(--spin) var(--ease-spin) both;
+  display: flex;
+  width: max-content;
+  height: 100%;
+  /* The first picture starts in the middle of the window. */
+  padding-left: calc(var(--cell) * 1.05);
+  animation: reel-spin calc(var(--spin) - var(--landing)) var(--ease-spin) both;
 }
 
 .intro-reel-strip span {
   display: grid;
-  height: var(--cell);
+  flex: none;
+  width: var(--cell);
   place-items: center;
-  font-size: calc(160 * var(--u));
+  font-size: calc(150 * var(--u));
   line-height: 1;
+}
+
+.intro-reel-strip .is-landing {
+  animation: reel-land var(--landing) var(--ease-pop) both calc(var(--spin) - var(--landing));
 }
 
 @keyframes reel-spin {
@@ -561,8 +598,125 @@
   }
 
   to {
-    translate: 0 calc((1 - var(--count)) * var(--cell));
+    translate: calc((1 - var(--count)) * var(--cell)) 0;
   }
+}
+
+@keyframes reel-land {
+  50% {
+    scale: 1.3;
+  }
+}
+
+/* The curtain: a hole in a sheet of ink that shrinks to nothing and grows back. */
+.iris {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  z-index: 1;
+  width: 320vmax;
+  height: 320vmax;
+  border-radius: 50%;
+  box-shadow: 0 0 0 200vmax var(--ink);
+  translate: -50% -50%;
+  transition: width var(--iris), height var(--iris);
+  pointer-events: none;
+}
+
+.iris.is-closed {
+  width: 0;
+  height: 0;
+}
+
+/* ── The end of a round: who came where ─────────────────────────────────── */
+
+.round-results {
+  position: absolute;
+  top: calc(250 * var(--u));
+  right: calc(44 * var(--u));
+  z-index: 2;
+  display: grid;
+  gap: calc(12 * var(--u));
+  width: calc(520 * var(--u));
+  padding: calc(18 * var(--u)) calc(22 * var(--u)) calc(22 * var(--u));
+  rotate: 1.5deg;
+  transform-origin: top right;
+  animation: pop-in var(--pop-in) both var(--round-results-delay);
+}
+
+.round-results.is-leaving {
+  animation: squish-out var(--squish-out) both;
+}
+
+.round-results h3 {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  margin: 0;
+  font: 400 calc(38 * var(--u)) / 1 var(--font-display);
+  white-space: nowrap;
+}
+
+.round-results-icon {
+  font-size: calc(46 * var(--u));
+}
+
+.round-results-double {
+  margin-left: auto;
+  padding: calc(4 * var(--u)) calc(14 * var(--u));
+  border: calc(4 * var(--u)) solid var(--ink);
+  border-radius: calc(16 * var(--u));
+  background: var(--gold);
+  font-size: calc(30 * var(--u));
+}
+
+.round-results ol {
+  display: grid;
+  gap: calc(10 * var(--u));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A row wears its player's colour as a band on the left, and their shape: never colour alone. */
+.round-row {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  padding: calc(8 * var(--u)) calc(18 * var(--u)) calc(8 * var(--u)) calc(14 * var(--u));
+  border: calc(4 * var(--u)) solid var(--ink);
+  border-left: calc(18 * var(--u)) solid var(--seat);
+  border-radius: calc(18 * var(--u));
+  background: var(--white);
+  font: 400 calc(40 * var(--u)) / 1 var(--font-display);
+  animation: pop-in var(--pop-in) both calc(var(--round-results-delay) + var(--pop-in-ms) + var(--i) * var(--round-results-stagger));
+}
+
+.round-row.is-first {
+  background: var(--gold);
+}
+
+.round-place {
+  width: calc(64 * var(--u));
+}
+
+.round-shape {
+  display: flex;
+  flex: none;
+  width: calc(36 * var(--u));
+  height: calc(36 * var(--u));
+}
+
+.round-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-points {
+  color: var(--ink);
+  font-size: calc(46 * var(--u));
 }
 
 .intro-card {
@@ -1048,6 +1202,8 @@
   justify-content: center;
   gap: calc(14 * var(--u));
   padding: 0 calc(28 * var(--u));
+  /* Over the curtain between worlds: the scores never leave the screen. */
+  z-index: 2;
 }
 
 .seat-card {

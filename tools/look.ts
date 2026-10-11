@@ -13,9 +13,12 @@
 //   pnpm look finale                     a one-round match through the winner's moment to the table
 //   pnpm look brawl,lava --flow          a whole match of those games, a picture every 0.5 s of the screens between rounds
 //   --port=5207                          serve on that port (otherwise a free one is found); a game already served there is used as it is
+//   pnpm look brawl,lava --flow --video  the same match filmed, and the moments that pass too fast for a picture every 0.5 s
+//                                        (the end of each round, the reel stopping and the world changing) tiled frame by frame
 //   --name=before                        a word to put in the file names
-import { spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+// A burst (--frames) and a flow are also tiled into one picture, sheet-*.png, to see the whole run at a glance (needs ffmpeg).
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -59,7 +62,13 @@ for (let tries = 0; tries < 120 && !(await reachable()); tries++) await new Prom
 
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+const filming = has('video');
+const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, ...(filming ? { recordVideo: { dir: out, size: { width: 1280, height: 720 } } } : {}) });
+const page = await context.newPage();
+/** When the film started, to find a moment in it afterwards. */
+const filmStart = Date.now();
+const marks: { name: string; at: number }[] = [];
+const mark = (name: string) => marks.push({ name, at: (Date.now() - filmStart) / 1000 });
 const errors: string[] = [];
 page.on('pageerror', error => errors.push(String(error)));
 const saved: string[] = [];
@@ -71,6 +80,20 @@ async function shoot(name: string): Promise<void> {
     saved.push(file);
     if (frame < frames - 1) await page.waitForTimeout(every);
   }
+}
+
+/** Tiles every picture whose name starts with `prefix` into one, in order, three to a row. */
+function sheet(prefix: string): void {
+  const count = readdirSync(out).filter(name => name.startsWith(prefix) && name.endsWith('.png')).length;
+  if (count < 2) return;
+  const file = join(out, `sheet-${prefix.replace(/-$/, '')}.png`);
+  const made = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-pattern_type', 'glob', '-i', join(out, `${prefix}*.png`), '-vf', `scale=640:-1,tile=3x${Math.ceil(count / 3)}`, '-frames:v', '1', file]);
+  if (made.status === 0) saved.push(file);
+}
+
+/** Pictures left by an earlier run with the same names would be tiled in with the new ones. */
+function clear(prefix: string): void {
+  for (const name of readdirSync(out)) if (name.startsWith(prefix) || name.startsWith(`sheet-${prefix}`)) rmSync(join(out, name));
 }
 
 const phase = (target: Page) => target.evaluate(() => window.__BOOM__?.game.phase);
@@ -116,6 +139,7 @@ try {
     await shoot('finale-table');
   } else if (has('flow')) {
     // The screens between rounds, as they are: a picture every half second from the end of each round to the next GO.
+    clear(`${label}flow-`);
     await page.goto(`${base}/?solo&autostart&modes=${what}`);
     const games = what.split(',');
     for (let round = 0; round < games.length; round++) {
@@ -126,10 +150,27 @@ try {
         const { game, skip } = window.__BOOM__;
         for (let guard = 0; guard < 6000 && game.phase === 'play'; guard++) skip(0.05);
       });
+      if (filming) {
+        // No pictures, which would make the film stutter: only note when each thing happens.
+        mark(`round${round + 1}-end`);
+        let last = 'roundEnd';
+        let revealed = false;
+        for (let guard = 0; guard < 600; guard++) {
+          const now = await page.evaluate(() => ({ phase: window.__BOOM__.game.phase, revealed: window.__BOOM__.game.revealed }));
+          if (now.phase !== last) mark(`round${round + 1}-${now.phase}`);
+          if (now.phase === 'intro' && now.revealed && !revealed) mark(`round${round + 1}-reveal`);
+          last = now.phase;
+          revealed = now.revealed;
+          if (now.phase === 'play' || now.phase === 'matchEnd') break;
+          await page.waitForTimeout(50);
+        }
+        continue;
+      }
       for (let step = 0; step < 40 && (await phase(page)) !== 'play' && (await phase(page)) !== 'matchEnd'; step++) {
         await shoot(`flow-${round + 1}-${games[round]}-after-${String(step).padStart(2, '0')}-${await phase(page)}`);
         await page.waitForTimeout(500);
       }
+      sheet(`${label}flow-${round + 1}-`);
     }
   } else {
     const six = has('six');
@@ -156,11 +197,31 @@ try {
     for (const seconds of times) {
       await playTo(seconds);
       await shoot(`${what}${six ? '-six' : ''}-${seconds}`);
+      if (frames > 1) sheet(`${label}${what}${six ? '-six' : ''}-${seconds}-f`);
     }
   }
 } finally {
+  const film = filming ? await page.video()?.path() : undefined;
+  await context.close();
   await browser.close();
   if (server?.pid) process.kill(-server.pid);
+  if (film) {
+    saved.push(film);
+    // Ten frames a second around each moment worth watching, tiled five to a row.
+    const window = (name: string, from: number, seconds: number) => {
+      const file = join(out, `${label}film-${name}.png`);
+      const count = Math.round(seconds * 10);
+      const made = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-ss', String(Math.max(0, from)), '-t', String(seconds), '-i', film, '-vf', `fps=10,scale=384:-1,tile=5x${Math.ceil(count / 5)}`, '-frames:v', '1', file]);
+      if (made.status === 0) saved.push(file);
+    };
+    for (const moment of marks) {
+      if (moment.name.endsWith('-end')) window(moment.name, moment.at - 0.2, 3);
+      if (moment.name.endsWith('-reveal')) window(moment.name, moment.at - 1.2, 3);
+      if (moment.name.endsWith('-finale')) window(moment.name, moment.at - 0.8, 3);
+      if (moment.name.endsWith('-countdown')) window(moment.name, moment.at - 0.5, 2);
+    }
+    console.log(marks.map(moment => `${moment.name} at ${moment.at.toFixed(1)} s`).join(', '));
+  }
 }
 for (const file of saved) console.log(file);
 if (errors.length > 0) {

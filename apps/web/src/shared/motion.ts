@@ -26,6 +26,12 @@ export const motion = {
   buzz: { ms: 320 },
   /** How a roulette reel slows to a stop. Its length is the simulation's (`tuning.match.introRoulette`). */
   spin: { css: 'cubic-bezier(0.12, 0.7, 0.2, 1)' },
+  /** The reel stops this long before the game's card takes its place, and the picture it stopped on swells. */
+  landing: { ms: 380 },
+  /** The curtain that closes to a point before the world changes behind it, and opens again. */
+  iris: { ms: 420, css: 'cubic-bezier(0.65, 0, 0.35, 1)' },
+  /** The end of a round: how long the winner has the screen before the places are listed, and the gap between rows. */
+  roundResults: { delayMs: 1100, staggerMs: 150 },
   /** How long a line of the event feed stays. */
   feed: { ms: 3600 },
   /** A line that waits for the player ("press any key", "ENTER to start"): one slow swell, back and forth. */

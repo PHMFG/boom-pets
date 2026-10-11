@@ -62,6 +62,8 @@ export type FeedItem = { id: number; by: FeedWho | null; icon: string; target: F
 export type PowerNote = { id: number; who: FeedWho; state: 'ready' | 'on' | 'cursed'; icon: string; name: string; hint: string; color: string };
 
 export type ResultRow = { seat: number; name: string; portrait: string; score: number; place: number; award: { icon: string; name: string } | null };
+/** A round's outcome for the list shown as it ends. `points` is everything the round paid that player. */
+export type RoundResult = { mode: GameMode; double: boolean; rows: { seat: number; name: string; place: number; points: number }[] };
 export type Options = { rounds: number; bots: boolean; reduced: boolean; muted: boolean };
 
 export type HudState = {
@@ -76,8 +78,12 @@ export type HudState = {
   timeLeft: number;
   /** The game of the round being played, or about to be. */
   gameMode: GameMode;
-  /** The screen between games: the roulette while `mode` is null, then that game's card. */
-  intro: { mode: GameMode | null; final: boolean } | null;
+  /** The screen between games: the roulette while `mode` is null (it stops on `upcoming`), then that game's card. */
+  intro: { mode: GameMode | null; upcoming: GameMode | null; final: boolean } | null;
+  /** The curtain between worlds is shut (or shutting): the map is being changed behind it. */
+  curtain: boolean;
+  /** The round that just ended: who came where and what it paid, best first. */
+  roundResult: RoundResult | null;
   /** The end of a match: a drum roll until `winners` is filled in. */
   finale: { winners: { seat: number; name: string }[] } | null;
   /**
@@ -117,6 +123,8 @@ export const hud = createStore<HudState>({
   timeLeft: 0,
   gameMode: 'brawl',
   intro: null,
+  curtain: false,
+  roundResult: null,
   finale: null,
   call: null,
   loadProgress: 0,

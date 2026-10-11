@@ -40,6 +40,8 @@ import { RaceMap } from './maps/RaceMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
 const HALF = tuning.arena.size / 2;
+/** Where the camera looks at the podium: the middle step, at a pet's chest. */
+const PODIUM_SHOT = { x: 0, y: 1.3, z: 0.4 };
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 /** Seconds ahead the camera looks along a pet's path, so a pet sent flying is still in the picture where it lands. */
 const LOOK_AHEAD = 0.2;
@@ -73,6 +75,8 @@ export class GameStage {
   private readonly skies = new Map<SkyId, Texture>();
   /** The world of the game being played. The stage swaps it when the game changes. */
   private map: MapView;
+  /** Frames drawn since the map was last changed. */
+  private mapFrames = 0;
   private title = false;
   private roomWord: Word3D | null = null;
   private podium: Podium | null = null;
@@ -127,6 +131,11 @@ export class GameStage {
   }
 
   // ── Setup ──────────────────────────────────────────────────────────────────
+
+  /** The map now on stage has been drawn a few times: whatever building it stalled is over, and it may be shown. */
+  get settled(): boolean {
+    return this.mapFrames >= 4;
+  }
 
   setGame(game: Game): void {
     this.game = game;
@@ -273,8 +282,8 @@ export class GameStage {
         // The next game's world replaces whatever was on stage, behind its card.
         this.winners.clear();
         this.words.clear();
+        this.rig.release();
         this.showMap(this.makeMap(event.mode, event.final, game.round));
-        if (event.final) this.popWord(strings.words3d.doubleRound, 0, 5.6, -2, 1.6, colors.gold);
         return;
       case 'finale': {
         const spots = this.podium?.reveal(event.place) ?? [];
@@ -288,7 +297,7 @@ export class GameStage {
         this.celebrating = true;
         this.renderer.setSaturation(0);
         this.renderer.kick(0.6);
-        this.rig.focus(0, 0.4, 14, 3600, 0.22);
+        this.rig.look({ at: () => PODIUM_SHOT, distance: 12.5, seconds: 3600, pitch: 20, sway: 0.5 });
         this.rig.punchIn(0.5);
         this.words.pop(strings.words3d.victory, 0, 0.7, 3, { size: 1.2, color: colors.gold, seconds: 3.4 });
         const palette = [...spots.map(spot => new Color(seatColor(spot.seat))), new Color(colors.gold), WHITE];
@@ -584,6 +593,7 @@ export class GameStage {
       this.rig.focus(x * 0.8, z * 0.8, 21, Infinity, 0.16);
     }
     this.rig.frame(this.focusPoints(game), dt);
+    this.mapFrames++;
     this.placeNames(game);
     this.nameplates.tick(now);
     this.renderer.render(dt);
@@ -662,14 +672,16 @@ export class GameStage {
       this.podium?.dispose();
       this.podium = null;
       this.celebrating = false;
-      this.rig.release();
+      // The winner keeps the camera through the roulette: it is not sent off to frame a round that is over.
+      if (phase !== 'intro') this.rig.release();
     }
     this.renderer.setSaturation(0);
     if (phase === 'roundEnd') {
       this.popWord(strings.words3d.roundOver, 0, 4.4, 0, 2.6, colors.cream);
       const winner = [...this.pets.values()].find(view => this.winners.has(view.seat));
       if (winner) {
-        this.rig.focus(winner.feet.x, winner.feet.z, 16, tuning.match.roundEnd - 0.5, 0.5);
+        // A hero's shot: down at its eye level, close, staying with it wherever it dances off to.
+        this.rig.look({ at: () => ({ x: winner.feet.x, y: Math.max(0, winner.feet.y) + 0.7, z: winner.feet.z }), distance: 12.5, seconds: tuning.match.roundEnd + tuning.match.introRoulette, pitch: 30, sway: 0.4 });
         this.confetti(winner.feet.x, 3.5, winner.feet.z, [new Color(seatColor(winner.seat)), WHITE, new Color(colors.gold)], 60);
       }
     } else if (phase === 'finale' || (phase === 'matchEnd' && !keepPodium)) {
@@ -680,11 +692,12 @@ export class GameStage {
       this.scene.add(this.podium.group);
       if (phase === 'finale') {
         this.renderer.setSaturation(-0.6);
-        this.rig.focus(0, 0.5, 20, 3600, 0.1);
+        // From the front and low, like an audience: faces, not the tops of heads.
+        this.rig.look({ at: () => PODIUM_SHOT, distance: 17, seconds: 3600, pitch: 26, sway: 0.25 });
       } else {
         this.podium.revealAll();
         this.celebrating = true;
-        this.rig.focus(0, 0.5, 15, 3600, 0.12);
+        this.rig.look({ at: () => PODIUM_SHOT, distance: 15, seconds: 3600, pitch: 24, sway: 0.35 });
       }
     } else if (phase === 'lobby') {
       this.words.clear();
@@ -874,6 +887,7 @@ export class GameStage {
 
   /** Puts a map on stage in place of the one that was there, with its sky and its light. */
   private showMap(map: MapView): MapView {
+    this.mapFrames = 0;
     // `map` is unset only while the constructor runs.
     (this.map as MapView | undefined)?.dispose();
     this.map = map;
