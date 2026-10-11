@@ -15,6 +15,8 @@
 //   --port=5207                          serve on that port (otherwise a free one is found); a game already served there is used as it is
 //   pnpm look brawl,lava --flow --video  the same match filmed, and the moments that pass too fast for a picture every 0.5 s
 //                                        (the end of each round, the reel stopping and the world changing) tiled frame by frame
+//   pnpm look lava --perf                no pictures: how long frames take in a round of that game, on the graphics card
+//                                        and again with the processor slowed four times, with draw calls and triangles
 //   --name=before                        a word to put in the file names
 // A burst (--frames) and a flow are also tiled into one picture, sheet-*.png, to see the whole run at a glance (needs ffmpeg).
 import { spawn, spawnSync } from 'node:child_process';
@@ -48,6 +50,10 @@ const base = `http://localhost:${port}`;
 
 type Boom = { game: { phase: string; revealed: boolean; round: { time: number }; setLobbySeats(seats: unknown[]): void; startMatch(options: unknown): void; events: unknown[] }; session: { onEvent(event: unknown): void }; skip(seconds: number): void };
 declare const window: { __BOOM__: Boom; location: { search: string } };
+// The few things of a page that the measuring code touches: this file is checked without the browser's types.
+type Counts = { render: { calls: number; triangles: number }; autoReset: boolean; reset(): void };
+declare const document: { querySelector(selector: string): { getContext(kind: string): { getExtension(name: string): { UNMASKED_RENDERER_WEBGL: number } | null; getParameter(name: number): unknown } | null } | null };
+declare const requestAnimationFrame: (step: (now: number) => void) => void;
 
 const reachable = async () => {
   try {
@@ -61,7 +67,8 @@ const server = (await reachable()) ? null : spawn('pnpm', ['--filter', '@boom/we
 for (let tries = 0; tries < 120 && !(await reachable()); tries++) await new Promise(wait => setTimeout(wait, 250));
 
 mkdirSync(out, { recursive: true });
-const browser = await chromium.launch();
+// Measuring wants the real graphics card; pictures are the same either way.
+const browser = await chromium.launch(has('perf') ? { args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-frame-rate-limit', '--disable-gpu-vsync'] } : {});
 const filming = has('video');
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, ...(filming ? { recordVideo: { dir: out, size: { width: 1280, height: 720 } } } : {}) });
 const page = await context.newPage();
@@ -121,6 +128,53 @@ try {
       await page.waitForTimeout(2500);
     }
     await shoot(what);
+  } else if (has('perf')) {
+    // Frame times over five seconds of a round, as the page sees them, then the same with the processor slowed.
+    const cdp = await context.newCDPSession(page);
+    const sample = () =>
+      page.evaluate(async () => {
+        const stage = (window.__BOOM__.session as unknown as { stage: { renderer: Record<string, { info?: Counts }> } }).stage;
+        const info = Object.values(stage.renderer).find(value => value?.info?.render)?.info;
+        // Counted over one whole frame: left to itself the count starts again at every pass, and the last pass is one rectangle.
+        let calls = 0;
+        let triangles = 0;
+        if (info) {
+          info.autoReset = false;
+          await new Promise<void>(done => requestAnimationFrame(() => done()));
+          info.reset();
+          await new Promise<void>(done => requestAnimationFrame(() => done()));
+          calls = info.render.calls;
+          triangles = info.render.triangles;
+          info.autoReset = true;
+        }
+        const gl = document.querySelector('canvas')?.getContext('webgl2');
+        const debug = gl?.getExtension('WEBGL_debug_renderer_info');
+        const times: number[] = [];
+        let last = performance.now();
+        const start = last;
+        await new Promise<void>(done => {
+          const step = (now: number) => {
+            times.push(now - last);
+            last = now;
+            if (now - start < 5000) requestAnimationFrame(step);
+            else done();
+          };
+          requestAnimationFrame(step);
+        });
+        const sorted = times.slice(5).sort((a, b) => a - b);
+        const at = (share: number) => Number(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * share))]!.toFixed(1));
+        return { frames: sorted.length, median: at(0.5), p95: at(0.95), p99: at(0.99), worst: at(1), over33: sorted.filter(time => time > 33).length, calls, triangles, card: debug && gl ? String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)) : 'unknown' };
+      });
+    for (const game of what.split(',')) {
+      await page.goto(`${base}/?solo&autostart&modes=${game}`);
+      await waitFor('play');
+      await page.waitForTimeout(1500);
+      const plain = await sample();
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+      const slowed = await sample();
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+      console.log(`${game.padEnd(7)} ${String(plain.calls).padStart(4)} draw calls, ${String(plain.triangles).padStart(7)} triangles | frame median ${plain.median} ms, 95th ${plain.p95}, 99th ${plain.p99}, worst ${plain.worst}, over 33 ms: ${plain.over33} of ${plain.frames} | processor slowed 4x: median ${slowed.median}, 95th ${slowed.p95}, worst ${slowed.worst}, over 33 ms: ${slowed.over33} of ${slowed.frames} | ${plain.card}`);
+    }
   } else if (what === 'finale') {
     await page.goto(`${base}/?solo&autostart&modes=${flag('mode') ?? 'paint'}`);
     await waitFor('play');

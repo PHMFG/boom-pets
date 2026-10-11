@@ -565,8 +565,8 @@ export class AudioEngine {
     if (QUIET_LINES.has(line) && now < this.announcerBusyUntil) return;
     const buffer = this.lines.get(line);
     // No recording yet. If the file is missing for good the computer's own voice says the line, dry. If it is
-    // only still loading (a match started the moment sound was allowed) the line is skipped: starting the
-    // computer's voice can hold the picture still for a second, and that is worse than one line unsaid.
+    // only still loading (a match started the moment sound was allowed) the line is skipped: the announcer
+    // has one voice, and a first line in another, a moment before his own arrives, sounds like a fault.
     if (!buffer) {
       if (this.missing.has(line)) this.say(strings.announcer[line]);
       return;
