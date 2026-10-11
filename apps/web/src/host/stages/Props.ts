@@ -1,61 +1,68 @@
 // Everything on the platform that is not a pet: barrels, the Mystery Cube, meteors, ghosts,
-// slot reels, the capsule machine, pop-up words and the podium. All built from simple shapes.
+// slot reels, the capsule machine, pop-up words and the podium. The props are modelled in Blender
+// (tools/blender/maps/brawl.py and finale.py); light, and what carries a picture, is made here.
 import type { Barrel, Cube, GachaView, Ghost, Meteor, PowerId, Tier } from '@boom/game';
 import { tuning } from '@boom/game';
 import {
-  BackSide,
   BoxGeometry,
   Color,
-  ConeGeometry,
   CylinderGeometry,
   DoubleSide,
   Group,
-  IcosahedronGeometry,
   Mesh,
   MeshBasicMaterial,
   RingGeometry,
-  SphereGeometry,
-  TorusGeometry,
+  Vector3,
   type Camera,
   type MeshToonMaterial,
+  type Object3D,
 } from 'three';
 import type { PetId } from '../../shared/pets';
 import { POWER_ICON, TIER_COLOR } from '../../shared/powers';
-import { colors, seats as seatTokens } from '../../shared/tokens';
+import { colors, maps, seats as seatTokens } from '../../shared/tokens';
 import { createPet, type PetInstance } from '../render/assets';
-import { labelTexture, tileTexture } from '../render/emoji';
-import { toonMaterial } from '../render/materials';
+import { tileTexture } from '../render/emoji';
+import { Model } from '../render/models';
 import { Word3D } from '../render/Text3D';
 
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 const backOut = (t: number, strength = 2.2) => 1 + (strength + 1) * (t - 1) ** 3 + strength * (t - 1) ** 2;
-const ink = new MeshBasicMaterial({ color: colors.ink });
-const inkShell = new MeshBasicMaterial({ color: colors.ink, side: BackSide });
 export const seatColor = (seat: number): string => seatTokens[seat % seatTokens.length]!.color;
+
+/**
+ * The brawl's modelled props. One copy of the file serves every barrel, cube, meteor and machine of the
+ * whole game. It is made the first time a prop is needed, and by then the models are loaded.
+ */
+let kept: Model | null = null;
+const props = (): Model => (kept ??= new Model('brawl'));
+
+/** Gives one copy a material of its own for one of its colours, to change as it likes and to free when it goes. */
+function ownMaterial(root: Object3D, color: string): MeshToonMaterial {
+  const painted: Mesh[] = [];
+  root.traverse(node => {
+    if (node instanceof Mesh && node.userData.color === color) painted.push(node);
+  });
+  const mesh = painted[0];
+  if (!mesh) throw new Error(`The prop has nothing coloured "${color}".`);
+  const material = (mesh.material as MeshToonMaterial).clone();
+  mesh.material = material;
+  return material;
+}
 
 // ── Barrel ───────────────────────────────────────────────────────────────────
 
-const barrelBody = new CylinderGeometry(tuning.barrel.radius, tuning.barrel.radius, tuning.barrel.halfHeight * 2, 18);
-const barrelBand = new CylinderGeometry(tuning.barrel.radius + 0.03, tuning.barrel.radius + 0.03, 0.09, 18);
-
 export class BarrelView {
   readonly group = new Group();
-  private readonly body: MeshToonMaterial = toonMaterial({ color: colors.danger });
+  private readonly body: MeshToonMaterial;
   private readonly bobOffset = Math.random() * 6;
   private age = 0;
 
   constructor() {
-    const body = new Mesh(barrelBody, this.body);
-    body.castShadow = true;
-    const shell = new Mesh(barrelBody, inkShell);
-    shell.scale.set(1.12, 1.06, 1.12);
-    this.group.add(body, shell);
-    for (const height of [-0.26, 0.26]) {
-      const band = new Mesh(barrelBand, ink);
-      band.position.y = height;
-      this.group.add(band);
-    }
+    const barrel = props().part('barrel');
+    // Its staves are its own, so one barrel can go white-hot without the rest.
+    this.body = ownMaterial(barrel, 'danger');
+    this.group.add(barrel);
   }
 
   update(barrel: Barrel, alpha: number, dt: number, time: number): void {
@@ -78,26 +85,20 @@ export class BarrelView {
 // ── Mystery Cube ─────────────────────────────────────────────────────────────
 
 // Shared by every cube, so a match that spawns dozens of them allocates these once.
-const cubeBox = new BoxGeometry(0.85, 0.85, 0.85);
-const cubeChute = new ConeGeometry(0.9, 0.7, 10, 1, true);
 const cubeBeam = new CylinderGeometry(0.28, 0.28, 14, 10, 1, true);
-const chuteMaterial = toonMaterial({ color: colors.cream });
 const beamMaterial = new MeshBasicMaterial({ color: new Color(colors.gold).multiplyScalar(1.5), transparent: true, opacity: 0.22, depthWrite: false });
 
 export class CubeView {
   readonly group = new Group();
   private readonly box = new Group();
-  private readonly chute: Mesh;
-  private readonly face = new MeshBasicMaterial({ map: labelTexture('?', colors.gold, colors.ink) });
+  private readonly chute: Object3D;
   private age = 0;
+  /** Seconds since it touched down: the parachute squishes away over the first of them. */
+  private down = 0;
 
   constructor() {
-    const box = new Mesh(cubeBox, this.face);
-    const shell = new Mesh(cubeBox, inkShell);
-    shell.scale.setScalar(1.12);
-    this.box.add(box, shell);
-    this.chute = new Mesh(cubeChute, chuteMaterial);
-    this.chute.position.y = 1.5;
+    this.box.add(props().part('cube'));
+    this.chute = props().part('chute');
     // A column of light so the cube can be found from across the room.
     const beam = new Mesh(cubeBeam, beamMaterial);
     beam.position.y = 7;
@@ -106,39 +107,54 @@ export class CubeView {
 
   update(cube: Cube, dt: number, time: number): void {
     this.age += dt;
+    this.down = cube.landed ? this.down + dt : 0;
     this.group.position.set(cube.x, cube.y + (cube.landed ? Math.sin(time * 3) * 0.12 : 0), cube.z);
     this.box.rotation.set(0, time * 1.8, cube.landed ? 0 : Math.sin(time * 5) * 0.2);
     // The question mark pulses, slowly.
-    this.box.scale.setScalar((this.age < 0.3 ? backOut(this.age / 0.3) : 1) * (1 + Math.sin(time * 4) * 0.06));
-    this.chute.visible = !cube.landed;
+    const arrive = this.age < 0.3 ? backOut(this.age / 0.3) : 1;
+    this.box.scale.setScalar(arrive * (1 + Math.sin(time * 4) * 0.06));
+    // The parachute sways on the way down, and is let go on the floor: a swell, then gone.
+    const leave = clamp01(this.down / 0.16);
+    this.chute.visible = leave < 1;
+    this.chute.rotation.z = Math.sin(time * 4) * 0.1;
+    this.chute.scale.setScalar(Math.max(0.001, arrive * (leave < 0.3 ? 1 + 0.08 * (leave / 0.3) : 1.08 * (1 - (leave - 0.3) / 0.7))));
   }
 
   dispose(): void {
     this.group.removeFromParent();
-    this.face.dispose();
   }
 }
 
 // ── Meteor ───────────────────────────────────────────────────────────────────
 
-const rock = new IcosahedronGeometry(0.75, 0);
-/** Brighter than white, so the bloom makes it burn. */
-const rockMaterial = new MeshBasicMaterial({ color: new Color(colors.danger).multiplyScalar(2.6) });
+/** Where a meteor starts from, relative to where it lands. Its fire points back up this way. */
+const METEOR_FROM = new Vector3(7, 30, -5);
+const UP = new Vector3(0, 1, 0);
 
 export class MeteorView {
   readonly group = new Group();
+  private readonly rock: Object3D;
+  private readonly fire: Object3D;
 
   constructor() {
-    this.group.add(new Mesh(rock, rockMaterial));
+    this.rock = props().part('meteor');
+    this.fire = props().part('meteor_fire');
+    this.fire.quaternion.setFromUnitVectors(UP, METEOR_FROM.clone().normalize());
+    this.group.add(this.rock, this.fire);
   }
 
   /** Falls along a slant and speeds up, arriving exactly as the timer hits zero. */
   update(meteor: Meteor, time: number): void {
     const t = 1 - clamp01(meteor.left / meteor.total);
     const fall = t * t;
-    this.group.position.set(meteor.x + (1 - fall) * 7, (1 - fall) * 30, meteor.z - (1 - fall) * 5);
-    this.group.rotation.set(time * 7, time * 5, 0);
+    this.group.position.copy(METEOR_FROM).multiplyScalar(1 - fall);
+    this.group.position.x += meteor.x;
+    this.group.position.z += meteor.z;
     this.group.scale.setScalar(meteor.radius * 0.5);
+    // The rock tumbles; the fire behind it only flickers, and stretches as the rock speeds up.
+    this.rock.rotation.set(time * 7, time * 5, 0);
+    const flicker = Math.sin(time * 15) * 0.1;
+    this.fire.scale.set(1 + flicker, 0.7 + t * 0.5 + Math.sin(time * 11) * 0.08, 1 - flicker);
   }
 
   dispose(): void {
@@ -208,6 +224,8 @@ export class GhostView {
 
 const reelBox = new BoxGeometry(0.44, 0.44, 0.44);
 const REEL_STOPS = [0.5, 0.75, 1.0];
+/** How far the reels stand above the spot the stage gives them: clear of the pet's name tag, which is drawn over that spot. */
+const REEL_LIFT = 0.9;
 const ALL_ICONS = Object.values(POWER_ICON);
 
 /** Three little drums over a pet's head. They stop left to right on a result that was decided before they spun. */
@@ -224,10 +242,14 @@ export class SlotReels {
   constructor(tier: Tier, power: PowerId) {
     this.tier = tier;
     this.power = power;
+    // The case the reels spin in is modelled; the reels carry pictures, so they are made here.
+    const frame = props().part('reels');
+    frame.position.y = REEL_LIFT;
+    this.group.add(frame);
     for (let index = 0; index < 3; index++) {
       const material = new MeshBasicMaterial({ map: tileTexture(ALL_ICONS[index]!, colors.cream) });
       const mesh = new Mesh(reelBox, material);
-      mesh.position.x = (index - 1) * 0.52;
+      mesh.position.set((index - 1) * 0.52, REEL_LIFT, 0);
       this.group.add(mesh);
       this.reels.push({ mesh, material, stopped: false, punch: 0, swapIn: 0 });
     }
@@ -283,47 +305,14 @@ export class GachaMachine {
   onLand: (() => void) | null = null;
   private readonly machine = new Group();
   private readonly lever = new Group();
-  private readonly capsule: Mesh;
-  private readonly capsuleMaterial = new MeshBasicMaterial({ color: colors.steel });
+  private capsule: Object3D | null = null;
+  /** The top half of the capsule, which changes colour as it cracks. */
+  private shell: MeshToonMaterial | null = null;
   private landed = false;
   private readonly tint = new Color();
 
   constructor() {
-    const base = new Mesh(new BoxGeometry(1.5, 1.1, 1.3), toonMaterial({ color: colors.danger }));
-    base.position.y = 0.55;
-    const baseShell = new Mesh(base.geometry, inkShell);
-    baseShell.position.copy(base.position);
-    baseShell.scale.setScalar(1.07);
-    const globe = new Mesh(new SphereGeometry(0.85, 20, 14), new MeshBasicMaterial({ color: colors.tierRare, transparent: true, opacity: 0.4, depthWrite: false }));
-    globe.position.y = 1.75;
-    const globeShell = new Mesh(globe.geometry, inkShell);
-    globeShell.position.copy(globe.position);
-    globeShell.scale.setScalar(1.06);
-    const cap = new Mesh(new CylinderGeometry(0.4, 0.5, 0.25, 14), toonMaterial({ color: colors.gold }));
-    cap.position.y = 2.65;
-    this.machine.add(baseShell, base, globeShell, globe, cap);
-    // Capsules waiting inside the globe.
-    RAINBOW.forEach((color, index) => {
-      const ball = new Mesh(new SphereGeometry(0.2, 10, 8), toonMaterial({ color }));
-      const angle = (index / RAINBOW.length) * Math.PI * 2;
-      ball.position.set(Math.sin(angle) * 0.42, 1.45 + (index % 2) * 0.3, Math.cos(angle) * 0.42);
-      this.machine.add(ball);
-    });
-    const chute = new Mesh(new BoxGeometry(0.5, 0.4, 0.2), ink);
-    chute.position.set(0, 0.35, 0.68);
-    const handle = new Mesh(new BoxGeometry(0.12, 0.9, 0.12), ink);
-    handle.position.y = 0.45;
-    const knob = new Mesh(new SphereGeometry(0.2, 12, 10), toonMaterial({ color: colors.gold }));
-    knob.position.y = 0.95;
-    this.lever.add(handle, knob);
-    this.lever.position.set(0.9, 0.7, 0);
-    this.machine.add(chute, this.lever);
-
-    this.capsule = new Mesh(new SphereGeometry(0.42, 16, 12), this.capsuleMaterial);
-    const capsuleBand = new Mesh(new TorusGeometry(0.42, 0.05, 6, 20), ink);
-    capsuleBand.rotation.x = Math.PI / 2;
-    this.capsule.add(capsuleBand);
-    this.group.add(this.machine, this.capsule);
+    this.group.add(this.machine);
     this.group.visible = false;
   }
 
@@ -333,6 +322,7 @@ export class GachaMachine {
       this.landed = false;
       return;
     }
+    const capsule = this.capsule ?? this.build();
     const { machineAt, leverUntil, revealAt, duration } = tuning.gacha;
     this.group.visible = true;
     this.group.position.set(x, 0, z);
@@ -354,19 +344,39 @@ export class GachaMachine {
     // The fake-out: a grey capsule that shakes, cracks to gold, then goes rainbow.
     const out = clamp01((gacha.time - leverUntil) / 0.2);
     const reveal = clamp01((gacha.time - leverUntil) / (revealAt - leverUntil));
-    this.capsule.visible = gacha.time >= leverUntil && gacha.time < revealAt;
+    capsule.visible = gacha.time >= leverUntil && gacha.time < revealAt;
     const shake = reveal * 0.12;
-    this.capsule.position.set(Math.sin(time * 70) * shake, 0.5 + backOut(out) * 0.9 + Math.cos(time * 63) * shake, 1.3);
-    this.capsule.scale.setScalar(1 + reveal * 0.5);
+    capsule.position.set(Math.sin(time * 70) * shake, 0.5 + backOut(out) * 0.9 + Math.cos(time * 63) * shake, 1.3);
+    capsule.scale.setScalar(1 + reveal * 0.5);
     if (reveal < 0.4) this.tint.set(colors.steel);
     else if (reveal < 0.7) this.tint.set(colors.gold).multiplyScalar(1.6);
     else this.tint.set(RAINBOW[Math.floor(time * 12) % RAINBOW.length]!).multiplyScalar(2);
-    this.capsuleMaterial.color.copy(this.tint);
+    // Grey, it is a thing like any other. Cracked, it is lit from inside and burns the same from every side.
+    const lit = reveal >= 0.4;
+    this.shell?.color.copy(this.tint).multiplyScalar(lit ? 0.2 : 1);
+    this.shell?.emissive.copy(this.tint).multiplyScalar(lit ? 0.8 : 0);
   }
 
   /** Where the capsule bursts, for the particles. */
   get capsulePosition(): { x: number; y: number; z: number } {
     return { x: this.group.position.x, y: 1.4, z: this.group.position.z + 1.3 };
+  }
+
+  /** Puts the machine together the first time a gacha plays: the stage is made while the models are still loading. */
+  private build(): Object3D {
+    const model = props();
+    const body = model.part('gacha');
+    // The glass is see-through, and the far wall of the globe behind the capsules is pale, so they show.
+    const glass = model.own(body, 'glass');
+    if (glass) Object.assign(glass, { transparent: true, opacity: 0.32, depthWrite: false });
+    this.lever.add(model.part('gacha_lever'));
+    this.lever.position.set(0.9, 0.7, 0);
+    this.machine.add(body, this.lever);
+    const capsule = model.part('gacha_capsule');
+    this.shell = model.own(capsule, 'steel');
+    this.capsule = capsule;
+    this.group.add(capsule);
+    return capsule;
   }
 }
 
@@ -417,29 +427,49 @@ const STEP_HEIGHTS = [1.5, 1.0, 0.6];
 const STEP_X = [0, -1.9, 1.9];
 /** How much bigger than the others the winner stands. */
 const WINNER_SCALE = 1.35;
-const crownBand = new CylinderGeometry(0.34, 0.3, 0.2, 10, 1, true);
-const crownPoint = new ConeGeometry(0.09, 0.26, 4);
+/** The lamp towers at the corners of the stage, and how high their lamps sit on them. */
+const TOWER = { corner: 6.6, lamp: 4.05 };
+/** Where the two cannons stand. The stage fires the winner's confetti from just inside each. */
+const CANNON = { x: 4.6, z: 1.6 };
+/** The footlights round the rug. */
+const BULBS = { count: 16, radius: 4.34 };
+/** A lamp's light: a cone from its lens, over-bright so the glow picks it up. It opens when the lamp comes on; it does not fade in. */
+const BEAM_LENGTH = 11;
+const lampBeam = new CylinderGeometry(1.05, 0.14, BEAM_LENGTH, 20, 1, true).rotateX(Math.PI / 2).translate(0, 0, BEAM_LENGTH / 2 + 0.45);
+const lampLight = new MeshBasicMaterial({ color: new Color(maps.finale.lamp).multiplyScalar(1.5), transparent: true, opacity: 0.07, depthWrite: false, side: DoubleSide });
 
 export type PodiumEntry = { seat: number; model: PetId; place: number };
 
-type Spot = { pet: PetInstance; holder: Group; step: Mesh; seat: number; place: number; height: number; x: number; shownAt: number | null; crown: Group | null };
+type Spot = { pet: PetInstance; holder: Group; step: Object3D; paint: MeshToonMaterial | null; seat: number; place: number; height: number; x: number; shownAt: number | null; crown: Object3D | null };
 
 /**
- * The end of a match. The steps are there from the start but empty: each place is revealed when the
- * simulation says so, third place first. The winner gets a crown and a spotlight and stands bigger than
- * the rest; everyone who did not reach the podium watches from the sides.
+ * The end of a match, on a stage of its own (tools/blender/maps/finale.py). The steps are there from the
+ * start but empty: each place is revealed when the simulation says so, third place first. The lamps at the
+ * corners search the stage while the drums roll. The winner gets a crown and a spotlight and stands bigger
+ * than the rest; everyone who did not reach the podium watches from the sides.
  */
 export class Podium {
   readonly group = new Group();
+  private readonly model = new Model('finale');
   private readonly spots: Spot[] = [];
   private readonly crowd: { pet: PetInstance; holder: Group }[] = [];
   private readonly beam: Mesh;
-  private readonly crownMaterial = toonMaterial({ color: colors.gold });
+  private readonly lamps: { head: Object3D; beam: Mesh; aim: Vector3 }[] = [];
+  private readonly cannons: { root: Object3D; barrel: Object3D | undefined; side: number }[] = [];
+  private readonly bulbs: Object3D[] = [];
+  /** What stands on the stage from the start, in the order it is set out. */
+  private readonly scenery: Object3D[];
+  private readonly target = new Vector3();
   private celebrating: number | null = null;
+  /** When the cannons went off, if they have. */
+  private firedAt: number | null = null;
   private time = 0;
 
   /** `entries` are the final standings, best first. Seats sharing a place stand on steps of the same height. */
   constructor(entries: PodiumEntry[]) {
+    this.scenery = [...this.model.scene.children];
+    for (const piece of this.scenery) piece.scale.setScalar(0.001);
+    this.group.add(this.model.scene);
     entries.forEach((entry, index) => {
       const pet = createPet(entry.model, seatColor(entry.seat));
       pet.model.scale.setScalar(0.72);
@@ -448,10 +478,10 @@ export class Podium {
       holder.scale.setScalar(0.001);
       this.group.add(holder);
       if (index >= 3 || entry.place > 3) {
-        // Off the podium: a place at the side, turned toward it.
+        // Off the podium: a place at the side, out past the cannons and nearer the front, turned toward it.
         const side = this.crowd.length % 2 === 0 ? -1 : 1;
         const row = Math.floor(this.crowd.length / 2);
-        holder.position.set(side * (4 + row * 1.5), 0, 1.2 + row * 0.5);
+        holder.position.set(side * (5.8 + row * 1.5), 0, 3 + row * 0.5);
         holder.rotation.y = -side * 0.9;
         pet.actions.get('idle')?.play();
         this.crowd.push({ pet, holder });
@@ -460,15 +490,11 @@ export class Podium {
       const height = STEP_HEIGHTS[entry.place - 1]!;
       const x = STEP_X[index]!;
       // A step is plain until its place is revealed: its colour would give the name away.
-      const step = new Mesh(new BoxGeometry(1.7, height, 1.7), toonMaterial({ color: colors.cream }));
-      step.position.set(x, height / 2, 0);
-      step.castShadow = true;
-      const shell = new Mesh(step.geometry, inkShell);
-      shell.scale.set(1.05, 1.03, 1.05);
-      step.add(shell);
+      const step = this.model.part(`step_${entry.place}`);
+      step.position.set(x, 0, 0);
       holder.position.set(x, height, 0);
       pet.actions.get('idle')?.play();
-      this.spots.push({ pet, holder, step, seat: entry.seat, place: entry.place, height, x, shownAt: null, crown: null });
+      this.spots.push({ pet, holder, step, paint: this.model.own(step, 'step'), seat: entry.seat, place: entry.place, height, x, shownAt: null, crown: null });
       this.group.add(step);
     });
 
@@ -480,6 +506,32 @@ export class Podium {
     this.beam.position.set(0, 7, 0);
     this.beam.scale.set(0.001, 1, 0.001);
     this.group.add(this.beam);
+
+    // A lamp on each tower, with its light.
+    for (const [x, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+      const head = this.model.part('lamp');
+      head.position.set(x * TOWER.corner, TOWER.lamp, z * TOWER.corner);
+      const beam = new Mesh(lampBeam, lampLight);
+      beam.scale.set(0.001, 0.001, 1);
+      head.add(beam);
+      this.lamps.push({ head, beam, aim: new Vector3(x * 2, 0.4, z * 2) });
+      this.group.add(head);
+    }
+    // The cannons are built aiming to the left, so the one on the left is turned round: both aim over the podium.
+    for (const side of [-1, 1]) {
+      const root = this.model.part('cannon');
+      root.position.set(side * CANNON.x, 0, CANNON.z);
+      root.rotation.y = side < 0 ? Math.PI : 0;
+      this.cannons.push({ root, barrel: root.getObjectByName('cannon_barrel'), side });
+      this.group.add(root);
+    }
+    for (let index = 0; index < BULBS.count; index++) {
+      const angle = ((index + 0.5) / BULBS.count) * Math.PI * 2;
+      const bulb = this.model.part('bulb');
+      bulb.position.set(Math.cos(angle) * BULBS.radius, 0, Math.sin(angle) * BULBS.radius);
+      this.bulbs.push(bulb);
+      this.group.add(bulb);
+    }
   }
 
   /** Shows everyone at that place, and returns where they stand so the stage can mark the moment. */
@@ -487,17 +539,21 @@ export class Podium {
     const shown = this.spots.filter(spot => spot.place === place && spot.shownAt === null);
     for (const spot of shown) {
       spot.shownAt = this.time;
-      (spot.step.material as MeshToonMaterial).color.set(seatColor(spot.seat));
+      spot.paint?.color.set(seatColor(spot.seat));
       // The winner dances; the others clap along.
       spot.pet.mixer.stopAllAction();
       spot.pet.actions.get(place === 1 ? 'dance' : 'gesture-positive')?.play();
       if (place === 1) {
-        spot.crown = this.crown();
+        spot.crown = this.model.part('crown');
+        spot.crown.position.y = 1.45;
+        spot.crown.scale.setScalar(0.001);
         spot.holder.add(spot.crown);
       }
     }
     if (place === 1) {
       this.celebrating = this.time;
+      // The cannons go off with the winner. Shown all at once, with no finale, nothing is fired.
+      if (this.time > 0) this.firedAt = this.time;
       for (const { pet } of this.crowd) {
         pet.mixer.stopAllAction();
         pet.actions.get('gesture-positive')?.play();
@@ -513,12 +569,15 @@ export class Podium {
 
   update(dt: number): void {
     this.time += dt;
+    // The stage is set as the drums start: the rug rolls out from the middle, then each piece pops up, one after another.
+    const arrive = (delay: number) => Math.max(0.001, backOut(clamp01((this.time - delay) / 0.3)));
+    this.scenery.forEach((piece, index) => piece.scale.setScalar(arrive(index * 0.03)));
     for (const { pet, holder } of this.crowd) {
       // The crowd walks on while the drums roll.
       holder.scale.setScalar(backOut(clamp01(this.time / 0.3)));
       pet.mixer.update(dt);
     }
-    for (const spot of this.spots) {
+    this.spots.forEach((spot, index) => {
       const since = spot.shownAt === null ? -1 : this.time - spot.shownAt;
       const winner = spot.place === 1;
       const size = since < 0 ? 0.001 : backOut(clamp01(since / 0.3)) * (winner ? WINNER_SCALE : 1);
@@ -526,43 +585,52 @@ export class Podium {
       // The winner drops in from above; then keeps hopping.
       const drop = winner && since >= 0 ? Math.max(0, 1 - since / 0.25) * 5 : 0;
       spot.holder.position.y = spot.height + drop + (winner && since > 0.25 ? Math.abs(Math.sin((since - 0.25) * 6)) * 0.35 : 0);
+      // The step takes the weight: a short squash as its pet lands on it.
+      const squash = since < 0 ? 0 : Math.exp(-since * 9) * Math.sin(since * 26) * 0.07;
+      const set = arrive(0.1 + index * 0.07);
+      spot.step.scale.set((1 + squash * 0.5) * set, (1 - squash) * set, (1 + squash * 0.5) * set);
       if (spot.crown) {
         spot.crown.scale.setScalar(backOut(clamp01((since - 0.45) / 0.3)) || 0.001);
         spot.crown.rotation.y = this.time * 1.4;
       }
       spot.pet.mixer.update(dt);
-    }
+    });
     const open = this.celebrating === null ? 0.001 : Math.max(0.001, backOut(clamp01((this.time - this.celebrating) / 0.35)));
     this.beam.scale.set(open, 1, open);
+
+    // The lamps come on one after another and wander the stage, each its own way. Once there is a winner they
+    // chase each other round the podium instead: four lights on the winner as well as the spotlight wash it out.
+    this.lamps.forEach(({ head, beam, aim }, index) => {
+      if (this.celebrating === null) this.target.set(Math.sin(this.time * 0.8 + index * 1.7) * 3.6, 0.4, Math.cos(this.time * 0.63 + index * 2.3) * 2.8);
+      else this.target.set(Math.cos(this.time * 1.1 + index * (Math.PI / 2)) * 3.4, 0.3, Math.sin(this.time * 1.1 + index * (Math.PI / 2)) * 2.9 + 0.3);
+      aim.lerp(this.target, 1 - Math.exp(-7 * dt));
+      head.lookAt(aim);
+      head.scale.setScalar(arrive(0.3 + index * 0.14));
+      const lit = Math.max(0.001, backOut(clamp01((this.time - 0.6 - index * 0.14) / 0.35)));
+      beam.scale.set(lit, lit, 1);
+    });
+
+    // A cannon that has fired kicks back and rings like a bell for a moment.
+    const kick = this.firedAt === null ? 0 : Math.exp(-(this.time - this.firedAt) * 6) * Math.cos((this.time - this.firedAt) * 22);
+    for (const { root, barrel, side } of this.cannons) {
+      root.scale.setScalar(arrive(0.45));
+      root.position.x = side * (CANNON.x + kick * 0.16);
+      barrel?.scale.set(1 + kick * 0.2, 1 - kick * 0.32, 1 + kick * 0.2);
+    }
+
+    // The footlights take turns, slowly, while the drums roll; for the winner a wave of light runs round the rug.
+    this.bulbs.forEach((bulb, index) => {
+      const wave = this.celebrating === null ? Math.sin(this.time * Math.PI * 1.6 + index * Math.PI) : Math.sin(this.time * Math.PI * 2.4 - (index / BULBS.count) * Math.PI * 6);
+      bulb.scale.setScalar(arrive(0.3 + index * 0.03) * (1 + Math.max(0, wave) * 0.45));
+    });
+    this.model.update(dt);
   }
 
   dispose(): void {
     this.group.removeFromParent();
     [...this.spots, ...this.crowd].forEach(({ pet }) => pet.dispose());
-    this.spots.forEach(({ step }) => {
-      step.geometry.dispose();
-      (step.material as MeshToonMaterial).dispose();
-    });
     this.beam.geometry.dispose();
     (this.beam.material as MeshBasicMaterial).dispose();
-    this.crownMaterial.dispose();
-  }
-
-  /** A gold crown: a band with five points, sitting on the pet's head. */
-  private crown(): Group {
-    const crown = new Group();
-    const band = new Mesh(crownBand, this.crownMaterial);
-    const shell = new Mesh(crownBand, inkShell);
-    shell.scale.set(1.12, 1.15, 1.12);
-    crown.add(band, shell);
-    for (let index = 0; index < 5; index++) {
-      const angle = (index / 5) * Math.PI * 2;
-      const point = new Mesh(crownPoint, this.crownMaterial);
-      point.position.set(Math.sin(angle) * 0.31, 0.2, Math.cos(angle) * 0.31);
-      crown.add(point);
-    }
-    crown.position.y = 1.5;
-    crown.scale.setScalar(0.001);
-    return crown;
+    this.model.dispose();
   }
 }
