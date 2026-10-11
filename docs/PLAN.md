@@ -409,3 +409,11 @@ No rule of any game changed for 1.0. What changed is how the game looks and how 
 - **The camera leaves the game's angle outside a round**, for three low shots: the round's winner, a new world while its card is up, and the podium from the front.
 - **A match is told as it goes:** the places of each round and what they paid, on the TV and on each phone; a roulette that stops on the game that is played; a curtain between worlds; the last seconds of a round counted aloud; one card, in one corner, for whatever state the whole room must know.
 - **Two tools to look with:** `pnpm look` photographs or films any game, screen or moment between rounds, and measures what a map costs to draw. Every visual decision of 1.0 was judged in its pictures.
+
+### 1.1.0: longer rounds, living worlds (2026-10-11)
+
+The owner's first look at 1.0.0 found the new games a bit too short and their worlds not alive enough.
+
+- **Rounds are a third to a half longer**, each game in its own way and with no new rule (`docs/GAMEPLAY.md` has the numbers). Cor Certa's floor gained a rim: a rehearsal with phones that wander at random had found pets walking off its edge.
+- **Every world has spectators** (`stages/maps/crowd.ts`) and scenery that answers the round's events, not only loops: a kitchen timer for the bomb's fuse, a park that freezes with the players when the cat looks, a stage whose every light takes the called colour, a volcano that builds with the alarm, a picnic that gets eaten, an audience for the winner. The four agents that had built the maps each took theirs through a second pass, under the low camera shots the maps had never been seen from.
+- **Three more tools to test with nobody in the room:** `pnpm listen` measures every sound's loudness, `pnpm look --soak` counts what is held over three long matches, and `pnpm rehearse` plays whole evenings in real time with simulated phones. Between them they found three sounds nobody could hear, a shadow map kept for every pet's portrait, a frame of 85 ms each time a sky was first shown, and the missing rim.

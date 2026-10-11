@@ -4,6 +4,12 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.1.0] - 2026-10-11
+
+From the owner, after looking at 1.0.0: the new games were a bit too short and their worlds not alive enough. So every simple game lasts longer, and every world now has someone in it who cares what happens, scenery that answers the round, and things going somewhere on their own.
+
 ### Added
 
 - **Spectators.** Every world now has someone in it who cares what happens: small pets that nobody is playing stand round the map, on whatever it gives them to stand on. They watch what matters, start at a blast, clap at a good move and cheer the winner, each a moment after its neighbour. They are smaller than a player's pet, edged in white, with no ring and no name, and never stand on the floor.
