@@ -140,6 +140,8 @@ export class Pad {
       }),
     );
 
+    // Where a thumb goes, drawn until the joystick has been used once: the left half is otherwise empty, and says nothing.
+    element('stick-ghost', this.root);
     this.base = element('stick-base', this.root);
     this.knob = element('stick-knob', this.base);
     this.buttons = { b: element('pad-button pad-b', this.root), a: element('pad-button pad-a', this.root) };
@@ -442,6 +444,7 @@ export class Pad {
       this.base.style.transform = `translate(${u}px, ${v}px)`;
       this.knob.style.transform = '';
       this.base.classList.add('is-active');
+      this.root.classList.add('is-taught');
       return;
     }
     // The whole right half is a hit area: a touch presses whichever button is nearer. A button the game

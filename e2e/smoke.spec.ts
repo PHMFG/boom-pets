@@ -80,6 +80,9 @@ function overlapping(tab: Page, names: string[]): Promise<string[]> {
   }, names);
 }
 
+/** With BOOM_SHOTS set, saves a picture of a page for looking at: passing tests do not show that it looks right. */
+const shot = (target: Page, name: string) => (process.env.BOOM_SHOTS ? target.screenshot({ path: `test-results/shots/${name}.png` }).then(() => undefined) : Promise.resolve());
+
 class Session {
   readonly problems: string[] = [];
   readonly phones: Phone[] = [];
@@ -145,12 +148,15 @@ class Session {
 
     const phone = { model, tab, context, joinMs };
     this.phones.push(phone);
+    await shot(tab, `lobby-phone-${this.phones.length}`);
     return phone;
   }
 
   async readyUp(): Promise<void> {
     for (const phone of this.phones) await phone.tab.locator('.pad-lobby .pad-ready').tap();
     await expect.poll(() => this.page.evaluate(() => window.__BOOM__.game.phase), { timeout: 30_000 }).toBe('play');
+    if (this.phones[0]) await shot(this.phones[0].tab, 'brawl-phone-play');
+    await shot(this.page, 'brawl-tv-play');
   }
 
   async close(): Promise<void> {
@@ -340,6 +346,8 @@ test('four phones join, play a match with a SUPER gacha, and see their results',
   }
 
   // ── A rematch from the phones ──
+  await shot(phones[0]!, 'results-phone');
+  await shot(page, 'results-tv');
   for (const tab of phones) await tab.locator('.pad-results .pad-ready').tap();
   await expect.poll(() => page.evaluate(() => window.__BOOM__.game.phase), { timeout: 15_000 }).toMatch(/intro|countdown|play/);
 
@@ -472,8 +480,6 @@ test('a full five-round match runs from the title to the results in real time wi
   expect(problems, 'no page errors or console errors in the whole match').toEqual([]);
 });
 
-/** With BOOM_SHOTS set, saves a picture of a page for looking at: passing tests do not show that it looks right. */
-const shot = (target: Page, name: string) => (process.env.BOOM_SHOTS ? target.screenshot({ path: `test-results/shots/${name}.png` }).then(() => undefined) : Promise.resolve());
 
 /** The simple games, in the order this session plays them. A game is added here when it is added to the match. */
 const GAMES = ['paint', 'lava', 'grow', 'race', 'color', 'potato', 'frita'] as const;

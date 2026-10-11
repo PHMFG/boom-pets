@@ -222,6 +222,41 @@ body {
   animation: pop-in var(--pop-in) both;
 }
 
+/* Where a thumb goes: a dashed ring with a knob in it, low on the left, until the joystick has been used once. */
+.stick-ghost {
+  position: absolute;
+  bottom: 9vmin;
+  left: 9vmin;
+  display: grid;
+  place-items: center;
+  width: 32vmin;
+  aspect-ratio: 1;
+  border: 1.2vmin dashed color-mix(in srgb, var(--cream) 75%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+  transition: scale var(--squish-out);
+  animation: breathe var(--nudge) ease-in-out infinite alternate;
+}
+
+.stick-ghost::before {
+  width: 42%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cream) 75%, transparent);
+  content: '';
+}
+
+/* Gone for good once it has done its job, and never on a screen with no pet to steer. */
+.pad.is-taught .stick-ghost {
+  scale: 0;
+  animation: none;
+}
+
+.pad[data-screen='wait'] .stick-ghost,
+.pad[data-screen='results'] .stick-ghost {
+  display: none;
+}
+
 .stick-base {
   position: absolute;
   top: 0;
