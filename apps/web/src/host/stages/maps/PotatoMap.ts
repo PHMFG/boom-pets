@@ -1,13 +1,16 @@
 // Batata Quente: a frying pan on a stove, under a pink evening sky. The pan is the whole arena and its rim
 // is the wall. The bomb rides over whoever holds it, swelling and beating faster as its fuse burns down.
-// The pan, the stove and the bomb are modelled in Blender (tools/blender/maps/potato.py).
+// The pan, the stove and the bomb are modelled in Blender (tools/blender/maps/potato.py). So is what makes the
+// kitchen a place: spectators on tins round the pan who watch whoever has the bomb, a kitchen timer whose hand is
+// the fuse, a kettle coming to the boil, and a lid that rattles. When the bomb goes off, everything on the stove jumps.
 import type { AnyRound, GameEvent } from '@boom/game';
 import { tuning } from '@boom/game';
 import { Color, CylinderGeometry, Group, IcosahedronGeometry, Mesh, MeshBasicMaterial, RingGeometry, type MeshToonMaterial, type Object3D } from 'three';
 import { motion } from '../../../shared/motion';
 import { colors, maps, seats } from '../../../shared/tokens';
 import { Model } from '../../render/models';
-import { DANGER, HOT, random, type MapView, type SkyId, type StageKit } from '../kit';
+import { DANGER, HOT, random, WHITE, type MapView, type SkyId, type StageKit } from '../kit';
+import { Crowd, type Spot } from './crowd';
 import { disposeToys, toy } from './toys';
 
 const RADIUS = tuning.potato.radius;
@@ -22,6 +25,8 @@ const WARN_SECONDS = 1.4;
 const RIDE = 1.45;
 const HEADROOM = 1.15;
 const FUSE = { length: 0.32, lean: -0.4, foot: 0.46 };
+/** A blast makes the things on the stove hop: how high, for how long, and how much later for each metre from the pan. */
+const JOLT = { height: 0.4, seconds: 0.32, spread: 0.03 };
 const backOut = (t: number) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
 
 /** The bomb: a round black shell with a cap, a fuse that shortens and a spark at its tip. */
@@ -115,6 +120,13 @@ export class PotatoMap implements MapView {
   private readonly reach: Mesh;
   private readonly flames: Object3D[] = [];
   private readonly danger = new MeshBasicMaterial({ color: colors.danger });
+  private readonly crowd: Crowd;
+  /** What jumps when the bomb goes off: each with where it rests, and how far from the middle it stands (the farther, the later). */
+  private readonly loose: { node: Object3D; rest: number; far: number }[] = [];
+  /** The kitchen timer's hand: it goes once round the dial as a fuse burns down. */
+  private readonly hand: Object3D | undefined;
+  /** Seconds since the last blast, or null before any. */
+  private sinceBlast: number | null = null;
   private markSize = 0;
 
   constructor(kit: StageKit) {
@@ -131,6 +143,20 @@ export class PotatoMap implements MapView {
     const shell = this.model.part('bomb');
     this.bomb = new Bomb(shell, this.model.own(shell, 'bomb'));
     this.group.add(this.model.scene, this.bomb.group, this.mark, this.reach);
+
+    // Spectators stand wherever the model marks a seat (the lids of the tins, the pan's handle), facing the pan.
+    const spots: Spot[] = [];
+    for (let seat = this.model.node('seat_0'); seat; seat = this.model.node(`seat_${spots.length}`)) {
+      spots.push({ x: seat.position.x, y: seat.position.y, z: seat.position.z, turn: Math.atan2(-seat.position.x, -seat.position.z) });
+    }
+    this.crowd = new Crowd(spots, { seed: 7 });
+    this.group.add(this.crowd.group);
+    for (const name of ['tin_0', 'tin_1', 'tin_2', 'tin_3', 'tin_4', 'timer', 'kettle', 'shaker', 'mill']) {
+      const node = this.model.node(name);
+      if (node) this.loose.push({ node, rest: node.position.y, far: Math.hypot(node.position.x, node.position.z) });
+    }
+    this.hand = this.model.node('timer_hand');
+
     // Flames lick up round the pan's edge, a tall one and a short hot one in turn.
     const count = 22;
     for (let index = 0; index < count; index++) {
@@ -153,6 +179,7 @@ export class PotatoMap implements MapView {
         // A new bomb drops in on someone.
         poof(holder.x, RIDE, holder.z);
         rig.shake(0.2);
+        this.crowd.gasp();
       } else {
         stars(holder.x, 1.2, holder.z, 6);
       }
@@ -160,6 +187,11 @@ export class PotatoMap implements MapView {
     } else if (event.t === 'potatoBoom') {
       this.bomb.vanish();
       boom(event.x, 0.6, event.z, BLAST);
+      // Everything standing on the stove jumps, and everyone watching with it.
+      this.sinceBlast = 0;
+      this.crowd.gasp();
+    } else if (event.t === 'roundWinner') {
+      this.crowd.cheer(3);
     }
   }
 
@@ -189,6 +221,27 @@ export class PotatoMap implements MapView {
       }
     }
 
+    // Everyone watching follows the bomb; with no bomb about they face the pan again.
+    this.crowd.watch(holder ? { x: holder.x, z: holder.z } : null);
+    this.crowd.update(dt);
+    // The timer's hand goes once round, clockwise, as the fuse burns: at twelve again, it is over.
+    if (this.hand) this.hand.rotation.y = -(1 - left) * Math.PI * 2;
+    // After a blast the things on the stove hop, the nearest to the pan first, and settle.
+    if (this.sinceBlast !== null) {
+      this.sinceBlast += dt;
+      for (const { node, rest, far } of this.loose) {
+        const t = (this.sinceBlast - (far - RADIUS) * JOLT.spread) / JOLT.seconds;
+        node.position.y = rest + (t > 0 && t < 1 ? Math.sin(t * Math.PI) * JOLT.height : 0);
+      }
+      if (this.sinceBlast > JOLT.seconds + 12 * JOLT.spread) this.sinceBlast = null;
+    }
+    // Fat spits at the pan's edge, more of it as a fuse runs out: small and pale, and never out where the pets are.
+    if (field?.playing && Math.random() < (5 + (holder ? 1 - left : 0) * 14) * dt) {
+      const angle = random(0, Math.PI * 2);
+      const reach = RADIUS - random(0.1, 0.45);
+      this.kit.particles.spark({ x: Math.sin(angle) * reach, y: 0.1, z: Math.cos(angle) * reach, vx: random(-0.4, 0.4), vy: random(1.6, 3.2), vz: random(-0.4, 0.4), life: random(0.25, 0.4), size: random(0.05, 0.09), gravity: 12, color: WHITE });
+    }
+
     // The burner under the pan: each flame flickers at its own pace, and they stand taller as a fuse runs out.
     this.flames.forEach((flame, index) => {
       const flicker = 0.8 + 0.2 * Math.sin(time * (7 + (index % 3)) + index * 1.9);
@@ -199,6 +252,7 @@ export class PotatoMap implements MapView {
   }
 
   dispose(): void {
+    this.crowd.dispose();
     this.bomb.dispose();
     this.mark.children.forEach(dash => (dash as Mesh).geometry.dispose());
     this.reach.geometry.dispose();
