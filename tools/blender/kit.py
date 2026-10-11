@@ -17,7 +17,8 @@
 #   - everything is drawn where it stands, except objects passed to `part()`, which are templates the
 #     map's code clones and places itself (a bomb, a piece of food, a flame);
 #   - `tag(obj, outline=..)` sets how thick its outline is in metres (0 for none), `glow=1.6` draws it
-#     flat and brighter than white so it blooms (fire, lava, lamps), `shadow=False` stops it casting;
+#     flat and brighter than white so it blooms (fire, lava, lamps), `shadow=False` stops it casting,
+#     `receive=False` stops shadows falling on it;
 #   - every animation made with `spin`, `sway`, `bob` or `key` plays in a loop.
 import math
 import os
@@ -267,8 +268,12 @@ def group(name, *objects, at=(0, 0, 0), rot=(0, 0, 0)):
     return holder
 
 
-def tag(obj, outline=None, glow=None, shadow=None):
-    """Tells the game how to draw it: outline thickness in metres (0 for none), a glow of 1.3 to 2.5, whether it casts a shadow."""
+def tag(obj, outline=None, glow=None, shadow=None, receive=None):
+    """
+    Tells the game how to draw it: outline thickness in metres (0 for none), a glow of 1.3 to 2.5, whether it
+    casts a shadow, and whether shadows fall on it (`receive=False` for glass, water and smooth upright things
+    on which a shadow shows as stripes).
+    """
     targets = [obj] + list(obj.children_recursive)
     for target in targets:
         if outline is not None:
@@ -277,6 +282,8 @@ def tag(obj, outline=None, glow=None, shadow=None):
             target['glow'] = float(glow)
         if shadow is not None:
             target['shadow'] = bool(shadow)
+        if receive is not None:
+            target['receive'] = bool(receive)
     return obj
 
 

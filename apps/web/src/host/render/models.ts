@@ -51,7 +51,7 @@ export function loadModels(onProgress?: (done: number) => void): Promise<void> {
 export const modelsLoaded = (): boolean => sources.size === MODEL_IDS.length;
 
 /** What a piece's script said about how to draw it. A piece joined from several colours keeps this on its parent. */
-function setting(node: Object3D, key: 'outline' | 'glow' | 'shadow'): unknown {
+function setting(node: Object3D, key: 'outline' | 'glow' | 'shadow' | 'receive'): unknown {
   for (let at: Object3D | null = node; at; at = at.parent) {
     if (at.userData[key] !== undefined) return at.userData[key];
   }
@@ -161,7 +161,8 @@ export class Model {
     mesh.userData.color = name;
     mesh.material = this.paint(name, glow);
     mesh.castShadow = glow === 0 && setting(mesh, 'shadow') !== false;
-    mesh.receiveShadow = glow === 0;
+    // Glass, water and other see-through or near-upright smooth things show a shadow as stripes: their script says so.
+    mesh.receiveShadow = glow === 0 && setting(mesh, 'receive') !== false;
     // A glowing thing has no outline unless its script asks for one: fire has no edge.
     const thickness = Number(setting(mesh, 'outline') ?? (glow > 0 ? 0 : OUTLINE));
     if (thickness <= 0) return;
