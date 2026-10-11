@@ -487,7 +487,8 @@ export class GameStage {
       }
       case 'gachaEnd':
         this.renderer.setSaturation(0);
-        this.rig.release();
+        // The camera goes back to the fight, unless the round ended meanwhile and it is on the winner.
+        if (game.phase === 'play') this.rig.release();
         return;
       case 'ghost':
         this.poof(event.x, 1.5, event.z);
@@ -690,11 +691,20 @@ export class GameStage {
     this.renderer.setSaturation(0);
     if (phase === 'roundEnd') {
       this.popWord(strings.words3d.roundOver, 0, 4.4, 0, 2.6, colors.cream);
-      const winner = [...this.pets.values()].find(view => this.winners.has(view.seat));
-      if (winner) {
+      // The winner is found through the round, not among the pets drawn so far: one that came back into the round
+      // this very moment (a ghost's swap) is the winner before it has been drawn once.
+      const seat = [...this.winners][0];
+      const pet = seat === undefined ? undefined : game.round.petOfSeat(seat);
+      if (pet) {
+        const spot = { x: pet.x, y: HERO_ABOVE, z: pet.z };
+        const at = () => {
+          const view = this.pets.get(pet.id);
+          if (view) Object.assign(spot, { x: view.feet.x, y: Math.max(0, view.feet.y) + HERO_ABOVE, z: view.feet.z });
+          return spot;
+        };
         // A hero's shot: down at its eye level, close, staying with it wherever it dances off to.
-        this.rig.look({ at: () => ({ x: winner.feet.x, y: Math.max(0, winner.feet.y) + HERO_ABOVE, z: winner.feet.z }), distance: 13, seconds: tuning.match.roundEnd + tuning.match.introRoulette, pitch: 30, sway: 0.4 });
-        this.confetti(winner.feet.x, 3.5, winner.feet.z, [new Color(seatColor(winner.seat)), WHITE, new Color(colors.gold)], 60);
+        this.rig.look({ at, distance: 13, seconds: tuning.match.roundEnd + tuning.match.introRoulette, pitch: 30, sway: 0.4 });
+        this.confetti(pet.x, 3.5, pet.z, [new Color(seatColor(pet.seat)), WHITE, new Color(colors.gold)], 60);
       }
       // Everyone left standing says how they feel about it.
       for (const view of this.pets.values()) view.emote(this.winners.has(view.seat) ? ROUND_FACES.won : ROUND_FACES.lost[view.seat % ROUND_FACES.lost.length]!, 2.2);
