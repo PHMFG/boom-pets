@@ -126,7 +126,8 @@ export class LavaRules implements MiniRules {
 
   hash(): number {
     let hash = this.wave * 1000 + Math.round(this.left * 100) + (this.phase === 'calm' ? 0 : this.phase === 'alarm' ? 1 : 2) * 100_000;
-    for (const piece of this.pieces) hash = (Math.imul(hash, 31) + Math.round(piece.x * 10) * 7 + Math.round(piece.z * 10) + (piece.landed ? 1 : 0)) | 0;
+    for (const piece of this.pieces) hash = (Math.imul(hash, 31) + Math.round(piece.x * 10) * 7 + Math.round(piece.z * 10) + (piece.landed ? 1 : 0) + (piece.turned ? 2 : 0) + FURNITURE_KINDS.indexOf(piece.kind) * 4 + Math.round(piece.at * 60) * 32) | 0;
+    for (const [seat, wave] of this.outWave) hash = (Math.imul(hash, 31) + seat * 100 + wave) | 0;
     return hash;
   }
 

@@ -131,6 +131,7 @@ export class ColorMap implements MapView {
     this.rim.position.y = (RAIL.top + RAIL.foot) / 2;
     this.world.scale.set(FIT.x, FIT.y, FIT.z);
     this.world.add(this.model.scene);
+    this.model.drawnAt(FIT.line);
     this.group.add(this.tiles.mesh, this.world, this.rim);
     this.tiles.reset(true);
 

@@ -102,6 +102,7 @@ export class FritaMap implements MapView {
     this.paint = this.painted();
     this.world.scale.set(FIT.x, FIT.y, FIT.z);
     this.world.add(this.model.scene);
+    this.model.drawnAt(FIT.line);
     this.group.add(this.tiles.mesh, this.world, this.paint, this.catTurn, this.fans.group);
     RIDERS.forEach((ride, index) => {
       const piece = this.model.node(ride.on);

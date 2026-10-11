@@ -8,6 +8,7 @@ import {
   DirectionalLight,
   EquirectangularReflectionMapping,
   HemisphereLight,
+  Matrix4,
   OrthographicCamera,
   Scene,
   SRGBColorSpace,
@@ -41,6 +42,8 @@ import { RaceMap } from './maps/RaceMap';
 import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
 
 const HALF = tuning.arena.size / 2;
+/** How far past the floor's edge shadows are still cast, in metres: a pet knocked off the side has one on its way down, and a prop beside the floor casts one onto it. */
+const SHADOW_MARGIN = 2.5;
 /** How far over the winner's feet the camera looks as a round ends: over its head, so its bubble clears the banner that names it. */
 const HERO_ABOVE = 1.6;
 /** What a pet's bubble shows as a round ends. */
@@ -113,7 +116,7 @@ export class GameStage {
     this.sun.position.set(3, 24, 6);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(this.sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: 60 });
+    Object.assign(this.sun.shadow.camera, { near: 1, far: 60 });
     this.scene.add(this.hemisphere, this.sun, this.particles.group, this.decals.mesh, this.words.group, this.machine.group);
     this.machine.onLand = () => {
       const { x, z } = this.machine.group.position;
@@ -956,6 +959,27 @@ export class GameStage {
     });
   }
 
+  /**
+   * The sun casts shadows over a box, and nothing outside it has one. The box is fitted to the floor that is up,
+   * with a margin for what is thrown off its edge: a floor twice as wide must not leave the pets at its ends
+   * without the shadow that shows how high they are.
+   */
+  private fitShadows(bounds: MapView['bounds']): void {
+    // The floor's corners as the sun sees them: across and up its picture.
+    const view = new Matrix4().lookAt(this.sun.position, this.sun.target.position, this.sun.up).invert();
+    let across = 0;
+    let up = 0;
+    for (const x of [bounds.minX, bounds.maxX]) {
+      for (const z of [bounds.minZ, bounds.maxZ]) {
+        const seen = new Vector3(x, 0, z).sub(this.sun.position).applyMatrix4(view);
+        across = Math.max(across, Math.abs(seen.x));
+        up = Math.max(up, Math.abs(seen.y));
+      }
+    }
+    Object.assign(this.sun.shadow.camera, { left: -across - SHADOW_MARGIN, right: across + SHADOW_MARGIN, top: up + SHADOW_MARGIN, bottom: -up - SHADOW_MARGIN });
+    this.sun.shadow.camera.updateProjectionMatrix();
+  }
+
   /** Puts a map on stage in place of the one that was there, with its sky and its light. */
   private showMap(map: MapView): MapView {
     this.mapFrames = 0;
@@ -963,6 +987,7 @@ export class GameStage {
     (this.map as MapView | undefined)?.dispose();
     this.map = map;
     this.scene.add(map.group);
+    this.fitShadows(map.bounds);
     this.hemisphere.intensity = map.light.hemisphere;
     this.sun.intensity = map.light.sun;
     const known = this.skies.get(map.sky);

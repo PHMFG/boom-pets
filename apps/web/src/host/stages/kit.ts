@@ -21,13 +21,14 @@ export const random = (low: number, high: number) => low + Math.random() * (high
  * A floor that has grown since its scenery was modelled round it. Rather than model the scenery again, a map
  * puts it in a group scaled by this, so what stood at the floor's edge still does. `y` is the smaller of the
  * other two: a prop may come out a little wide, never tall and thin. `at()` is where a spot of the model is
- * in the world, for what stands in the scenery without being scaled with it (spectators, particles).
+ * in the world, for what stands in the scenery without being scaled with it (spectators, particles). `line` is
+ * how much bigger the scenery is drawn over all, which is what its outlines are thinned by (`Model.drawnAt`).
  */
 export function fitScenery(built: { columns: number; rows: number }, columns: number, rows: number) {
   const x = columns / built.columns;
   const z = rows / built.rows;
   const y = Math.min(x, z);
-  return { x, y, z, at: (spot: { x: number; y: number; z: number }) => new Vector3(spot.x * x, spot.y * y, spot.z * z) };
+  return { x, y, z, line: Math.cbrt(x * y * z), at: (spot: { x: number; y: number; z: number }) => new Vector3(spot.x * x, spot.y * y, spot.z * z) };
 }
 
 export const SKY_IDS = ['day', 'morning', 'night', 'alien', 'space'] as const;

@@ -190,6 +190,7 @@ export class PaintMap implements MapView {
     this.kit = kit;
     this.world.scale.set(FIT.x, FIT.y, FIT.z);
     this.world.add(this.model.scene);
+    this.model.drawnAt(FIT.line);
     this.group.add(this.tiles.mesh, this.world);
     this.tiles.reset(true);
     const { model } = this;
@@ -197,7 +198,7 @@ export class PaintMap implements MapView {
 
     // A pot for every player colour: the model's pot, with its paint coloured here.
     this.pots = seats.map((seat, index) => {
-      const shape = model.part('pot');
+      const shape = model.part('pot', FIT.line);
       model.own(shape, 'potPaint')?.color.set(seat.color);
       const pot = new PotView(shape, POTS.x[index % POTS.x.length]!, POTS.floor, POTS.z + (index % 2) * POTS.stagger, ((index * 2.3) % 0.9) - 0.45, ARRIVE.after + index * ARRIVE.each);
       this.world.add(pot.group);
@@ -228,12 +229,12 @@ export class PaintMap implements MapView {
       this.splatSpots.push(spot.clone());
     }
 
-    this.toy = model.part('toy');
+    this.toy = model.part('toy', FIT.line);
     this.toyKey = this.toy.getObjectByName('toy_key');
     at('mark_toy_a', this.toyEnds[0]);
     at('mark_toy_b', this.toyEnds[1]);
     this.toy.scale.setScalar(0.001);
-    this.plane = model.part('plane');
+    this.plane = model.part('plane', FIT.line);
     // Heading first, then nose up or down, then banked: so a turn in the air looks like one.
     this.plane.rotation.order = 'YZX';
     at('mark_plane_a', this.pads[0]);
@@ -512,7 +513,7 @@ export class PaintMap implements MapView {
   private splat(color: Color): void {
     if (this.splats.length >= Math.min(SPLATS.most, this.splatSpots.length)) return;
     const spot = this.splatSpots[this.splats.length]!;
-    const shape = this.model.part('splat');
+    const shape = this.model.part('splat', FIT.line);
     this.model.own(shape, 'potPaint')?.color.copy(color).lerp(WHITE, 0.25);
     shape.position.set(spot.x + random(-0.3, 0.3), spot.y + this.splats.length * 0.002, spot.z + random(-0.3, 0.3));
     shape.rotation.y = random(0, Math.PI * 2);

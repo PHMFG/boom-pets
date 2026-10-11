@@ -151,6 +151,7 @@ export class GrowMap implements MapView {
     for (let column = 1; column < COLUMNS; column += 2) for (let row = 1; row < ROWS; row += 2) this.tiles.setColor(column * ROWS + row, cross, false);
     this.world.scale.set(FIT.x, FIT.y, FIT.z);
     this.world.add(this.model.scene);
+    this.model.drawnAt(FIT.line);
     this.group.add(this.tiles.mesh, this.world);
     this.tiles.reset(true);
     for (let column = 1; column < COLUMNS; column += 2) for (let row = 1; row < ROWS; row += 2) this.tiles.setColor(column * ROWS + row, cross, false);
@@ -168,7 +169,7 @@ export class GrowMap implements MapView {
     // The cake: every slice but the one already served, in a ring on the stand, the gap turned to the camera.
     const stand = model.node('mark_cake')?.position ?? new Vector3();
     for (let index = 0; index < CAKE.slices; index++) {
-      const shape = model.part('slice');
+      const shape = model.part('slice', FIT.line);
       shape.position.copy(stand);
       shape.rotation.y = CAKE.gap + (index + 1) * CAKE.turn;
       shape.scale.setScalar(0.001);
@@ -181,7 +182,7 @@ export class GrowMap implements MapView {
     this.antsTo.copy(model.node('mark_ants_to')?.position ?? new Vector3());
     for (let index = 0; index < ANTS.each * 2; index++) {
       const home = index % 2 === 1;
-      const shape = model.part(home ? 'ant_loaded' : 'ant');
+      const shape = model.part(home ? 'ant_loaded' : 'ant', FIT.line);
       this.ants.push({ shape, along: Math.floor(index / 2) / ANTS.each, home, offX: 0, offZ: 0 });
       this.world.add(shape);
     }

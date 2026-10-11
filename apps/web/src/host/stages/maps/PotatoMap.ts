@@ -151,6 +151,7 @@ export class PotatoMap implements MapView {
     this.bomb = new Bomb(shell, this.model.own(shell, 'bomb'));
     this.world.scale.setScalar(FIT);
     this.world.add(this.model.scene);
+    this.model.drawnAt(FIT);
     this.group.add(this.world, this.bomb.group, this.mark, this.reach);
 
     // Spectators stand wherever the model marks a seat (the lids of the tins, the pan's handle), facing the pan.
@@ -243,7 +244,12 @@ export class PotatoMap implements MapView {
         const t = (this.sinceBlast - (far - RADIUS) * JOLT.spread) / JOLT.seconds;
         node.position.y = rest + (t > 0 && t < 1 ? Math.sin(t * Math.PI) * JOLT.height : 0);
       }
-      if (this.sinceBlast > JOLT.seconds + 12 * JOLT.spread) this.sinceBlast = null;
+      // Over once the farthest of them has come down again.
+      const farthest = this.loose.reduce<number>((most, { far }) => Math.max(most, far), RADIUS);
+      if (this.sinceBlast > JOLT.seconds + (farthest - RADIUS) * JOLT.spread) {
+        for (const { node, rest } of this.loose) node.position.y = rest;
+        this.sinceBlast = null;
+      }
     }
     // Fat spits at the pan's edge, more of it as a fuse runs out: small and pale, and never out where the pets are.
     if (field?.playing && Math.random() < (5 + (holder ? 1 - left : 0) * 14) * dt) {

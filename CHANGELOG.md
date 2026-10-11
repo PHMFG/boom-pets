@@ -4,7 +4,7 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-From the owner, after playing 1.1.0: make the maps bigger, the race could be bigger too, and O Chão é Lava is very short and could have furniture falling from the sky to climb on before the lava comes.
+From the owner, after playing (the copy open on their computer was still 1.0.0): make the maps bigger, the race could be bigger too, and O Chão é Lava is very short and could have furniture falling from the sky to climb on before the lava comes.
 
 ### Changed
 
@@ -15,6 +15,10 @@ From the owner, after playing 1.1.0: make the maps bigger, the race could be big
 ### Fixed
 
 - Bots in Cor Certa walked to where a patch of the old size would have been, and fell with the floor.
+- On the wider floors of Batatinha Frita and Corrida Maluca, pets near the ends had no shadow under them: the sun only cast shadows over the middle. Shadows now cover the whole of whichever floor is up.
+- After a blast in Batata Quente the salt shaker and the pepper mill were left hanging in the air until the next one.
+- A sofa sinking into the lava vanished with its back still showing. Furniture now goes all the way under.
+- The scenery of the bigger maps was outlined more thickly than the pets and props standing in it.
 
 ## [1.1.0] - 2026-10-11
 

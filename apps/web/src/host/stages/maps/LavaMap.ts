@@ -35,11 +35,14 @@ const LEVEL = { calm: -0.75, alarm: -0.06, flood: 0.14 };
 const BUILT = { columns: 14, rows: 12 };
 const FIT = { x: COLUMNS / BUILT.columns, z: ROWS / BUILT.rows };
 const fit = (x: number, z: number) => ({ x: x * FIT.x, z: z * FIT.z });
+/** How much bigger the crater is drawn over all (it is not made taller): what its outlines are thinned by. */
+const DRAWN = Math.cbrt(FIT.x * FIT.z);
 /**
  * Furniture comes out of the sky: for how long it is seen falling and from how high, how long it takes to sink
- * when its wave is over, how it squashes as it lands, and how wide a mark each kind leaves on the floor beforehand.
+ * when its wave is over and how far under it goes (deeper than its tallest piece stands, tipped), how it squashes
+ * as it lands, and how wide a mark each kind leaves on the floor beforehand.
  */
-const FURNITURE = { fall: 0.65, height: 22, sink: 0.35, squash: 0.28, settle: 0.3, mark: { pouf: 0.95, armchair: 1.15, table: 1.55, sofa: 2.3, bed: 1.9 } };
+const FURNITURE = { fall: 0.65, height: 22, sink: 0.45, under: 1.9, squash: 0.28, settle: 0.3, mark: { pouf: 0.95, armchair: 1.15, table: 1.55, sofa: 2.3, bed: 1.9 } };
 /** Bubbles swelling out of the lava at any moment. */
 const BUBBLES = 9;
 /** Where the volcano stands and how high its mouth is, for what it throws. */
@@ -140,6 +143,7 @@ export class LavaMap implements MapView {
     if (cracks) this.cracks = model.own(cracks, 'lava');
     this.world.scale.set(FIT.x, 1, FIT.z);
     this.world.add(model.scene);
+    model.drawnAt(DRAWN);
     this.group.add(this.tiles.mesh, this.sea, this.world);
 
     // The model says where its lava is open, three numbers a spot: x, how far back, and how far from the slab.
@@ -166,7 +170,7 @@ export class LavaMap implements MapView {
 
     // Not drawn at all until their turn comes: things waiting under the lava are things drawn for nothing.
     const hidden = (name: string) => {
-      const view = model.part(name);
+      const view = model.part(name, DRAWN);
       view.visible = false;
       this.world.add(view);
       return view;
@@ -175,7 +179,7 @@ export class LavaMap implements MapView {
     for (let index = 0; index < SPOUTS; index++) this.spouts.push({ view: hidden('spout'), wait: random(1, 5), age: 0, size: 1 });
     for (let index = 0; index < CRITTERS; index++) this.critters.push({ view: hidden('critter'), wait: random(1.5, 4) + index * 1.5, age: 0, leaves: 0, up: false, x: 0, z: 0 });
     for (let index = 0; index < CURRENT.rafts; index++) {
-      const view = model.part('raft');
+      const view = model.part('raft', DRAWN);
       this.world.add(view);
       this.rafts.push({ view, x: CURRENT.from + ((index + 0.4) / CURRENT.rafts) * (CURRENT.to - CURRENT.from), phase: index * 2.1 });
     }
@@ -255,11 +259,12 @@ export class LavaMap implements MapView {
     this.pieces = this.pieces.filter(piece => {
       const { view } = piece;
       if (piece.leaving !== null) {
-        // Its wave is over: it tips and goes under.
+        // Its wave is over: it tips and goes under, all of it, the tall back of a sofa too, squeezing shut as the last of it goes.
         piece.leaving += dt;
         const gone = Math.min(1, piece.leaving / FURNITURE.sink);
-        view.position.set(piece.x, -gone * 1.1, piece.z);
+        view.position.set(piece.x, -gone * FURNITURE.under, piece.z);
         view.rotation.z = gone * 0.25;
+        view.scale.setScalar(Math.max(0.001, 1 - Math.max(0, gone - 0.6) / 0.4));
         if (gone < 1) return true;
         view.removeFromParent();
         return false;

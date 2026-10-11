@@ -1,7 +1,7 @@
 // The game's own models, made in Blender (tools/blender, `pnpm models`): one file per map, holding its
 // scenery and the templates its code places itself. A model carries no colour: every piece names a key of
 // its map's palette in tokens.ts and is painted from there, toon shaded and outlined like everything else.
-import { AnimationMixer, Color, Group, Mesh, MeshBasicMaterial, type Material, type MeshToonMaterial, type Object3D } from 'three';
+import { AnimationMixer, Color, Group, Mesh, MeshBasicMaterial, type Material, type MeshToonMaterial, type Object3D, type ShaderMaterial } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { colors, maps } from '../../shared/tokens';
 import { outlineMaterial, prepareOutline, toonMaterial } from './materials';
@@ -66,6 +66,8 @@ export class Model {
   private readonly materials: Material[] = [];
   private readonly painted = new Map<string, Material>();
   private readonly outlines = new Map<number, Material>();
+  /** Thinner copies of those, for what is drawn bigger than it was modelled: by its thickness and by how much bigger. */
+  private readonly thinned = new Map<string, Material>();
   private readonly palette: Record<string, string>;
   /** Each piece of the scene inside a holder that grows from nothing, so the piece's own motion is left alone. */
   private arriving: { holder: Group; delay: number }[] = [];
@@ -109,10 +111,22 @@ export class Model {
   }
 
   /** A fresh copy of a template (an object passed to `part()` in the map's script), at the origin. */
-  part(name: string): Object3D {
+  part(name: string, drawn = 1): Object3D {
     const template = this.parts.get(name);
     if (!template) throw new Error(`The model has no part "${name}". It has: ${[...this.parts.keys()].join(', ')}`);
-    return template.clone(true);
+    const copy = template.clone(true);
+    // A copy that will stand inside a scaled scene says by how much (see `drawnAt`).
+    if (drawn !== 1) this.thin(copy, drawn);
+    return copy;
+  }
+
+  /**
+   * Says that the scene is drawn `drawn` times the size it was modelled: a map whose floor has grown scales its
+   * scenery instead of modelling it again. An outline is pushed out from its shape in the shape's own measure, so
+   * it would grow with it; it is thinned by as much, and a line stays as thick as its script made it.
+   */
+  drawnAt(drawn: number): void {
+    this.thin(this.scene, drawn);
   }
 
   /** One of the things standing in the scene, by the name its script gave it. */
@@ -152,6 +166,21 @@ export class Model {
     this.mixer.stopAllAction();
     for (const material of this.materials) material.dispose();
     this.scene.removeFromParent();
+  }
+
+  private thin(root: Object3D, drawn: number): void {
+    root.traverse(node => {
+      if (!(node instanceof Mesh) || node.name !== 'outline') return;
+      const thickness = Number((node.material as ShaderMaterial).uniforms.thickness?.value ?? OUTLINE);
+      const key = `${thickness}|${drawn}`;
+      let thin = this.thinned.get(key);
+      if (!thin) {
+        thin = outlineMaterial(colors.ink, thickness / drawn);
+        this.thinned.set(key, thin);
+        this.materials.push(thin);
+      }
+      node.material = thin;
+    });
   }
 
   /** Paints one mesh from the palette and gives it its outline. */
