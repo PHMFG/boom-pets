@@ -46,7 +46,7 @@ export const FLAVORS = [
 export const COUNT_SUFFIX: Partial<Record<GameMode, string>> = { race: '%', frita: '%' };
 
 /** Pictures for the card that says what is happening right now: who has the bomb, what the cat is doing, where the lava is. */
-export const CALL_ICON = { bomb: '💣', sing: '🎵', watch: '👀', lavaWarn: '⛰️', lava: '🌋' } as const;
+export const CALL_ICON = { bomb: '💣', sing: '🎵', watch: '👀', lavaWarn: '🛋️', lava: '🌋' } as const;
 
 /** The announcer's line for each game's name. */
 export const GAME_LINE: Record<GameMode, keyof typeof strings.announcer> = {

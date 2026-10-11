@@ -1,6 +1,7 @@
-// O Chão é Lava: a slab of pale stone in the mouth of a volcano. Flat-topped rocks rise out of it for each wave,
-// the sea of lava round it climbs while the alarm sounds, and then covers everything but the rocks.
-// The crater, the rocks and what floats on the lava are modelled in Blender (tools/blender/maps/lava.py).
+// O Chão é Lava: a slab of pale stone in the mouth of a volcano. For each wave furniture falls out of the sky
+// onto it (a pouf, an armchair, a table, a sofa, a bed), each marked on the floor before it lands; the sea of
+// lava round the slab climbs while the alarm sounds, and then covers everything but the furniture.
+// The crater, the furniture and what floats on the lava are modelled in Blender (tools/blender/maps/lava.py).
 //
 // The crater is alive, and it answers the round. Spectators stand on the columns at the back and the sides and
 // follow the pets. Through the alarm the whole place shakes harder and harder: the volcano swells and smokes,
@@ -13,7 +14,7 @@ import { Color, CylinderGeometry, Group, Mesh, MeshBasicMaterial, type MeshToonM
 import { strings } from '../../../shared/strings.pt-BR';
 import { colors, maps } from '../../../shared/tokens';
 import { Model } from '../../render/models';
-import { HOT, random, type MapView, type SkyId, type StageKit } from '../kit';
+import { GOLD, HOT, random, type MapView, type SkyId, type StageKit } from '../kit';
 import { TileField } from '../TileField';
 import { Crowd, type Spot } from './crowd';
 
@@ -28,14 +29,22 @@ const GLOW = { rest: 1.35, alarm: 1.5 };
 /** How high the lava stands: far below while it is calm, at the slab's lip when the alarm ends, over the floor in a flood. */
 const LEVEL = { calm: -0.75, alarm: -0.06, flood: 0.14 };
 /**
- * The rocks as they are modelled: how high their flat top is, and the radius of the game's rock they were drawn for.
- * On a pale floor a rock has to be the first thing anyone sees, so it is dark and drawn a little wider than it is.
+ * The slab the crater was modelled round, in Blender. The slab is bigger now, and the crater is spread to fit:
+ * everything of the model lives in a group stretched by `FIT`, and a spot of the model is `fit()` in the world.
  */
-const STONE = { names: ['stone_a', 'stone_b', 'stone_c'], height: 0.3, radius: 0.5 };
+const BUILT = { columns: 14, rows: 12 };
+const FIT = { x: COLUMNS / BUILT.columns, z: ROWS / BUILT.rows };
+const fit = (x: number, z: number) => ({ x: x * FIT.x, z: z * FIT.z });
+/**
+ * Furniture comes out of the sky: for how long it is seen falling and from how high, how long it takes to sink
+ * when its wave is over, how it squashes as it lands, and how wide a mark each kind leaves on the floor beforehand.
+ */
+const FURNITURE = { fall: 0.65, height: 22, sink: 0.35, squash: 0.28, settle: 0.3, mark: { pouf: 0.8, armchair: 0.95, table: 1.3, sofa: 1.9, bed: 1.6 } };
 /** Bubbles swelling out of the lava at any moment. */
 const BUBBLES = 9;
 /** Where the volcano stands and how high its mouth is, for what it throws. */
 const VOLCANO = { x: -9.9, z: -6, mouth: 2.5 };
+const VOLCANO_AT = fit(VOLCANO.x, VOLCANO.z);
 /** Spouts shooting out of the lava at any moment, how near the slab one may come (too far to look like a threat), and how high one stands as modelled. */
 const SPOUTS = 3;
 const SPOUT = { clear: 2.4, up: 0.16, hold: 0.3, down: 0.22, height: 2 };
@@ -59,7 +68,8 @@ const ERUPTION = { seconds: 1.5, up: 0.22, down: 0.35, height: 1.15 };
 const backOut = (t: number) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
-type RockView = { view: Object3D; x: number; z: number; age: number; leaving: number | null };
+/** A piece of furniture: seconds since it landed (null while it is still in the sky) and since its wave ended (null until then). */
+type PieceView = { id: number; view: Object3D; x: number; z: number; at: number; landed: number | null; leaving: number | null };
 /** A bubble waits under the lava, swells for `life` seconds and bursts. */
 type Bubble = { view: Object3D; wait: number; age: number; life: number; size: number; burst: number | null };
 /** A spout waits under the lava, then shoots up, stands a moment and drops. */
@@ -79,6 +89,8 @@ export class LavaMap implements MapView {
   private readonly kit: StageKit;
   private readonly tiles = new TileField(COLUMNS, ROWS, [palette.stone, palette.stoneDark]);
   private readonly model = new Model('lava');
+  /** Everything of the model, spread to fit the slab. */
+  private readonly world = new Group();
   private readonly sea: Mesh;
   private readonly crowd: Crowd;
   /** Where the crowd and the creatures look: the middle of the pets still in. */
@@ -98,7 +110,7 @@ export class LavaMap implements MapView {
   private readonly critters: Critter[] = [];
   private readonly rafts: Raft[] = [];
   private readonly vents: Vent[] = [];
-  private rocks: RockView[] = [];
+  private pieces: PieceView[] = [];
   private wave = 0;
   private level = LEVEL.calm;
   private phase: 'calm' | 'alarm' | 'flood' = 'calm';
@@ -126,7 +138,9 @@ export class LavaMap implements MapView {
     }
     const cracks = model.node('cracks');
     if (cracks) this.cracks = model.own(cracks, 'lava');
-    this.group.add(this.tiles.mesh, this.sea, model.scene);
+    this.world.scale.set(FIT.x, 1, FIT.z);
+    this.world.add(model.scene);
+    this.group.add(this.tiles.mesh, this.sea, this.world);
 
     // The model says where its lava is open, three numbers a spot: x, how far back, and how far from the slab.
     // The strip the current runs along is left to the rafts.
@@ -142,7 +156,9 @@ export class LavaMap implements MapView {
     const spots: Spot[] = [];
     for (let index = 0; index + 2 < perches.length; index += 3) {
       const [x, back, y] = [perches[index]!, perches[index + 1]!, perches[index + 2]!];
-      spots.push({ x, y, z: -back, turn: Math.atan2(-x, back) });
+      // They stand in the world, not in the stretched model: a spectator is not to be stretched.
+      const at = fit(x, -back);
+      spots.push({ x: at.x, y, z: at.z, turn: Math.atan2(-at.x, -at.z) });
     }
     this.crowd = new Crowd(spots, { seed: 7 });
     this.crowd.watch(this.eye);
@@ -152,7 +168,7 @@ export class LavaMap implements MapView {
     const hidden = (name: string) => {
       const view = model.part(name);
       view.visible = false;
-      this.group.add(view);
+      this.world.add(view);
       return view;
     };
     for (let index = 0; index < BUBBLES; index++) this.bubbles.push({ view: hidden('bubble'), wait: random(0, 3), age: 0, life: 1, size: 1, burst: null });
@@ -160,7 +176,7 @@ export class LavaMap implements MapView {
     for (let index = 0; index < CRITTERS; index++) this.critters.push({ view: hidden('critter'), wait: random(1.5, 4) + index * 1.5, age: 0, leaves: 0, up: false, x: 0, z: 0 });
     for (let index = 0; index < CURRENT.rafts; index++) {
       const view = model.part('raft');
-      this.group.add(view);
+      this.world.add(view);
       this.rafts.push({ view, x: CURRENT.from + ((index + 0.4) / CURRENT.rafts) * (CURRENT.to - CURRENT.from), phase: index * 2.1 });
     }
     this.plume = hidden('plume');
@@ -191,6 +207,16 @@ export class LavaMap implements MapView {
     } else if (event.t === 'roundWinner') {
       this.crowd.cheer(3);
       this.erupt(14);
+    } else if (event.t === 'furniture') {
+      if (event.phase === 'fall') {
+        // Where it will land is marked on the floor for as long as it takes to come down.
+        this.kit.decals.warning(event.x, event.z, FURNITURE.mark[event.kind], event.seconds, GOLD);
+      } else {
+        const piece = this.pieces.find(candidate => candidate.id === event.id);
+        if (piece) piece.landed = 0;
+        this.kit.dust(event.x, event.z, 8);
+        rig.shake(0.12);
+      }
     }
     if (event.t === 'eliminated' && event.cause === 'lava') {
       // Burnt: a burst of sparks where it stood, and the skull has its laugh.
@@ -202,33 +228,56 @@ export class LavaMap implements MapView {
     }
   }
 
+  /** The furniture is what a player has to find, so every piece of the wave is kept in the picture, landed or still on its way. */
+  focus(round: AnyRound, points: { x: number; z: number }[]): void {
+    if (round.gameMode !== 'lava') return;
+    for (const piece of round.rules.pieces) points.push({ x: piece.x, z: piece.z });
+  }
+
   frame(round: AnyRound | null, dt: number, time: number): void {
     const field = round?.gameMode === 'lava' ? round : null;
     const rules = field?.rules;
 
-    // A new wave: the old rocks sink and the new ones push up somewhere else.
+    // A new wave: what is left of the old furniture sinks, and the new pieces wait in the sky for their turn.
     if (rules && rules.wave !== this.wave) {
       this.wave = rules.wave;
-      for (const rock of this.rocks) rock.leaving ??= 0;
-      rules.rocks.forEach((spot, index) => {
-        // Three shapes in turn, each turned its own way, sized from the game's own numbers.
-        const view = this.model.part(STONE.names[(this.wave + index) % STONE.names.length]!);
-        const wide = tuning.lava.rockRadius / STONE.radius;
-        view.scale.set(wide, tuning.lava.rockHeight / STONE.height, wide);
-        view.rotation.y = random(0, Math.PI * 2);
+      for (const piece of this.pieces) piece.leaving ??= 0;
+      for (const piece of rules.pieces) {
+        const view = this.model.part(piece.kind);
+        // A quarter turn where the game says so; a round piece any way it likes.
+        view.rotation.y = tuning.lava.pieces[piece.kind].radius > 0 ? random(0, Math.PI * 2) : piece.turned ? Math.PI / 2 : 0;
+        view.visible = false;
         this.group.add(view);
-        this.rocks.push({ view, x: spot.x, z: spot.z, age: 0, leaving: null });
-      });
+        this.pieces.push({ id: piece.id, view, x: piece.x, z: piece.z, at: piece.at, landed: null, leaving: null });
+      }
     }
-    this.rocks = this.rocks.filter(rock => {
-      rock.age += dt;
-      if (rock.leaving !== null) rock.leaving += dt;
-      // Up with a bounce; down plainly.
-      const up = rock.leaving === null ? backOut(Math.min(1, rock.age / 0.35)) : Math.max(0, 1 - rock.leaving / 0.3);
-      rock.view.position.set(rock.x, -(1 - up) * 0.9, rock.z);
-      if (rock.leaving === null || rock.leaving < 0.3) return true;
-      rock.view.removeFromParent();
-      return false;
+    const now = field?.time ?? 0;
+    this.pieces = this.pieces.filter(piece => {
+      const { view } = piece;
+      if (piece.leaving !== null) {
+        // Its wave is over: it tips and goes under.
+        piece.leaving += dt;
+        const gone = Math.min(1, piece.leaving / FURNITURE.sink);
+        view.position.set(piece.x, -gone * 1.1, piece.z);
+        view.rotation.z = gone * 0.25;
+        if (gone < 1) return true;
+        view.removeFromParent();
+        return false;
+      }
+      if (piece.landed === null) {
+        // Out of sight until the last moment, then down faster and faster onto its mark.
+        const left = piece.at - now;
+        view.visible = left < FURNITURE.fall;
+        view.position.set(piece.x, FURNITURE.height * Math.max(0, left / FURNITURE.fall) ** 2, piece.z);
+        return true;
+      }
+      // Landed: it squashes flat and springs back.
+      piece.landed += dt;
+      const spring = Math.sin(clamp01(piece.landed / FURNITURE.settle) * Math.PI) * FURNITURE.squash;
+      view.visible = true;
+      view.position.set(piece.x, 0, piece.z);
+      view.scale.set(1 + spring * 0.4, 1 - spring, 1 + spring * 0.4);
+      return true;
     });
 
     // The lava climbs steadily through the alarm, so the floor shows how long is left; it jumps over the lip only when the alarm ends.
@@ -330,10 +379,10 @@ export class LavaMap implements MapView {
   /** The volcano throws sparks: at the alarm, more when the lava comes, and for the winner. They fly away from the slab: an ember landing on the floor would look like something to dodge. */
   private erupt(count: number): void {
     const { particles } = this.kit;
-    const away = Math.atan2(VOLCANO.x, VOLCANO.z);
+    const away = Math.atan2(VOLCANO_AT.x, VOLCANO_AT.z);
     for (let index = 0; index < count; index++) {
       const angle = away + random(-1.2, 1.2);
-      particles.spark({ x: VOLCANO.x, y: VOLCANO.mouth, z: VOLCANO.z, vx: Math.sin(angle) * random(1, 4.5), vy: random(6, 12), vz: Math.cos(angle) * random(1, 4.5), life: random(0.6, 1.1), size: random(0.16, 0.3), gravity: 14, spin: 9, color: LAVA_HOT });
+      particles.spark({ x: VOLCANO_AT.x, y: VOLCANO.mouth, z: VOLCANO_AT.z, vx: Math.sin(angle) * random(1, 4.5), vy: random(6, 12), vz: Math.cos(angle) * random(1, 4.5), life: random(0.6, 1.1), size: random(0.16, 0.3), gravity: 14, spin: 9, color: LAVA_HOT });
     }
   }
 
@@ -366,7 +415,7 @@ export class LavaMap implements MapView {
         spout.size = random(0.6, 1.15);
         for (let index = 0; index < 5; index++) {
           const angle = random(0, Math.PI * 2);
-          particles.spark({ x, y: this.level + SPOUT.height * spout.size, z, vx: Math.sin(angle) * random(0.5, 2), vy: random(4, 7), vz: Math.cos(angle) * random(0.5, 2), life: random(0.4, 0.7), size: random(0.1, 0.2), gravity: 13, spin: 8, color: LAVA_HOT });
+          particles.spark({ x: x * FIT.x, y: this.level + SPOUT.height * spout.size, z: z * FIT.z, vx: Math.sin(angle) * random(0.5, 2), vy: random(4, 7), vz: Math.cos(angle) * random(0.5, 2), life: random(0.4, 0.7), size: random(0.1, 0.2), gravity: 13, spin: 8, color: LAVA_HOT });
         }
       }
       spout.age += dt;
@@ -404,7 +453,7 @@ export class LavaMap implements MapView {
         bubble.burst = 0;
         for (let index = 0; index < 4; index++) {
           const angle = random(0, Math.PI * 2);
-          particles.spark({ x: view.position.x, y: this.level + 0.3, z: view.position.z, vx: Math.sin(angle) * random(0.6, 1.8), vy: random(2.5, 5), vz: Math.cos(angle) * random(0.6, 1.8), life: random(0.35, 0.6), size: random(0.1, 0.2) * bubble.size, gravity: 12, spin: 8, color: LAVA_HOT });
+          particles.spark({ x: view.position.x * FIT.x, y: this.level + 0.3, z: view.position.z * FIT.z, vx: Math.sin(angle) * random(0.6, 1.8), vy: random(2.5, 5), vz: Math.cos(angle) * random(0.6, 1.8), life: random(0.35, 0.6), size: random(0.1, 0.2) * bubble.size, gravity: 12, spin: 8, color: LAVA_HOT });
         }
       } else {
         // Burst: it flattens into the lava and is gone.
@@ -430,7 +479,7 @@ export class LavaMap implements MapView {
         const vent = this.vent(CRITTER.clear, CRITTER.reach);
         if (!vent) return;
         Object.assign(critter, { up: true, age: 0, leaves: random(4, 8), x: vent.x, z: vent.z });
-        view.rotation.y = Math.atan2(this.eye.x - vent.x, this.eye.z - vent.z);
+        view.rotation.y = Math.atan2(this.eye.x - vent.x * FIT.x, this.eye.z - vent.z * FIT.z);
         view.visible = true;
       }
       critter.age += dt;
@@ -438,7 +487,7 @@ export class LavaMap implements MapView {
       const shown = backOut(clamp01(critter.age / CRITTER.up)) * (1 - clamp01((critter.age - critter.leaves) / CRITTER.down));
       // It bobs in the lava, and turns to keep the pets in sight, by the short way round.
       view.position.set(critter.x, this.level - 0.12 + Math.sin(time * 2.3 + index * 1.7) * 0.04 - (1 - Math.min(1, shown)) * 0.4, critter.z);
-      const wanted = Math.atan2(this.eye.x - critter.x, this.eye.z - critter.z);
+      const wanted = Math.atan2(this.eye.x - critter.x * FIT.x, this.eye.z - critter.z * FIT.z);
       view.rotation.y += Math.atan2(Math.sin(wanted - view.rotation.y), Math.cos(wanted - view.rotation.y)) * (1 - Math.exp(-3 * dt));
       view.scale.set(1, Math.max(0.001, shown), 1);
       if (critter.age >= critter.leaves + CRITTER.down) {
@@ -457,7 +506,7 @@ export class LavaMap implements MapView {
     // Embers drift up from the sea all the time, and it spits when it is rising.
     if (chance(this.phase === 'calm' ? 6 : 26)) {
       const angle = random(0, Math.PI * 2);
-      const reach = random(Math.max(COLUMNS, ROWS) / 2 + 0.5, 15);
+      const reach = random(Math.hypot(COLUMNS, ROWS) / 2 + 0.5, 15 * FIT.x);
       particles.spark({ x: Math.sin(angle) * reach, y: this.level + 0.1, z: Math.cos(angle) * reach, vx: random(-0.5, 0.5), vy: random(2, 5), vz: random(-0.5, 0.5), life: random(0.6, 1.2), size: random(0.1, 0.22), gravity: -1, color: LAVA_HOT });
     }
     if (this.phase === 'flood' && chance(30)) {
@@ -465,17 +514,17 @@ export class LavaMap implements MapView {
     }
     for (const fall of FALLS) {
       if (!chance(3 + rumble * 16)) continue;
-      particles.spark({ x: fall.x + random(-0.5, 0.5), y: this.level + 0.15, z: fall.z + random(0, 0.5), vx: random(-1.2, 1.2), vy: random(1.5, 3.5) * (1 + rumble), vz: random(0, 1.2), life: random(0.35, 0.6), size: random(0.08, 0.16), gravity: 9, spin: 7, color: LAVA_HOT });
+      particles.spark({ x: fall.x * FIT.x + random(-0.5, 0.5), y: this.level + 0.15, z: fall.z * FIT.z + random(0, 0.5), vx: random(-1.2, 1.2), vy: random(1.5, 3.5) * (1 + rumble), vz: random(0, 1.2), life: random(0.35, 0.6), size: random(0.08, 0.16), gravity: 9, spin: 7, color: LAVA_HOT });
     }
     // The volcano smokes, thick and fast while the crater shakes.
     if (chance(1.2 + rumble * 9)) {
-      particles.puff({ x: VOLCANO.x + random(-0.4, 0.4), y: VOLCANO.mouth + 0.2, z: VOLCANO.z + random(-0.4, 0.4), vx: random(-0.5, 0.1), vy: random(1.6, 3) * (1 + rumble), vz: random(-0.5, 0), life: random(1, 1.6), size: 0.3, sizeEnd: random(0.7, 1.1), drag: 0.4, color: SMOKE });
+      particles.puff({ x: VOLCANO_AT.x + random(-0.4, 0.4), y: VOLCANO.mouth + 0.2, z: VOLCANO_AT.z + random(-0.4, 0.4), vx: random(-0.5, 0.1), vy: random(1.6, 3) * (1 + rumble), vz: random(-0.5, 0), life: random(1, 1.6), size: 0.3, sizeEnd: random(0.7, 1.1), drag: 0.4, color: SMOKE });
     }
     // Ash comes down over the lava at the sides and the back, drifting away from the slab as it falls.
     if (chance(5 + rumble * 10)) {
       const side = Math.random() < 0.6;
-      const x = side ? (Math.random() < 0.5 ? -1 : 1) * random(COLUMNS / 2 + 1.5, 15) : random(-15, 15);
-      const z = side ? random(-12, 8) : random(-13, -ROWS / 2 - 1.5);
+      const x = side ? (Math.random() < 0.5 ? -1 : 1) * random(COLUMNS / 2 + 1.5, 15 * FIT.x) : random(-15 * FIT.x, 15 * FIT.x);
+      const z = side ? random(-12 * FIT.z, 8 * FIT.z) : random(-13 * FIT.z, -ROWS / 2 - 1.5);
       particles.cube({ x, y: random(4, 7), z, vx: side ? Math.sign(x) * random(0.1, 0.5) : random(-0.3, 0.3), vy: random(-1.3, -0.7), vz: side ? random(-0.2, 0.2) : random(-0.4, 0), life: random(4, 6), size: random(0.06, 0.1), spin: random(1, 4), color: SMOKE });
     }
   }

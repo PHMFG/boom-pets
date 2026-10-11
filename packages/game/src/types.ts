@@ -246,6 +246,8 @@ export type GameEvent =
   | { t: 'bite'; pet: number; seat: number; victim: number; lost: number }
   /** O Chão é Lava: a new phase of a wave has begun. `seconds` is how long it lasts. */
   | { t: 'lava'; phase: 'calm' | 'alarm' | 'flood'; wave: number; seconds: number }
+  /** O Chão é Lava: a piece of furniture is on its way down, to land there in that many seconds; a piece has landed. */
+  | { t: 'furniture'; phase: 'fall' | 'land'; id: number; kind: 'pouf' | 'armchair' | 'table' | 'sofa' | 'bed'; x: number; z: number; seconds: number }
   | { t: 'spawn'; pet: number; seat: number }
   | { t: 'dash'; pet: number; charge: number; x: number; z: number; dx: number; dz: number }
   | { t: 'dashHit'; pet: number; seat: number; x: number; y: number; z: number; charge: number; radius: number; victims: number[] }

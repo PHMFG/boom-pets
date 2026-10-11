@@ -1,25 +1,66 @@
-// O Chão é Lava: rocks rise out of the floor, an alarm sounds, and then the lava comes up over everything
-// that is not a rock. Whoever is not standing on one is out. The rocks sink, fewer rise somewhere else, and
-// it starts again, a little faster. A is a shove, for the moment two pets want the same rock.
+// O Chão é Lava: furniture falls from the sky, an alarm sounds, and then the lava comes up over everything
+// that is not furniture. Whoever is not standing on a piece is out. What is left of the furniture sinks, new
+// pieces fall somewhere else with one seat too few, and it starts again, a little faster. A is a shove, for
+// the moment two pets want the same seat.
 import { lava, STEP } from '../tuning';
 import type { Pet } from '../types';
 import type { Field, MiniRules } from './field';
 
-/** `data` marks a rock with this. */
-export const ROCK = 1;
+export type FurnitureKind = keyof typeof lava.pieces;
+export const FURNITURE_KINDS = Object.keys(lava.pieces) as FurnitureKind[];
+
+export type Furniture = {
+  id: number;
+  kind: FurnitureKind;
+  x: number;
+  z: number;
+  /** A quarter turn: its width runs along z. */
+  turned: boolean;
+  /** The second of the round it lands. Until then it is a mark on the floor and a shape in the sky. */
+  at: number;
+  landed: boolean;
+};
+
+/** How far a piece's safe top reaches from its middle, along x and along z. */
+function reach(piece: Pick<Furniture, 'kind' | 'turned'>): { x: number; z: number } {
+  const { radius, width, depth } = lava.pieces[piece.kind];
+  if (radius > 0) return { x: radius, z: radius };
+  return piece.turned ? { x: depth / 2, z: width / 2 } : { x: width / 2, z: depth / 2 };
+}
+
+/** Whether a spot is over the safe top of a piece. */
+function over(piece: Furniture, x: number, z: number): boolean {
+  const { radius } = lava.pieces[piece.kind];
+  if (radius > 0) return Math.hypot(piece.x - x, piece.z - z) <= radius;
+  const half = reach(piece);
+  return Math.abs(piece.x - x) <= half.x && Math.abs(piece.z - z) <= half.z;
+}
+
+/** Where pets stand on a piece: one spot for each it holds. A bot heads for one; a person finds them by eye. */
+export function seatsOf(piece: Furniture): { x: number; z: number }[] {
+  const { seats, radius, width, depth } = lava.pieces[piece.kind];
+  if (radius > 0) return [{ x: piece.x, z: piece.z }];
+  // Along the width, spaced so each has room; a square piece seats them at its corners.
+  const square = Math.abs(width - depth) < 0.01;
+  const spots = square
+    ? [[-1, -1], [1, -1], [-1, 1], [1, 1]].slice(0, seats).map(([a, b]) => ({ a: a! * (width / 2 - 0.25), b: b! * (depth / 2 - 0.25) }))
+    : Array.from({ length: seats }, (_, index) => ({ a: (index - (seats - 1) / 2) * ((width - 0.5) / Math.max(1, seats - 1)), b: 0 }));
+  return spots.map(({ a, b }) => (piece.turned ? { x: piece.x + b, z: piece.z + a } : { x: piece.x + a, z: piece.z + b }));
+}
 
 export class LavaRules implements MiniRules {
   readonly mode = 'lava' as const;
   readonly cap = lava.cap;
-  /** Calm: rocks are up and there is time to reach one. Alarm: the lava is coming. Flood: it is here. */
+  /** Calm: furniture is falling or down, and there is time to get on. Alarm: the lava is coming. Flood: it is here. */
   phase: 'calm' | 'alarm' | 'flood' = 'calm';
   /** Seconds left of the phase. */
   left = 0;
   wave = 0;
-  /** Where the rocks of this wave stand. A rock is round and holds one pet; two only if they balance on its edges. */
-  rocks: { x: number; z: number }[] = [];
+  /** The furniture of this wave, in the order it lands. */
+  pieces: Furniture[] = [];
   /** The wave each seat went out in. Seats out in the same wave tie. */
   private readonly outWave = new Map<number, number>();
+  private made = 0;
 
   setup(field: Field): void {
     field.resize(lava.columns, lava.rows);
@@ -33,12 +74,18 @@ export class LavaRules implements MiniRules {
 
   step(field: Field): void {
     if (this.wave === 0) this.startWave(field);
+    // Pieces come down one after another. A pet under one is lifted onto it: nothing here falls on anyone's head.
+    for (const piece of this.pieces) {
+      if (piece.landed || field.time < piece.at) continue;
+      piece.landed = true;
+      field.emit({ t: 'furniture', phase: 'land', id: piece.id, kind: piece.kind, x: piece.x, z: piece.z, seconds: 0 });
+    }
     this.left -= STEP;
     if (this.left > 0) return;
     if (this.phase === 'calm') this.enter(field, 'alarm', lava.alarm);
     else if (this.phase === 'alarm') {
       this.enter(field, 'flood', lava.flood);
-      // The lava is up: anyone whose feet are not on a rock is out.
+      // The lava is up: anyone whose feet are not on furniture is out.
       for (const pet of field.alive()) {
         if (this.floorY(field, pet.x, pet.z) > 0) continue;
         this.outWave.set(pet.seat, this.wave);
@@ -58,9 +105,9 @@ export class LavaRules implements MiniRules {
     return true;
   }
 
-  /** The floor is flat, except where a rock stands. */
+  /** The floor is flat, except where a piece of furniture has landed. */
   floorY(_field: Field, x: number, z: number): number {
-    return this.rocks.some(rock => Math.hypot(rock.x - x, rock.z - z) <= lava.rockRadius) ? lava.rockHeight : 0;
+    return this.pieces.some(piece => piece.landed && over(piece, x, z)) ? lava.height : 0;
   }
 
   finished(field: Field): boolean {
@@ -78,31 +125,51 @@ export class LavaRules implements MiniRules {
   }
 
   hash(): number {
-    return this.wave * 1000 + Math.round(this.left * 100) + (this.phase === 'calm' ? 0 : this.phase === 'alarm' ? 1 : 2) * 100_000;
+    let hash = this.wave * 1000 + Math.round(this.left * 100) + (this.phase === 'calm' ? 0 : this.phase === 'alarm' ? 1 : 2) * 100_000;
+    for (const piece of this.pieces) hash = (Math.imul(hash, 31) + Math.round(piece.x * 10) * 7 + Math.round(piece.z * 10) + (piece.landed ? 1 : 0)) | 0;
+    return hash;
   }
 
   /**
-   * The rocks of the last wave sink and new ones rise somewhere else: one fewer than there are pets, so somebody
-   * has to share or be left out. The first wave is kinder, with a rock for everyone: it is the one to learn on.
+   * What is left of the last wave's furniture sinks, and new pieces are picked: between them one seat fewer than
+   * there are pets, so somebody has to be left out. The first wave is kinder, with a seat for everyone: it is the
+   * one to learn on. Each piece's spot is known from now, and they land one after another.
    */
   private startWave(field: Field): void {
     this.wave++;
-    field.data.fill(0);
-    const wanted = Math.max(1, field.alive().length - (this.wave <= lava.spareWaves ? 0 : 1));
-    const rocks: number[] = [];
-    for (let attempt = 0; attempt < 200 && rocks.length < wanted; attempt++) {
-      // Not on the outer ring, and not right beside another rock.
-      const column = 1 + field.rng.int(field.columns - 2);
-      const row = 1 + field.rng.int(field.rows - 2);
-      const index = column * field.rows + row;
-      const here = field.centre(index);
-      if (rocks.some(other => Math.hypot(field.centre(other).x - here.x, field.centre(other).z - here.z) < lava.rockGap)) continue;
-      rocks.push(index);
+    let seats = Math.max(1, field.alive().length - (this.wave <= lava.spareWaves ? 0 : 1));
+    // Never one piece for everybody: with two or more to seat there are at least two places to run to.
+    const most = Math.max(1, seats - 1);
+    const pieces: Furniture[] = [];
+    while (seats > 0) {
+      // Any piece that does not hold more than are still to be seated. Big ones bring pets together, which is where the shoving is.
+      const fitting = FURNITURE_KINDS.filter(kind => lava.pieces[kind].seats <= Math.min(seats, most));
+      const kind = fitting[field.rng.int(fitting.length)]!;
+      seats -= lava.pieces[kind].seats;
+      const turned = field.rng.chance(0.5);
+      const half = reach({ kind, turned });
+      let spot = { x: 0, z: 0 };
+      for (let attempt = 0; attempt < 300; attempt++) {
+        spot = {
+          x: field.rng.range(-field.columns / 2 + half.x + lava.gap, field.columns / 2 - half.x - lava.gap),
+          z: field.rng.range(-field.rows / 2 + half.z + lava.gap, field.rows / 2 - half.z - lava.gap),
+        };
+        // Clear of every piece already placed, by the gap, measured edge to edge along each axis.
+        const clear = pieces.every(other => {
+          const theirs = reach(other);
+          return Math.abs(other.x - spot.x) > half.x + theirs.x + lava.gap || Math.abs(other.z - spot.z) > half.z + theirs.z + lava.gap;
+        });
+        if (clear) break;
+      }
+      const at = field.time + lava.dropFirst + pieces.length * lava.dropEvery;
+      const piece: Furniture = { id: ++this.made, kind, x: spot.x, z: spot.z, turned, at, landed: false };
+      pieces.push(piece);
+      field.emit({ t: 'furniture', phase: 'fall', id: piece.id, kind, x: piece.x, z: piece.z, seconds: at - field.time });
     }
-    for (const index of rocks) field.data[index] = ROCK;
-    this.rocks = rocks.map(index => field.centre(index));
-    // Each calm is shorter than the last.
-    this.enter(field, 'calm', Math.max(lava.calmMin, lava.calm - (this.wave - 1) * lava.calmStep));
+    this.pieces = pieces;
+    // Time to get on once the last piece is down, shorter each wave.
+    const last = lava.dropFirst + (pieces.length - 1) * lava.dropEvery;
+    this.enter(field, 'calm', last + Math.max(lava.calmMin, lava.calm - (this.wave - 1) * lava.calmStep));
   }
 
   private enter(field: Field, phase: LavaRules['phase'], seconds: number): void {

@@ -2,8 +2,10 @@
 // a guess a person could make, and everything is worked out from the round as it stands, because a bot may
 // take over a seat in the middle of one.
 import type { Rng } from '../rng';
+import { color, potato } from '../tuning';
 import type { AnyRound } from '../rounds';
 import { TILE, type Pet } from '../types';
+import { seatsOf } from './lava';
 import { pointAt, progressOf } from './race';
 
 export type MiniPlan = { x: number; z: number; tapA?: boolean };
@@ -48,15 +50,17 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
       return toward(me, centre.x, centre.z);
     }
     case 'lava': {
-      // The nearest rock nobody else is standing on. If every rock is taken, the nearest one, and its owner gets a shove.
-      const taken = (rock: { x: number; z: number }) => round.pets.some(other => other !== me && other.alive && Math.hypot(other.x - rock.x, other.z - rock.z) < 0.55);
-      const near = (rock: { x: number; z: number }) => Math.hypot(rock.x - me.x, rock.z - me.z);
-      const rocks = [...round.rules.rocks].sort((a, b) => near(a) - near(b));
-      const rock = rocks.find(candidate => !taken(candidate)) ?? rocks[0];
-      if (!rock) return STILL;
-      if (!taken(rock)) return arrive(me, rock.x, rock.z);
-      const owner = round.pets.find(other => other !== me && other.alive && Math.hypot(other.x - rock.x, other.z - rock.z) < 0.55);
-      if (!owner) return arrive(me, rock.x, rock.z);
+      // The nearest seat nobody else is standing on, on any piece: one that has landed, or one still marked on the
+      // floor. If every seat is taken, the nearest one, and whoever is on it gets a shove.
+      const seats = round.rules.pieces.flatMap(piece => seatsOf(piece));
+      const taken = (spot: { x: number; z: number }) => round.pets.some(other => other !== me && other.alive && Math.hypot(other.x - spot.x, other.z - spot.z) < 0.55);
+      const near = (spot: { x: number; z: number }) => Math.hypot(spot.x - me.x, spot.z - me.z);
+      seats.sort((a, b) => near(a) - near(b));
+      const seat = seats.find(candidate => !taken(candidate)) ?? seats[0];
+      if (!seat) return STILL;
+      if (!taken(seat)) return arrive(me, seat.x, seat.z);
+      const owner = round.pets.find(other => other !== me && other.alive && Math.hypot(other.x - seat.x, other.z - seat.z) < 0.55);
+      if (!owner) return arrive(me, seat.x, seat.z);
       // Push in, and shove when close enough to connect. Not every time: a person hesitates too.
       return { ...toward(me, owner.x, owner.z), tapA: near(owner) < 1.6 && rng.chance(0.3) };
     }
@@ -166,7 +170,8 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
       const edge = round.centre(best);
       const column = Math.floor(best / round.rows);
       const row = best % round.rows;
-      const patch = { x: (Math.floor(column / 3) * 3 + 1.5) - round.columns / 2, z: (Math.floor(row / 3) * 3 + 1.5) - round.rows / 2 };
+      const side = color.patch;
+      const patch = { x: Math.floor(column / side) * side + side / 2 - round.columns / 2, z: Math.floor(row / side) * side + side / 2 - round.rows / 2 };
       return arrive(me, (edge.x + patch.x) / 2, (edge.z + patch.z) / 2);
     }
     case 'potato': {
@@ -180,7 +185,7 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
       const holder = others.find(other => other.seat === rules.holder);
       if (!holder) return arrive(me, me.x * 0.6, me.z * 0.6);
       const gap = Math.hypot(holder.x - me.x, holder.z - me.z);
-      if (gap > 4.5) return STILL;
+      if (gap > potato.radius * 0.75) return STILL;
       // Away from the bomb, sliding along the wall instead of running into it and stopping there.
       let x = (me.x - holder.x) / (gap || 1);
       let z = (me.z - holder.z) / (gap || 1);
@@ -192,7 +197,7 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
         z += ((me.z - other.z) / (near || 1)) * 0.7;
       }
       const out = Math.hypot(me.x, me.z);
-      if (out > 4.3) {
+      if (out > potato.radius - 1.7) {
         const side = Math.sign(x * -me.z + z * me.x) || 1;
         x = (-me.z / out) * side - (me.x / out) * 0.3;
         z = (me.x / out) * side - (me.z / out) * 0.3;

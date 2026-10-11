@@ -81,7 +81,7 @@ export const strings = {
   /** The games a round can be: the name, and the one line that says what to do. Both go on the card between games. */
   games: {
     brawl: { name: 'Bate-Bate', line: 'Jogue todo mundo pra fora!' },
-    lava: { name: 'O Chão é Lava', line: 'Suba numa pedra antes da lava!' },
+    lava: { name: 'O Chão é Lava', line: 'Suba nos móveis antes da lava!' },
     grow: { name: 'Come e Cresce', line: 'Coma tudo! O maior vence' },
     race: { name: 'Corrida Maluca', line: 'Chegue primeiro!' },
     color: { name: 'Cor Certa', line: 'Corra pra cor certa!' },
@@ -104,7 +104,7 @@ export const strings = {
 
   /** A word across a phone's pad for a moment of a game. Short: it is read in a glance, mid-round. */
   alerts: {
-    lavaWarn: 'Suba numa pedra!',
+    lavaWarn: 'Suba num móvel!',
     lava: 'LAVA!',
     /** Cor Certa: the four colours, as flavours, in the order of `FLAVORS`. */
     flavors: ['Laranja', 'Limão', 'Uva', 'Menta'],

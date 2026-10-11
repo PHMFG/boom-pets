@@ -174,7 +174,7 @@ export const supers = {
 export const potato = {
   cap: 80,
   /** The arena is round, with a wall. */
-  radius: 6,
+  radius: 7.5,
   /** Seconds before the first bomb is handed out, and between one going off and the next. */
   firstWait: 1.5,
   nextWait: 2.2,
@@ -187,7 +187,7 @@ export const potato = {
   /** Seconds the bomb cannot go straight back to whoever just passed it. */
   noReturn: 0.8,
   /** How much faster the pet with the bomb is. */
-  holderSpeed: 1.12,
+  holderSpeed: 1.15,
   blastRadius: 3,
   blastForce: 9,
   blastLift: 5,
@@ -195,10 +195,10 @@ export const potato = {
 
 /** Batatinha Frita 1, 2, 3. */
 export const frita = {
-  cap: 80,
+  cap: 90,
   /** A wide, shallow lane: it runs left to right, so the whole way fits a wide screen. */
-  columns: 26,
-  rows: 9,
+  columns: 32,
+  rows: 11,
   /** The finish line is this far from the right-hand end. */
   finish: 3,
   /** Seconds the round goes on after the first pet crosses the line. */
@@ -223,13 +223,13 @@ export const color = {
   cap: 75,
   /** The floor is this many patches a side, each this many tiles a side. A multiple of two keeps every colour equal. */
   patches: 4,
-  patch: 3,
+  patch: 4,
   /** Seconds a new floor is shown before a colour is called. */
   show: 1.3,
   /** Seconds to reach the colour on the first call, how much shorter each call is, and the shortest it gets. */
-  count: 3.2,
-  countStep: 0.3,
-  countMin: 1.2,
+  count: 3.8,
+  countStep: 0.4,
+  countMin: 1.3,
   /** How many patches the colour about to be called has, wave by wave; the last number goes on. Fewer means farther to run. */
   safePatches: [4, 4, 3, 3, 2, 2, 1],
   /** Seconds the other tiles stay gone: long enough for whoever was on them to fall. */
@@ -238,9 +238,12 @@ export const color = {
 
 /** Corrida Maluca. */
 export const race = {
-  cap: 80,
+  cap: 105,
   columns: 30,
-  rows: 15,
+  /** How many straights the track has, folded back and forth, and how far apart they lie. The rows hold them all with a tile to spare each side. */
+  lanes: 4,
+  laneGap: 6,
+  rows: 21,
   /** Seconds the round goes on after the first pet crosses the line. */
   grace: 10,
   /** Upward speed of a jump: about 0.9 m high and 3 m long at a run, enough for a gap of two tiles and not for the three between lanes. */
@@ -268,11 +271,11 @@ export const race = {
 /** Come e Cresce. */
 export const grow = {
   cap: 55,
-  columns: 16,
-  rows: 12,
+  columns: 20,
+  rows: 15,
   /** Seconds between two pieces of food with two pets on the blanket (faster with more), and the most that may lie there at once. */
-  foodEvery: 0.9,
-  maxFood: 16,
+  foodEvery: 0.75,
+  maxFood: 24,
   /** Seconds a piece takes to fall. */
   dropTime: 0.7,
   /** Chances of an apple, a doughnut, a slice of watermelon and a pepper, out of 100, and what each is worth. The pepper shrinks. */
@@ -305,20 +308,34 @@ export const grow = {
 
 /** O Chão é Lava. */
 export const lava = {
-  cap: 75,
-  columns: 14,
-  rows: 12,
-  /** How high a rock stands (never more than 0.3, or a pet could not step up onto it), and how wide: room for one pet, two if they balance. */
-  rockHeight: 0.3,
-  rockRadius: 0.5,
-  /** Rocks are never closer together than this. */
-  rockGap: 3,
-  /** Seconds to find a rock before the first alarm, how much shorter each calm is than the last, and the shortest it gets. */
-  calm: 5.5,
-  calmStep: 0.5,
-  calmMin: 2.5,
-  /** For this many waves at the start there is a rock for every pet: a wave to learn on, where nobody has to be left out. After that there is one too few. */
-  spareWaves: 1,
+  cap: 90,
+  columns: 20,
+  rows: 16,
+  /** How high a piece of furniture stands (never more than 0.3, or a pet could not step up onto it). */
+  height: 0.3,
+  /**
+   * The furniture that falls from the sky: how many pets each piece holds, and the part of its top a pet is
+   * safe on (a circle's radius, or a rectangle's width and depth). The safe part is sized so that exactly
+   * that many pets fit, and is a little smaller than the piece is drawn, so a pet that looks on it is on it.
+   */
+  pieces: {
+    pouf: { seats: 1, radius: 0.5, width: 0, depth: 0 },
+    armchair: { seats: 1, radius: 0.5, width: 0, depth: 0 },
+    table: { seats: 2, radius: 0, width: 1.7, depth: 0.9 },
+    sofa: { seats: 3, radius: 0, width: 2.7, depth: 0.9 },
+    bed: { seats: 4, radius: 0, width: 1.45, depth: 1.45 },
+  },
+  /** Pieces never land closer together than this, edge to edge, or nearer the wall than this. */
+  gap: 1.8,
+  /** Seconds after a wave starts before the first piece lands, and between one landing and the next. Every piece's spot is marked on the floor from the start of the wave. */
+  dropFirst: 1.3,
+  dropEvery: 0.55,
+  /** Seconds between the last piece landing and the alarm on the first wave, how much shorter each wave after it, and the shortest it gets. */
+  calm: 3,
+  calmStep: 0.4,
+  calmMin: 1.2,
+  /** For this many waves at the start there is a seat for every pet: the first to learn on, the second with less time, and nobody has to be left out of either. After that there is one too few. */
+  spareWaves: 2,
   /** Seconds the alarm sounds before the lava is up, and seconds it stays up. */
   alarm: 3,
   flood: 2,
@@ -334,18 +351,18 @@ export const lava = {
 /** Pinta o Chão. */
 export const paint = {
   cap: 55,
-  columns: 14,
-  rows: 12,
+  columns: 18,
+  rows: 15,
   /** For the last seconds nobody is shown the count. */
   hideLast: 10,
   /** Seconds before the first bucket of paint drops, and between buckets after it. */
-  bucketFirst: 6,
-  bucketEvery: 7,
+  bucketFirst: 5,
+  bucketEvery: 5.5,
   /** Seconds a bucket takes to come down: its spot is marked on the floor meanwhile. */
   bucketDrop: 1.2,
   pickupRadius: 0.95,
   /** A kicked bucket paints every tile this close to it. */
-  splashRadius: 2.3,
+  splashRadius: 2.6,
 } as const;
 
 export const gacha = {

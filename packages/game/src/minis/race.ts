@@ -1,4 +1,4 @@
-// Corrida Maluca: a track three tiles wide, folded into an S so the whole race fits on the screen, with
+// Corrida Maluca: a track three tiles wide, folded back and forth so a long race fits a small floor, with
 // gaps to jump, tiles that blink away, beams to balance on and bars that sweep pets off. A is a jump.
 // A fall is never the end: the pet is put back at the last flag it passed. First over the line wins,
 // and a few seconds later the round is called.
@@ -9,16 +9,18 @@ import { rankBy, type Field, type MiniRules } from './field';
 export type Obstacle = 'gap' | 'blink' | 'narrow' | 'sweeper';
 export type Sweeper = { x: number; z: number; angle: number; speed: number };
 
-/** The middle of the track, corner to corner: out along the near lane, back along the middle one, out again along the far one. */
-const LANE_Z = [6, 0, -6] as const;
-const CORNERS = [
-  { x: -race.columns / 2 + 1, z: LANE_Z[0] },
-  { x: race.columns / 2 - 1.5, z: LANE_Z[0] },
-  { x: race.columns / 2 - 1.5, z: LANE_Z[1] },
-  { x: -race.columns / 2 + 1.5, z: LANE_Z[1] },
-  { x: -race.columns / 2 + 1.5, z: LANE_Z[2] },
-  { x: race.columns / 2 - 1, z: LANE_Z[2] },
-] as const;
+/**
+ * The middle of the track, corner to corner: out along the nearest lane, back along the next, and so on to the
+ * farthest. Lanes are numbered from the one nearest the camera; even ones run left to right.
+ */
+const LANE_Z = Array.from({ length: race.lanes }, (_, lane) => ((race.lanes - 1) / 2 - lane) * race.laneGap);
+const CORNERS = LANE_Z.flatMap((z, lane) => {
+  const forward = lane % 2 === 0 ? 1 : -1;
+  // The start and the finish stand a little nearer the end of the floor than the turns do.
+  const from = -forward * (race.columns / 2 - (lane === 0 ? 1 : 1.5));
+  const to = forward * (race.columns / 2 - (lane === race.lanes - 1 ? 1 : 1.5));
+  return [{ x: from, z }, { x: to, z }];
+});
 const LEGS = CORNERS.slice(1).map((to, index) => {
   const from = CORNERS[index]!;
   return { from, to, length: Math.hypot(to.x - from.x, to.z - from.z) };
@@ -81,13 +83,15 @@ export class RaceRules implements MiniRules {
     // The same number of obstacles on each straight, the four kinds in turn, in an order the roll decides. In the middle of them stands a flag.
     const perLane = race.slotsX.length;
     const turn: Obstacle[] = ['gap', 'blink', 'narrow', 'sweeper'];
-    const kinds = Array.from({ length: perLane * 3 }, (_, index) => turn[index % turn.length]!);
+    const kinds = Array.from({ length: perLane * race.lanes }, (_, index) => turn[index % turn.length]!);
     for (let index = kinds.length - 1; index > 0; index--) {
       const other = field.rng.int(index + 1);
       [kinds[index], kinds[other]] = [kinds[other]!, kinds[index]!];
     }
     this.flags.push(0);
-    [0, 2, 4].forEach((leg, lane) => {
+    LANE_Z.forEach((_, lane) => {
+      // Straights are the even legs; the turns between them the odd ones.
+      const leg = lane * 2;
       // In the order they are met: the middle straight is run the other way.
       const { from, to } = LEGS[leg]!;
       const forward = to.x > from.x;
@@ -96,12 +100,12 @@ export class RaceRules implements MiniRules {
       const half = Math.max(1, Math.floor(perLane / 2));
       this.flags.push(STARTS[leg]! + Math.abs((xs[half - 1]! + xs[half]!) / 2 - from.x));
       // And one in the middle of the turn that follows.
-      if (leg < 4) this.flags.push(STARTS[leg + 1]! + LEGS[leg + 1]!.length / 2);
+      if (lane < race.lanes - 1) this.flags.push(STARTS[leg + 1]! + LEGS[leg + 1]!.length / 2);
     });
   }
 
   spawn(_field: Field, index: number): { x: number; z: number } {
-    return { x: CORNERS[0].x + (index % 2) * 1.1, z: LANE_Z[0] + (Math.floor(index / 2) - 1) * 0.95 };
+    return { x: CORNERS[0]!.x + (index % 2) * 1.1, z: LANE_Z[0]! + (Math.floor(index / 2) - 1) * 0.95 };
   }
 
   step(field: Field): void {
