@@ -6,6 +6,8 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ### Added
 
+- **Spectators.** Every world now has someone in it who cares what happens: small pets that nobody is playing stand round the map, on whatever it gives them to stand on. They watch what matters, start at a blast, clap at a good move and cheer the winner, each a moment after its neighbour. They are smaller than a player's pet, edged in white, with no ring and no name, and never stand on the floor.
+- **Batata Quente's kitchen is alive.** Spectators on tins round the pan and on its handle follow the bomb with their eyes; a kitchen timer behind the pan has the fuse for its hand; a kettle comes to the boil; the pot's lid rattles; fat spits at the pan's edge, faster as the fuse runs out; and when the bomb goes off, everything standing on the stove hops.
 - **The round's list says why.** In the games that count something, each row of the list of places now carries what the game counted for that player (tiles painted, food eaten, how far along the way), counting up as the row arrives, between the name and the points. A share of the way is shown as a percentage, on the list and on the players' cards.
 - For developers: `pnpm listen` measures how loud every sound is; `pnpm look --soak` plays three long matches and counts what is held after every change of world; `pnpm rehearse` runs a whole evening with simulated phones in real time.
 
