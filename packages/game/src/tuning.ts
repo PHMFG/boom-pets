@@ -239,18 +239,34 @@ export const color = {
 /** Corrida Maluca. */
 export const race = {
   cap: 105,
-  columns: 30,
-  /** How many straights the track has, folded back and forth, and how far apart they lie. The rows hold them all with a tile to spare each side. */
-  lanes: 4,
-  laneGap: 6,
-  rows: 21,
+  /**
+   * The floor, and the grid of points the track may turn at: so many across and so many deep, so far apart. The
+   * track is three tiles wide, so two stretches side by side have three or four tiles of nothing between them, and
+   * the outermost points leave just the track's own width to the floor's edge.
+   */
+  columns: 33,
+  rows: 27,
+  nodesX: 6,
+  nodesZ: 5,
+  pitchX: 6,
+  pitchZ: 6,
+  /** A track is drawn afresh each round. It is at least this long, in metres, and has room for at least this many obstacles: one that only twists is not a race. */
+  minLength: 150,
+  minHurdles: 11,
+  /**
+   * Where obstacles go: only on a straight at least `minRun` long, none nearer a corner than `clear` (room to
+   * come out of the turn and run), none nearer the start than `lead`, and about `spacing` apart. Whole numbers:
+   * an obstacle is centred half a tile off them, on a line between tiles.
+   */
+  minRun: 12,
+  clear: 5,
+  lead: 7,
+  spacing: 7,
   /** Seconds the round goes on after the first pet crosses the line. */
   grace: 10,
-  /** Upward speed of a jump: about 0.9 m high and 3 m long at a run, enough for a gap of two tiles and not for the three between lanes. */
+  /** Upward speed of a jump: about 0.9 m high and 3 m long at a run, enough for a gap of two tiles and not for the three between two stretches of track. */
   jumpSpeed: 7.5,
   jumpRest: 0.2,
-  /** Where across the map (in x) the obstacles of each straight are centred. A flag stands in the middle of them. */
-  slotsX: [-8, 0, 8],
   /** Tiles of track an obstacle takes up, and how many a gap takes away. Even numbers: an obstacle is centred on a line between tiles. */
   stretch: 4,
   gapLength: 2,
@@ -264,7 +280,7 @@ export const race = {
   sweepThick: 0.4,
   sweepForce: 8,
   sweepLift: 4,
-  /** The most progress one step on the floor can add. A landing on another lane is farther than this, so it is not counted. */
+  /** The most progress one step on the floor can add. A landing on another stretch of the track is farther than this, so it is not counted. */
   maxStride: 4,
 } as const;
 

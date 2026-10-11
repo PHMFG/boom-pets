@@ -9,7 +9,6 @@ import { TILE, type GameEvent, type GameMode, type MiniMode, type SeatSetup } fr
 import { Field, rankBy } from './field';
 import { makeRules, type AnyRules } from './index';
 import { FURNITURE_KINDS, seatsOf } from './lava';
-import { pointAt, progressOf, TRACK } from './race';
 
 const PETS = ['fox', 'cat', 'dog', 'pig', 'cow', 'bee'];
 const seat = (index: number): SeatSetup => ({ seat: index, pet: PETS[index]!, name: `P${index}`, bot: null });
@@ -17,10 +16,10 @@ const idle: SampledInput = { x: 0, y: 0, a: false, b: false, stale: false, edges
 export const press = (button: 'a' | 'b' | 'c', down: boolean): ButtonEdge => ({ button, down });
 
 /** A field for one game with scripted inputs per seat and every event recorded. */
-export function makeField<Mode extends MiniMode>(mode: Mode, seats: number) {
+export function makeField<Mode extends MiniMode>(mode: Mode, seats: number, seed = 1) {
   const events: GameEvent[] = [];
   const inputs = new Map<number, SampledInput>();
-  const field = new Field(makeRules(mode) as Extract<AnyRules, { mode: Mode }>, Array.from({ length: seats }, (_, index) => seat(index)), createRng(1, 'spawns'), { emit: event => events.push(event) });
+  const field = new Field(makeRules(mode) as Extract<AnyRules, { mode: Mode }>, Array.from({ length: seats }, (_, index) => seat(index)), createRng(seed, 'spawns'), { emit: event => events.push(event) });
   const run = (steps: number) => {
     for (let index = 0; index < steps; index++) {
       field.step(which => inputs.get(which) ?? idle);
@@ -428,57 +427,115 @@ describe('Corrida Maluca', () => {
   const put = (race_: ReturnType<typeof makeField<'race'>>, which: number, along: number) => {
     const { field, run } = race_;
     const pet = field.petOfSeat(which)!;
+    const spot = field.rules.track.pointAt(along);
     // Only a step at a time counts as progress, so what it had covered is set just short of where it lands.
     field.rules.best.set(which, Math.max(0, along - 1));
-    field.respawn(pet, pointAt(along).x, pointAt(along).z);
+    field.respawn(pet, spot.x, spot.z);
     for (let steps = 0; steps < 90 && !pet.grounded; steps++) run(1);
     run(2);
   };
 
-  it('lays a track that folds back on itself, with gaps a jump can clear and lanes a jump cannot cross', () => {
-    const { field } = makeField('race', 4);
-    expect(progressOf(pointAt(0).x, pointAt(0).z)).toBeCloseTo(0, 5);
-    for (const along of [3, 20, 41, 60, TRACK - 1]) expect(progressOf(pointAt(along).x, pointAt(along).z)).toBeCloseTo(along, 5);
-    // Along the middle line, every break in the floor is a gap of exactly two tiles: blinking tiles start solid and a beam keeps its middle.
-    const breaks: number[] = [];
-    let open = 0;
-    for (let along = 0; along <= TRACK; along += 0.25) {
-      const spot = pointAt(along);
-      if (field.isFloor(spot.x, spot.z)) {
-        if (open > 0) breaks.push(open);
-        open = 0;
-      } else open += 0.25;
+  it('draws a new track every round: across the floor to the far back corner, never touching itself, with its obstacles clear of the corners', () => {
+    const drawn = new Set<string>();
+    const turns = new Set<number>();
+    for (let seed = 1; seed <= 40; seed++) {
+      const { field } = makeField('race', 4, seed);
+      const { track, hurdles, flags, sweepers } = field.rules;
+      drawn.add(track.legs.map(leg => `${leg.from.x},${leg.from.z}`).join(' '));
+      turns.add(track.turns);
+      expect(track.length).toBeGreaterThanOrEqual(race.minLength);
+      expect(hurdles.length).toBeGreaterThanOrEqual(race.minHurdles);
+
+      // It starts at one side, setting off across the floor, and ends in the back corner of the other side.
+      const start = track.pointAt(0);
+      const end = track.pointAt(track.length);
+      const side = ((race.nodesX - 1) / 2) * race.pitchX;
+      expect(Math.abs(start.x)).toBe(side);
+      expect(start.dx).toBe(-Math.sign(start.x));
+      expect(end.x).toBe(-start.x);
+      expect(end.z).toBe(-((race.nodesZ - 1) / 2) * race.pitchZ);
+      for (const along of [0, 3, track.length / 3, track.length - 1]) {
+        const spot = track.pointAt(along);
+        expect(track.progressOf(spot.x, spot.z)).toBeCloseTo(along, 5);
+      }
+
+      // No stretch of it comes nearer another than the grid's points are apart: a jump cannot cross from one to the next.
+      const line = Array.from({ length: Math.floor(track.length) + 1 }, (_, along) => track.pointAt(along));
+      line.forEach((a, from) => {
+        for (let to = from + race.pitchX + race.pitchZ; to < line.length; to++) {
+          expect(Math.hypot(a.x - line[to]!.x, a.z - line[to]!.z)).toBeGreaterThanOrEqual(Math.min(race.pitchX, race.pitchZ) - 0.001);
+        }
+      });
+
+      // Along the middle line the floor is broken only by a gap (two tiles) or by a beam that keeps one of the side rows (the obstacle's whole stretch).
+      const breaks: number[] = [];
+      let open = 0;
+      for (let along = 0; along <= track.length; along += 0.25) {
+        const spot = track.pointAt(along);
+        if (field.isFloor(spot.x, spot.z)) {
+          if (open > 0) breaks.push(open);
+          open = 0;
+        } else open += 0.25;
+      }
+      const gaps = hurdles.filter(hurdle => hurdle.kind === 'gap').length;
+      const sideBeams = hurdles.filter(hurdle => hurdle.kind === 'narrow' && hurdle.row !== 0).length;
+      expect(breaks.filter(length => Math.round(length) === race.gapLength)).toHaveLength(gaps);
+      expect(breaks.filter(length => Math.round(length) === race.stretch)).toHaveLength(sideBeams);
+      expect(breaks).toHaveLength(gaps + sideBeams);
+      // A beam leaves exactly one row to walk on, right through it.
+      for (const hurdle of hurdles.filter(each => each.kind === 'narrow')) {
+        const spot = track.pointAt(hurdle.at);
+        const rows = [-1, 0, 1].filter(row => field.isFloor(spot.x + spot.dz * row, spot.z - spot.dx * row));
+        expect(rows).toEqual([hurdle.row]);
+      }
+
+      // Every obstacle has a run-up: clear of the corners of its straight, of the start, and of the next obstacle.
+      for (const hurdle of hurdles) {
+        const leg = track.legs.findLast(each => each.start <= hurdle.at)!;
+        expect(hurdle.at - leg.start).toBeGreaterThanOrEqual((leg === track.legs[0] ? race.lead : race.clear) - 0.5);
+        expect(leg.start + leg.length - hurdle.at).toBeGreaterThanOrEqual(race.clear - 0.5);
+        expect(leg.length).toBeGreaterThanOrEqual(race.minRun);
+      }
+      hurdles.forEach((hurdle, index) => {
+        if (index > 0) expect(hurdle.at - hurdles[index - 1]!.at).toBeGreaterThanOrEqual(race.spacing - 2);
+      });
+      // The four kinds take turns, so every track has all of them.
+      for (const kind of ['gap', 'blink', 'narrow', 'sweeper'] as const) expect(hurdles.some(hurdle => hurdle.kind === kind), kind).toBe(true);
+      expect(sweepers).toHaveLength(hurdles.filter(hurdle => hurdle.kind === 'sweeper').length);
+
+      // Whoever comes back at a flag starts from standing: the next obstacle is never nearer than a run-up.
+      for (const flag of flags) {
+        const next = hurdles.find(hurdle => hurdle.at > flag);
+        if (next) expect(next.at - flag).toBeGreaterThanOrEqual(race.clear - 0.5);
+      }
+      // A flag at the start and at every corner, each on solid floor, in the order they are met.
+      expect(flags[0]).toBe(0);
+      for (const leg of track.legs.slice(1)) expect(flags).toContain(leg.start);
+      expect(flags).toEqual([...flags].sort((a, b) => a - b));
+      for (const flag of flags) expect(field.tiles[field.index(track.pointAt(flag).x, track.pointAt(flag).z)]).toBe(TILE.solid);
+      field.free();
     }
-    // The four kinds of obstacle take turns over the slots, gaps first and turning bars last.
-    const slots = race.slotsX.length * race.lanes;
-    expect(breaks).toHaveLength(Math.ceil(slots / 4));
-    for (const length of breaks) expect(length).toBeCloseTo(race.gapLength, 0);
-    // Between two straights there are three tiles of nothing.
-    const between = Array.from({ length: race.lanes - 1 }, (_, lane) => ((race.lanes - 2) / 2 - lane) * race.laneGap);
-    expect(between).toHaveLength(3);
-    for (const z of between) for (let x = -5; x <= 5; x++) expect(field.isFloor(x + 0.5, z)).toBe(false);
-    // Every flag stands on solid floor.
-    for (const flag of field.rules.flags) expect(field.tiles[field.index(pointAt(flag).x, pointAt(flag).z)]).toBe(TILE.solid);
-    expect(field.rules.sweepers).toHaveLength(Math.floor(slots / 4));
-    field.free();
+    // Forty rounds are forty different tracks, or nearly, and both kinds come up: long straights and many turns.
+    expect(drawn.size).toBeGreaterThan(30);
+    expect(Math.max(...turns) - Math.min(...turns)).toBeGreaterThanOrEqual(4);
   });
 
   it('jumps on A, once, far enough for a gap of two tiles and not for three', () => {
     const { field, run, set, of } = makeField('race', 1);
     const pet = field.petOfSeat(0)!;
-    // On the first turn there is room to run flat out along z with nothing in the way.
-    const turn = field.rules.flags[2]!;
-    field.respawn(pet, pointAt(turn - 2.5).x, pointAt(turn - 2.5).z);
+    // From the very back of the start there is room to run flat out and land before the first obstacle.
+    const start = field.rules.track.pointAt(0);
+    field.respawn(pet, start.x - start.dx, start.z);
     run(40);
-    set(0, { y: 1 });
+    set(0, { x: start.dx });
     run(15);
-    const from = pet.z;
-    set(0, { y: 1, edges: [press('a', true), press('a', false)] });
+    const from = pet.x;
+    set(0, { x: start.dx, edges: [press('a', true), press('a', false)] });
     run(2);
     expect(of('jump')).toHaveLength(1);
     expect(pet.grounded).toBe(false);
     // A second press in the air does nothing.
-    set(0, { y: 1, edges: [press('a', true), press('a', false)] });
+    set(0, { x: start.dx, edges: [press('a', true), press('a', false)] });
     run(2);
     expect(of('jump')).toHaveLength(1);
     let peak = 0;
@@ -486,7 +543,7 @@ describe('Corrida Maluca', () => {
       run(1);
       peak = Math.max(peak, pet.y);
     }
-    const length = Math.abs(pet.z - from);
+    const length = Math.abs(pet.x - from);
     expect(length).toBeGreaterThan(race.gapLength + 0.5);
     expect(length).toBeLessThan(3.2);
     expect(peak - (petTune.radius + petTune.halfHeight)).toBeGreaterThan(0.7);
@@ -496,14 +553,18 @@ describe('Corrida Maluca', () => {
   it('puts a pet that falls back at the last flag it passed, the same pet, with its progress kept', () => {
     const raceField = makeField('race', 2);
     const { field, run, set, of } = raceField;
+    const { track } = field.rules;
     const pet = field.petOfSeat(0)!;
     const flag = field.rules.flags[1]!;
     put(raceField, 0, flag + 0.3);
     const best = field.rules.best.get(0)!;
     expect(best).toBeGreaterThanOrEqual(flag);
-    // Off the side of the track, until it is put back once more than the carrying put it down.
+    // Off the side of the track (whichever side has nothing beside it: at a corner one side is the way it came),
+    // until it is put back once more than the carrying put it down.
+    const here = track.pointAt(flag + 0.3);
+    const way = field.isFloor(here.x + here.dz * 2.5, here.z - here.dx * 2.5) ? -1 : 1;
     const carried = of('respawn').filter(event => event.seat === 0).length;
-    set(0, { y: -1 });
+    set(0, { x: here.dz * way, y: here.dx * way });
     for (let guard = 0; guard < 600 && of('respawn').filter(event => event.seat === 0).length <= carried; guard++) run(1);
     set(0, {});
     run(60);
@@ -512,16 +573,16 @@ describe('Corrida Maluca', () => {
     expect(field.petOfSeat(0)).toBe(pet);
     expect(pet.falling).toBe(false);
     expect(pet.grounded).toBe(true);
-    const back = pointAt(flag);
+    const back = track.pointAt(flag);
     expect(Math.hypot(pet.x - back.x, pet.z - back.z)).toBeLessThan(1.2);
     expect(field.rules.best.get(0)).toBe(best);
     field.free();
   });
 
-  it('does not count landing on another lane as progress', () => {
+  it('does not count landing on another stretch of the track as progress', () => {
     const { field, run } = makeField('race', 1);
     const pet = field.petOfSeat(0)!;
-    const far = pointAt(TRACK - 4);
+    const far = field.rules.track.pointAt(field.rules.track.length - 4);
     field.respawn(pet, far.x, far.z);
     run(60);
     expect(field.rules.best.get(0) ?? 0).toBeLessThan(3);
@@ -532,10 +593,11 @@ describe('Corrida Maluca', () => {
   it('calls the round a few seconds after the first pet crosses the line, and ranks the rest by how far they got', () => {
     const raceField = makeField('race', 3);
     const { field, run, of, walk } = raceField;
+    const { track } = field.rules;
     // One pet has got a third of the way; another is set down just short of the line and walks over it.
     field.rules.best.set(2, 30);
-    put(raceField, 1, TRACK - 2.2);
-    walk(1, pointAt(TRACK).x, pointAt(TRACK).z);
+    put(raceField, 1, track.length - 2.2);
+    walk(1, track.pointAt(track.length).x, track.pointAt(track.length).z);
     expect(of('finish')).toEqual([{ t: 'finish', pet: field.petOfSeat(1)!.id, seat: 1, place: 1 }]);
     expect(field.metric(1)).toBe(100);
     expect(field.finished).toBe(false);

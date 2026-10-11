@@ -1,6 +1,6 @@
 // Runs the game on the host: the fixed-rate loop, who sits where, when a match starts and ends,
 // and keeping the stage, the sound, the HUD and every phone in step with the simulation.
-import { Game, initPhysics, InputBuffer, PLAYABLE_MODES, POWERS, tuning, type BotStyle, type GameEvent, type GameMode, type SeatSetup } from '@boom/game';
+import { Game, initPhysics, InputBuffer, PLAYABLE_MODES, POWERS, Track, tuning, type BotStyle, type GameEvent, type GameMode, type SeatSetup } from '@boom/game';
 import { MAX_SEATS, type PadButton, type PhoneMode, type PhoneStatus, type PowerCard, type SeatInfo } from '@boom/protocol';
 import { motion } from '../../shared/motion';
 import { PET_IDS, type PetId } from '../../shared/pets';
@@ -112,6 +112,8 @@ export class Session {
     const skies = this.stage.loadSkies().then(() => progress('skies')(1));
     void Promise.all([initPhysics(), loadPets(progress('pets')), loadModels(progress('models')), skies]).then(() => {
       if (this.disposed) return;
+      // The race's tracks are found now, behind the loading screen, not as its first round is announced.
+      Track.warm();
       this.game = new Game(this.seed);
       this.stage.setGame(this.game);
       this.stage.setTitle(hud.get().title);

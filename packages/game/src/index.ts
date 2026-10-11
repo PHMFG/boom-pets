@@ -13,7 +13,7 @@ export type { Food, FoodKind, GrowRules } from './minis/grow';
 export type { ColorRules } from './minis/color';
 export type { PotatoRules } from './minis/potato';
 export type { FritaRules } from './minis/frita';
-export { pointAt, TRACK, type RaceRules, type Sweeper } from './minis/race';
+export { Track, type Hurdle, type Leg, type RaceRules, type Sweeper } from './minis/race';
 export * from './scoring';
 export * as tuning from './tuning';
 export * from './types';

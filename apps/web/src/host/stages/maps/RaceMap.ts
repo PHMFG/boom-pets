@@ -12,7 +12,7 @@
 // runs over the finish arch and the balloons go up. Under the track the sky has traffic of its own: three
 // layers of cloud, a blimp, a balloon race, a flock of birds and a plane towing a banner.
 import type { AnyField, AnyRound, GameEvent } from '@boom/game';
-import { pointAt, TILE, TRACK, tuning } from '@boom/game';
+import { TILE, tuning } from '@boom/game';
 import { Color, Group, Mesh, type BufferGeometry, type MeshToonMaterial, type Object3D } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { strings } from '../../../shared/strings.pt-BR';
@@ -39,10 +39,10 @@ const FLAG = { off: HALF_TRACK + 0.25, height: 1.86, fold: 0.6 };
 const REACH = COLUMNS / 2 - 12;
 /** A stilt's top is wide, and must never show through a gap: the nearest one stands this far from the middle of an obstacle. */
 const STILT_CLEAR = tuning.race.stretch / 2 + 1.1;
-/** The grandstand: how far back from the finish along the last lane its middle is, and how far behind the lane's edge its front. */
+/** The grandstand: how far back from the finish along the last stretch its middle is, and how far outside the track's edge its front. */
 const STAND = { back: 3.2, gap: 1.6 };
-/** The marshals' tower: how far outside the edge of the last turn its middle is, and how far along it from the turn's middle, toward the last lane (clear of the flag that stands there, and well away from the start, where six pets are being found by their players). */
-const TOWER = { gap: 2.3, along: 2.2 };
+/** The marshals' tower stands behind the floor: how far behind its back edge, and how far in from its sides the outer two of the three places it may take are. */
+const TOWER = { gap: 2.3, inset: 5.5 };
 /** The three layers of cloud under the track and how fast each drifts, in metres a second: the nearest fastest, so the depth can be felt. */
 const CLOUDS = [
   { name: 'clouds_near', speed: 0.55 },
@@ -76,8 +76,7 @@ const ENTER = { wait: 0.12, spread: 0.45, grow: 0.5, reach: 28 };
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const backOut = (t: number) => 1 + 2.2 * (t - 1) ** 3 + 1.2 * (t - 1) ** 2;
 
-/** One straight piece of the track's middle line: a lane, or a turn between two. */
-type Leg = { fromX: number; fromZ: number; toX: number; toZ: number; dx: number; dz: number };
+type RaceField = Extract<AnyField, { gameMode: 'race' }>;
 type FlagView = { along: number; x: number; z: number; near: Object3D; far: Object3D; phase: number; whip: number; passed: Set<number> };
 type Drifter = { node: Object3D; speed: number; wrap: number; fade: number; size: number };
 type Bird = { view: Object3D; back: number; side: number; phase: number };
@@ -101,19 +100,6 @@ function stoodAt(template: Object3D, places: readonly { x: number; z: number }[]
     whole.add(piece);
   });
   return whole;
-}
-
-/** The track's straight pieces in the order they are run, found by walking its middle line. */
-function legs(): Leg[] {
-  const found: Leg[] = [];
-  for (let along = 0; along <= TRACK; along += 0.25) {
-    const { x, z, dx, dz } = pointAt(along);
-    const last = found[found.length - 1];
-    // A corner belongs to both pieces that meet at it.
-    if (last) Object.assign(last, { toX: x, toZ: z });
-    if (!last || Math.abs(last.dx - dx) > 0.01 || Math.abs(last.dz - dz) > 0.01) found.push({ fromX: x, fromZ: z, toX: x, toZ: z, dx, dz });
-  }
-  return found;
 }
 
 export class RaceMap implements MapView {
@@ -154,7 +140,7 @@ export class RaceMap implements MapView {
   private lights = 0;
   private lift = 0;
 
-  constructor(kit: StageKit, field: Extract<AnyField, { gameMode: 'race' }>) {
+  constructor(kit: StageKit, field: RaceField) {
     this.kit = kit;
     const { model } = this;
     this.group.add(this.tiles.mesh, model.scene, this.placed, this.scenery);
@@ -260,7 +246,7 @@ export class RaceMap implements MapView {
   focus(round: AnyRound, points: { x: number; z: number }[]): void {
     if (round.gameMode !== 'race') return;
     for (const pet of round.pets) {
-      const ahead = pointAt((round.rules.best.get(pet.seat) ?? 0) + LOOK_AHEAD);
+      const ahead = round.rules.track.pointAt((round.rules.best.get(pet.seat) ?? 0) + LOOK_AHEAD);
       points.push({ x: ahead.x, z: ahead.z });
     }
   }
@@ -283,7 +269,7 @@ export class RaceMap implements MapView {
         this.eye.x = pet.x;
         this.eye.z = pet.z;
       }
-      this.lead = clamp01(front / TRACK);
+      this.lead = clamp01(front / field.rules.track.length);
       // A flag whips as each pet passes it, and the first one past gets a hand.
       for (const flag of this.flags) {
         for (const [seat, best] of field.rules.best) {
@@ -433,13 +419,15 @@ export class RaceMap implements MapView {
     }
   }
 
-  /** Everything that is placed from the round's own track. Returns the spectators, standing where the stands say. */
-  private build(field: Extract<AnyField, { gameMode: 'race' }>): Crowd {
+  /**
+   * Everything that is placed from the round's own track, which is drawn afresh each round: nothing here may assume
+   * where it runs, only that it starts at one side of the floor and ends in the back corner of the other. Returns
+   * the spectators, standing where the stands say.
+   */
+  private build(field: RaceField): Crowd {
     const { model } = this;
-    const pieces = legs();
-    const lastLane = pieces[pieces.length - 1]!;
-    const lastTurn = pieces[pieces.length - 2] ?? lastLane;
-    const end = pointAt(TRACK);
+    const { track, hurdles } = field.rules;
+    const end = track.pointAt(track.length);
 
     // The last stretch before the line is a chequered flag laid on the floor.
     const ink = new Color(colors.ink);
@@ -448,12 +436,12 @@ export class RaceMap implements MapView {
       const { x, z } = this.tiles.centre(index);
       const along = (x - end.x) * end.dx + (z - end.z) * end.dz;
       const across = Math.abs((x - end.x) * end.dz - (z - end.z) * end.dx);
-      if (state !== TILE.gone && along > -1 && across < HALF_TRACK) this.tiles.setColor(index, (Math.floor(x) + Math.floor(z)) % 2 === 0 ? ink : white, false);
+      if (state !== TILE.gone && along > -1 && across < HALF_TRACK) this.tiles.setColor(index, (Math.floor(x + 0.5) + Math.floor(z + 0.5)) % 2 === 0 ? ink : white, false);
     });
 
     // An arch past each end of the track, across it: off the floor, where it hides nobody.
     const arch = (name: string, at: number, side: number) => {
-      const spot = pointAt(at);
+      const spot = track.pointAt(at);
       const whole = new Group();
       const tube = model.part(name);
       whole.add(model.part('arch_feet'), tube);
@@ -464,7 +452,7 @@ export class RaceMap implements MapView {
       return tube;
     };
     arch('arch_start', 0, -1);
-    const finish = arch('arch_finish', TRACK, 1);
+    const finish = arch('arch_finish', track.length, 1);
     // Its lamps, each with paint of its own so one can be lit without the others.
     for (let index = 0; ; index++) {
       const view = finish.getObjectByName(`lamp_${index}`);
@@ -473,10 +461,15 @@ export class RaceMap implements MapView {
       this.lamps.push({ view, paint });
     }
 
-    // A flag wherever a fallen pet comes back: just off the track, on the side away from the camera (or the
-    // outer side of a turn), so its cloth never hangs over a pet. The cloth points the way to run.
+    // A flag wherever a fallen pet comes back, just off the track where its cloth never hangs over a pet: at a
+    // corner, outside the turn; on a straight, on the side away from the camera, or the outer side of one that
+    // runs toward it. The cloth points the way to run, which at a corner is the way to turn.
     field.rules.flags.slice(1).forEach((along, index) => {
-      const spot = pointAt(along);
+      const spot = track.pointAt(along);
+      const corner = track.legs.findIndex(leg => Math.abs(leg.start - along) < 0.01);
+      const before = corner > 0 ? track.legs[corner - 1]! : null;
+      const alongX = Math.abs(spot.dx) > Math.abs(spot.dz);
+      const aside = before ? { x: before.dx - spot.dx, z: before.dz - spot.dz } : alongX ? { x: 0, z: -1 } : { x: Math.sign(spot.x) || 1, z: 0 };
       const flag = new Group();
       const cloth = new Group();
       const near = model.part('flag_cloth_a');
@@ -487,8 +480,7 @@ export class RaceMap implements MapView {
       cloth.position.y = FLAG.height;
       cloth.rotation.y = Math.atan2(-spot.dz, spot.dx);
       flag.add(model.part('flag_post'), cloth);
-      const alongX = Math.abs(spot.dx) > Math.abs(spot.dz);
-      flag.position.set(spot.x + (alongX ? 0 : Math.sign(spot.x) * FLAG.off), 0, spot.z - (alongX ? FLAG.off : 0));
+      flag.position.set(spot.x + aside.x * FLAG.off, 0, spot.z + aside.z * FLAG.off);
       this.flags.push({ along, x: spot.x, z: spot.z, near, far, phase: index * 1.9, whip: 0, passed: new Set() });
       this.placed.add(flag);
     });
@@ -505,40 +497,40 @@ export class RaceMap implements MapView {
       this.placed.add(post, bar);
     }
 
-    // The stilts: under each lane half way between its obstacles (which are centred on `slotsX`) and half way out
-    // to its ends, and under the middle of each turn. Wherever the track can lose a tile there is none.
+    // The stilts: under each straight half way between one thing and the next (its corners and its obstacles),
+    // pushed clear of any obstacle. Wherever the track can lose a tile there is none.
     const stilts: { x: number; z: number }[] = [];
-    const stilt = (x: number, z: number) => stilts.push({ x, z });
-    const slots = [...tuning.race.slotsX].sort((a, b) => a - b);
-    for (const leg of pieces) {
-      if (Math.abs(leg.dz) > 0.5) {
-        stilt((leg.fromX + leg.toX) / 2, (leg.fromZ + leg.toZ) / 2);
-        continue;
-      }
-      const low = Math.min(leg.fromX, leg.toX);
-      const high = Math.max(leg.fromX, leg.toX);
-      const marks = [low, ...slots.filter(slot => slot > low && slot < high), high];
+    const obstacles = hurdles.map(hurdle => hurdle.at);
+    for (const leg of track.legs) {
+      const marks = [leg.start, ...obstacles.filter(at => at > leg.start && at < leg.start + leg.length), leg.start + leg.length];
       for (let index = 0; index + 1 < marks.length; index++) {
-        let x = (marks[index]! + marks[index + 1]!) / 2;
-        // Pushed clear of the obstacle it is nearest to; if that brings it too near the next one, there is no room for it.
-        const near = slots.reduce((best, slot) => (Math.abs(slot - x) < Math.abs(best - x) ? slot : best), Infinity);
-        if (Math.abs(near - x) < STILT_CLEAR) x = near + Math.sign(x - near || 1) * STILT_CLEAR;
-        if (x > low - 1 && x < high + 1 && slots.every(slot => Math.abs(slot - x) >= STILT_CLEAR - 0.01)) stilt(x, leg.fromZ);
+        let at = (marks[index]! + marks[index + 1]!) / 2;
+        const near = obstacles.reduce((best, each) => (Math.abs(each - at) < Math.abs(best - at) ? each : best), Infinity);
+        if (Math.abs(near - at) < STILT_CLEAR) at = near + Math.sign(at - near || 1) * STILT_CLEAR;
+        // If that brings it too near the next obstacle, or off the end of its straight, there is no room for it.
+        if (at < leg.start || at > leg.start + leg.length || obstacles.some(each => Math.abs(each - at) < STILT_CLEAR - 0.01)) continue;
+        const spot = track.pointAt(at);
+        stilts.push({ x: spot.x, z: spot.z });
       }
     }
     this.placed.add(stoodAt(model.part('stilt'), stilts, this.shapes));
 
-    // Somewhere to watch from: a grandstand behind the last lane, by the finish, on the side away from the rest of
-    // the track; and a tower outside the last turn.
-    const away = Math.sign(lastLane.fromZ - lastTurn.fromZ) || -1;
+    // Somewhere to watch from. The track ends in a back corner of the floor, so beside its last stretch there is
+    // always open sky on the outside: behind the floor if it comes in along the back, off the floor's side if it
+    // comes in toward the back. The grandstand stands there, by the finish, facing the track.
+    const out = Math.abs(end.dx) > 0.5 ? { x: 0, z: -1 } : { x: Math.sign(end.x) || 1, z: 0 };
     const stand = model.part('stand');
-    stand.position.set(end.x - end.dx * STAND.back, 0, end.z + away * (HALF_TRACK + STAND.gap));
-    stand.rotation.y = away < 0 ? 0 : Math.PI;
-    this.cannon.x = stand.position.x;
-    this.cannon.z = stand.position.z + away * 1.5;
+    stand.position.set(end.x - end.dx * STAND.back + out.x * (HALF_TRACK + STAND.gap), 0, end.z - end.dz * STAND.back + out.z * (HALF_TRACK + STAND.gap));
+    stand.rotation.y = Math.atan2(-out.x, -out.z);
+    this.cannon.x = stand.position.x + out.x * 1.5;
+    this.cannon.z = stand.position.z + out.z * 1.5;
+    // The marshals' tower stands behind the floor, at whichever of three places is farthest from the start (where
+    // six pets are being found by their players, and nothing should stand beside them) and from the grandstand.
     const tower = model.part('tower');
-    const out = Math.sign(lastTurn.fromX) || -1;
-    tower.position.set(lastTurn.fromX + out * (HALF_TRACK + TOWER.gap), 0, (lastTurn.fromZ + lastTurn.toZ) / 2 + away * TOWER.along);
+    const start = track.pointAt(0);
+    const clear = (x: number) => Math.min(Math.hypot(x - start.x, -ROWS / 2 - TOWER.gap - start.z), Math.hypot(x - stand.position.x, -ROWS / 2 - TOWER.gap - stand.position.z));
+    const places = [-1, 0, 1].map(side => side * (COLUMNS / 2 - TOWER.inset));
+    tower.position.set(places.reduce((best, x) => (clear(x) > clear(best) ? x : best)), 0, -ROWS / 2 - TOWER.gap);
     this.placed.add(stand, tower);
 
     // The spectators stand where each of those says (x, how far back and how high, three numbers a place), and on the

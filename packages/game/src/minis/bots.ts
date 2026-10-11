@@ -6,7 +6,6 @@ import { color, potato } from '../tuning';
 import type { AnyRound } from '../rounds';
 import { TILE, type Pet } from '../types';
 import { seatsOf } from './lava';
-import { pointAt, progressOf } from './race';
 
 export type MiniPlan = { x: number; z: number; tapA?: boolean };
 
@@ -89,19 +88,35 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
     }
     case 'race': {
       const rules = round.rules;
+      const { track } = rules;
       if (rules.finishers.some(entry => entry.seat === seat)) return STILL;
-      const along = progressOf(me.x, me.z);
-      // Aim a short way down the middle of the track: short enough not to cut a corner over the drop.
-      const here = pointAt(along);
-      const ahead = pointAt(along + 1.2);
+      const along = track.progressOf(me.x, me.z);
+      const here = track.pointAt(along);
+      /** The spot that far ahead, on one of the track's three rows (-1, 0 or 1 across it). */
+      const at = (distance: number, row: number) => {
+        const spot = track.pointAt(along + distance);
+        return { x: spot.x + spot.dz * row, z: spot.z - spot.dx * row };
+      };
+      const stands = (distance: number, row: number) => {
+        const spot = at(distance, row);
+        return round.isFloor(spot.x, spot.z);
+      };
+      // A beam ahead: a stretch where one row is left standing and the other two are not. It may be any of the three.
+      let lane = 0;
+      let beam = false;
+      for (const distance of [1.2, 2.2, 3.2]) {
+        const rows = [-1, 0, 1].filter(row => stands(distance, row));
+        if (rows.length !== 1) continue;
+        lane = rows[0]!;
+        beam = true;
+        break;
+      }
+      // Aim a short way down the track, on the row that is there: short enough not to cut a corner over the drop.
+      const ahead = at(1.2, lane);
       // Slower where care is needed, as a person would be: into a turn (a late thumb overshoots it), onto a beam
       // while not yet lined up with it, and behind someone already on the way.
-      const turning = pointAt(along + 2.2).dx * here.dx + pointAt(along + 2.2).dz * here.dz < 0.5;
-      const off = Math.abs((me.x - here.x) * here.dz - (me.z - here.z) * here.dx);
-      const beam = [1.2, 2.2].some(distance => {
-        const spot = pointAt(along + distance);
-        return !round.isFloor(spot.x + spot.dz, spot.z - spot.dx) && round.isFloor(spot.x, spot.z);
-      });
+      const turning = track.pointAt(along + 2.2).dx * here.dx + track.pointAt(along + 2.2).dz * here.dz < 0.5;
+      const off = Math.abs((me.x - here.x) * here.dz - (me.z - here.z) * here.dx - lane);
       const queued = round.pets.some(other => {
         if (other === me) return false;
         const forward = (other.x - me.x) * here.dx + (other.z - me.z) * here.dz;
@@ -127,9 +142,9 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
         if (wait > lag && wait < lag + 0.22 && rng.chance(0.85)) return { ...run, tapA: true };
       }
 
-      // What the floor does over the next few metres of track. A tile that is shaking counts as already gone.
+      // What the floor does over the next few metres of the row it is running on. A tile that is shaking counts as already gone.
       const solid = (distance: number) => {
-        const spot = pointAt(along + distance);
+        const spot = at(distance, lane);
         const index = round.index(spot.x, spot.z);
         return index >= 0 && round.tiles[index] === TILE.solid;
       };
