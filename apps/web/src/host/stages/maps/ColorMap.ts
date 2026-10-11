@@ -2,22 +2,51 @@
 // its fruit, so a colour is never told apart by hue alone. When one is called, its name and fruit hang over
 // the floor until the rest drops away.
 // The stage under the floor and everything that floats round it (speakers, the DJ's desk, lights, the mirror
-// ball, a planet and a rocket) are modelled in Blender (tools/blender/maps/color.py), and move by themselves.
+// ball, planets and a rocket) are modelled in Blender (tools/blender/maps/color.py), and move by themselves.
+// The stage answers the round: its lights go the called colour, its speakers kick when the floor drops, it all
+// plays a little faster wave by wave, and there are dancers on it who care how it goes.
 import type { AnyRound, GameEvent } from '@boom/game';
 import { tuning } from '@boom/game';
-import { BoxGeometry, CanvasTexture, Color, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Sprite, SpriteMaterial } from 'three';
+import { BoxGeometry, CanvasTexture, Color, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Sprite, SpriteMaterial, Vector3, type Material, type Object3D } from 'three';
 import { FLAVORS } from '../../../shared/games';
 import { colors, maps } from '../../../shared/tokens';
 import { Model } from '../../render/models';
-import type { MapView, SkyId, StageKit } from '../kit';
+import { random, type MapView, type SkyId, type StageKit } from '../kit';
 import { TileField } from '../TileField';
+import { Crowd, type Spot } from './crowd';
 
 const PATCH = tuning.color.patch;
 const SIDE = tuning.color.patches * PATCH;
 const palette = maps.color;
 const tints = FLAVORS.map(flavor => new Color(flavor.color));
-/** The footlights in each called colour: a little over white, and no more, or the colour would burn out of them. */
-const lampTints = tints.map(tint => tint.clone().multiplyScalar(1.25));
+/** The rail round the floor: how far it stands over the floor (low, so the near side hides nobody), how far down it goes, and how thick it is. */
+const RAIL = { top: 0.3, foot: -1.01, thick: 0.35 };
+/** How much faster the whole stage plays with each wave, and the most: the quickest speaker then beats 2.5 times a second. */
+const TEMPO = { step: 0.04, most: 1.24 };
+/** How much of their glow the stage's lights lose at rest with each wave, and the least they keep: the called colour stands out more every time. */
+const HOUSE = { step: 0.07, least: 0.55 };
+/** Seconds a speaker's kick and a meter's jump last, and how big they are. */
+const KICK = { seconds: 0.35, size: 0.12 };
+const JUMP = { seconds: 0.5, size: 0.7 };
+/** Dust in the air round the stage: how many motes a second, and the box round the floor they rise in. Never over the floor. */
+const DUST = { rate: 7, inner: SIDE / 2 + 1.4, outer: SIDE / 2 + 5.5 };
+const MOTE = new Color(palette.bulb).multiplyScalar(1.4);
+const FIRE = new Color(palette.flame).multiplyScalar(1.7);
+/** Who is here to dance: the piece of the model each group stands on, and where on it. They ride with it. */
+const DANCERS: { on: string; spots: Spot[] }[] = [
+  { on: 'lights', spots: [{ x: 0.5, z: 1, turn: 1 }, { x: 1, z: -0.4, turn: 1.2 }, { x: -0.5, z: 0.3, turn: 0.8 }] },
+  { on: 'mirror', spots: [{ x: -0.5, z: 1, turn: -1 }, { x: -1, z: -0.4, turn: -1.2 }, { x: 0.5, z: 0.3, turn: -0.8 }] },
+  { on: 'dj', spots: [{ x: 0, y: 1.4, z: -1.95, scale: 1.5 }] },
+  { on: 'saucer', spots: [{ x: 0, y: 0.22, z: 0, scale: 0.9 }] },
+];
+/** A light of the stage that takes the called colour: its material, the colour it rests at and how bright that is. */
+type Light = { material: Material & { color: Color }; rest: Color; peak: number };
+
+/** Whether the model's script marked this piece, or what it is part of, as a light that takes the called colour. */
+function calls(node: Object3D): boolean {
+  for (let at: Object3D | null = node; at; at = at.parent) if (at.userData.calls) return true;
+  return false;
+}
 const backOut = (t: number) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
 
 /** A fruit on a see-through square, to lie on a patch or hang in the air. */
@@ -43,19 +72,30 @@ export class ColorMap implements MapView {
   private readonly model = new Model('color');
   private readonly textures = FLAVORS.map(flavor => fruitTexture(flavor.icon));
   private readonly marks: { mesh: Mesh; material: MeshBasicMaterial; flavor: number; shown: number }[] = [];
-  /** The called colour's fruit, hung over each speaker: at the corners, where it covers nobody. */
+  /** The called colour's fruit, hung over each stack of speakers: beside the floor, where it covers nobody and the camera still has it. */
   private readonly signs: Sprite[] = [];
   /**
-   * The band round the floor that takes the called colour. It is four bars and not a slab: where patches drop
-   * there is nothing under them but space, so the patches left standing are plain to see.
+   * The rail round the floor: the rim nobody can walk over, standing a little higher than the floor. It takes
+   * the called colour. It is four bars and not a slab: where patches drop there is nothing under them but
+   * space, so the patches left standing are plain to see.
    */
   private readonly rim = new Group();
-  private readonly bars = [new BoxGeometry(SIDE + 0.7, 0.5, 0.35), new BoxGeometry(0.35, 0.5, SIDE)] as const;
+  private readonly bars = [new BoxGeometry(SIDE + RAIL.thick * 2, RAIL.top - RAIL.foot, RAIL.thick), new BoxGeometry(RAIL.thick, RAIL.top - RAIL.foot, SIDE)] as const;
   private readonly band = new MeshBasicMaterial({ color: palette.base });
-  /** The footlights round the stage. They burn warm, and take the called colour along with the band. */
-  private readonly lamps: { color: Color } | null;
-  private readonly lampRest = new Color();
-  private lampGoal = this.lampRest;
+  /** Every light of the stage that takes the called colour: footlights, spotlights, meters, the mirror ball. */
+  private readonly lights: Light[] = [];
+  private readonly crowds: Crowd[] = [];
+  /** The four stacks of speakers, which kick when the floor drops, and the two meters, which jump at a call. */
+  private readonly stacks: Object3D[] = [];
+  private readonly meters: Object3D[] = [];
+  private readonly rocket: Object3D | undefined;
+  private readonly ball: Object3D | undefined;
+  private readonly point = new Vector3();
+  private readonly glow = new Color();
+  private wave = 1;
+  private tempo = 1;
+  private kick = 0;
+  private jump = 0;
   private readonly seen = new Uint8Array(SIDE * SIDE);
   private called: number | null = null;
   private signSize = 0;
@@ -77,23 +117,50 @@ export class ColorMap implements MapView {
     }
     for (const side of [-1, 1]) {
       const across = new Mesh(this.bars[0], this.band);
-      across.position.z = side * (SIDE / 2 + 0.175);
+      across.position.z = side * (SIDE / 2 + RAIL.thick / 2);
       const along = new Mesh(this.bars[1], this.band);
-      along.position.x = side * (SIDE / 2 + 0.175);
+      along.position.x = side * (SIDE / 2 + RAIL.thick / 2);
       this.rim.add(across, along);
     }
-    this.rim.position.y = -0.76;
+    this.rim.position.y = (RAIL.top + RAIL.foot) / 2;
     this.group.add(this.tiles.mesh, this.model.scene, this.rim);
     this.tiles.reset(true);
-    const footlights = this.model.node('footlights');
-    this.lamps = footlights ? this.model.own(footlights, 'bulb') : null;
-    if (this.lamps) this.lampRest.copy(this.lamps.color);
-    // The model marks a place over each corner's speakers. A sign hung there rides up and down with its pod.
-    for (let corner = 0; corner < 4; corner++) {
+
+    // The lights the model marks get materials of their own, one for each they shared, so they can change colour together.
+    const made = new Map<Material, Light>();
+    this.model.scene.traverse(node => {
+      if (!(node instanceof Mesh) || node.name === 'outline' || !calls(node)) return;
+      const shared = node.material as Material & { color: Color };
+      let light = made.get(shared);
+      if (!light) {
+        const material = shared.clone();
+        light = { material, rest: material.color.clone(), peak: Math.max(material.color.r, material.color.g, material.color.b) };
+        made.set(shared, light);
+        this.lights.push(light);
+      }
+      node.material = light.material;
+    });
+    for (let index = 0; index < 4; index++) {
+      const stack = this.model.node(`speakers_${index}`);
+      if (stack) this.stacks.push(stack);
+      const meter = this.model.node(`meter_${index}`);
+      if (meter) this.meters.push(meter);
+    }
+    this.rocket = this.model.node('rocket');
+    this.ball = this.model.node('mirror_ball');
+    DANCERS.forEach((place, index) => {
+      const piece = this.model.node(place.on);
+      if (!piece) return;
+      const crowd = new Crowd(place.spots, { seed: 3 + index * 5 });
+      piece.add(crowd.group);
+      this.crowds.push(crowd);
+    });
+    // The model marks a place over each of its four stacks of speakers. A sign hung there rides up and down with its pod.
+    for (let stack = 0; stack < 4; stack++) {
       const sign = new Sprite(new SpriteMaterial({ transparent: true, depthWrite: false }));
       sign.scale.setScalar(0.001);
       this.signs.push(sign);
-      this.model.node(`sign_${corner}`)?.add(sign);
+      this.model.node(`sign_${stack}`)?.add(sign);
     }
   }
 
@@ -102,8 +169,10 @@ export class ColorMap implements MapView {
     if (event.t === 'colorShow') {
       this.called = null;
       this.dropped = false;
+      this.wave = event.wave;
       this.band.color.set(palette.base);
-      this.lampGoal = this.lampRest;
+      // A new floor, and the music is back: everyone dances until the next one drops.
+      for (const crowd of this.crowds) crowd.cheer(tuning.color.show + tuning.color.count);
     } else if (event.t === 'colorCall') {
       // The fruit goes up over every speaker and the band round the floor takes the colour. The name is the HUD's and the announcer's.
       this.called = event.color;
@@ -112,12 +181,31 @@ export class ColorMap implements MapView {
         sign.material.needsUpdate = true;
       }
       this.band.color.set(FLAVORS[event.color]!.color);
-      this.lampGoal = lampTints[event.color]!;
+      // The whole stage takes the colour: every light goes to it (in `frame`), the meters jump, and a little
+      // confetti of it goes up from the two dance pods.
+      this.jump = 1;
+      for (const crowd of this.crowds) crowd.clap();
+      for (let index = 0; index < 28; index++) {
+        // Thrown up and outward, so that none of it comes down on the floor.
+        const side = index % 2 === 0 ? -1 : 1;
+        this.kit.particles.cube({ x: side * (SIDE / 2 + 3.5), y: -0.8, z: -1.75, vx: side * random(0, 3), vy: random(5, 9), vz: random(-2.5, 2.5), life: random(1, 1.6), size: random(0.1, 0.17), gravity: 11, drag: 1, spin: random(-14, 14), color: tints[event.color]! });
+      }
       rig.shake(0.15);
     } else if (event.t === 'colorDrop') {
       this.dropped = true;
+      // The floor goes: the speakers kick, the rocket below fires its engine, and the dancers start.
+      this.kick = 1;
+      for (const crowd of this.crowds) crowd.gasp();
+      if (this.rocket) {
+        const { x, y, z } = this.rocket.getWorldPosition(this.point);
+        for (let index = 0; index < 16; index++) {
+          this.kit.particles.spark({ x, y, z, vx: random(-4, 4), vy: random(-3, 1), vz: random(-4, 4), life: random(0.5, 1), size: random(0.18, 0.4), sizeEnd: 0.05, drag: 1.5, spin: 8, color: FIRE });
+        }
+      }
       rig.shake(0.35);
       renderer.kick(0.2);
+    } else if (event.t === 'roundWinner') {
+      for (const crowd of this.crowds) crowd.cheer(4);
     }
   }
 
@@ -152,8 +240,38 @@ export class ColorMap implements MapView {
     const open = this.called !== null && !this.dropped;
     this.signSize = Math.max(0, Math.min(1, this.signSize + (open ? dt / 0.28 : -dt / 0.16)));
     for (const sign of this.signs) sign.scale.setScalar(Math.max(0.001, (open ? backOut(this.signSize) : this.signSize) * 2.6));
-    this.lamps?.color.lerp(this.lampGoal, 1 - Math.exp(-12 * dt));
-    this.model.update(dt);
+
+    // The stage's lights: the called colour while it stands, and their own a little dimmer each wave between calls.
+    const house = Math.max(HOUSE.least, 1 - (this.wave - 1) * HOUSE.step);
+    for (const light of this.lights) {
+      if (open) this.glow.copy(tints[this.called!]!).multiplyScalar(light.peak);
+      else this.glow.copy(light.rest).multiplyScalar(house);
+      light.material.color.lerp(this.glow, 1 - Math.exp(-12 * dt));
+    }
+    // The speakers kick at a drop and the meters jump at a call.
+    this.kick = Math.max(0, this.kick - dt / KICK.seconds);
+    this.jump = Math.max(0, this.jump - dt / JUMP.seconds);
+    for (const stack of this.stacks) stack.scale.setScalar(1 + KICK.size * this.kick ** 2);
+    for (const meter of this.meters) meter.scale.y = 1 + JUMP.size * this.jump ** 2;
+
+    // Dust rises round the stage, never over the floor, and while a colour stands the mirror ball throws flecks of it out into the dark.
+    const { particles } = this.kit;
+    if (field && Math.random() < DUST.rate * dt) {
+      const across = random(-DUST.outer, DUST.outer);
+      const beside = (Math.random() < 0.5 ? -1 : 1) * random(DUST.inner, DUST.outer);
+      const side = Math.random() < 0.7;
+      particles.spark({ x: side ? beside : across, y: random(-4, -1), z: side ? across : -Math.abs(beside) - 2, vx: random(-0.2, 0.2), vy: random(0.5, 1.1), vz: random(-0.2, 0.2), life: random(3, 4.5), size: random(0.07, 0.13), sizeEnd: 0.03, spin: 2, color: MOTE });
+    }
+    if (open && this.ball && Math.random() < 9 * dt) {
+      const { x, y, z } = this.ball.getWorldPosition(this.point);
+      particles.spark({ x, y, z, vx: random(0.5, 3), vy: random(-2, 1.5), vz: random(-3, 3), life: random(0.8, 1.4), size: random(0.1, 0.18), sizeEnd: 0.03, drag: 0.8, spin: 5, color: this.glow.copy(tints[this.called!]!).multiplyScalar(1.5) });
+    }
+
+    // It all plays a little faster with every wave.
+    this.tempo += (Math.min(TEMPO.most, 1 + (this.wave - 1) * TEMPO.step) - this.tempo) * (1 - Math.exp(-2 * dt));
+    const beat = dt * this.tempo;
+    this.model.update(beat);
+    for (const crowd of this.crowds) crowd.update(beat);
     this.tiles.update(dt, time);
   }
 
@@ -165,6 +283,8 @@ export class ColorMap implements MapView {
     this.signs.forEach(sign => sign.material.dispose());
     this.bars.forEach(bar => bar.dispose());
     this.band.dispose();
+    this.lights.forEach(light => light.material.dispose());
+    this.crowds.forEach(crowd => crowd.dispose());
     this.model.dispose();
     this.group.removeFromParent();
   }
