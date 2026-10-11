@@ -33,8 +33,8 @@ const HALF_TRACK = 1.5;
 const ARCH_OFF = 1.5;
 /** The bar as it is modelled: the game's reach and thickness are scaled from these. */
 const BAR = { length: 3.4, thick: 0.36 };
-/** A flag: how far from the middle of the track its pole stands (just off the edge), where the cloth hangs, and where it folds. */
-const FLAG = { off: HALF_TRACK + 0.25, height: 1.86, fold: 0.6 };
+/** A flag: how far from the middle of the track its pole stands (just off the edge), where the cloth hangs, where it folds, and how far the cloth reaches from the pole. */
+const FLAG = { off: HALF_TRACK + 0.25, height: 1.86, fold: 0.6, reach: 1.3 };
 /** The sky was modelled round a track 24 m across. What stands off one end of it is moved out by half of what a longer track adds. */
 const REACH = COLUMNS / 2 - 12;
 /** A stilt's top is wide, and must never show through a gap: the nearest one stands this far from the middle of an obstacle. */
@@ -461,15 +461,26 @@ export class RaceMap implements MapView {
       this.lamps.push({ view, paint });
     }
 
-    // A flag wherever a fallen pet comes back, just off the track where its cloth never hangs over a pet: at a
-    // corner, outside the turn; on a straight, on the side away from the camera, or the outer side of one that
-    // runs toward it. The cloth points the way to run, which at a corner is the way to turn.
+    // A flag wherever a fallen pet comes back, just off the track. The cloth points the way to run, which at a
+    // corner is the way to turn, and it must never hang over a pet as the camera sees it, from the front and above:
+    // a cloth up on its pole is drawn over whatever is a metre and a half behind the pole's foot.
+    //   On a straight: on the side away from the camera, or the outer side of one that runs toward or away from it.
+    //   At a corner: outside the turn, on the diagonal, where the cloth runs along the corner's far edge.
+    //   At a corner the track comes into toward the camera: the diagonal is in front of it and the cloth would
+    //   lie across it, so the pole stands on the side the track turns away from, a cloth's length out.
     field.rules.flags.slice(1).forEach((along, index) => {
       const spot = track.pointAt(along);
       const corner = track.legs.findIndex(leg => Math.abs(leg.start - along) < 0.01);
       const before = corner > 0 ? track.legs[corner - 1]! : null;
       const alongX = Math.abs(spot.dx) > Math.abs(spot.dz);
-      const aside = before ? { x: before.dx - spot.dx, z: before.dz - spot.dz } : alongX ? { x: 0, z: -1 } : { x: Math.sign(spot.x) || 1, z: 0 };
+      const out = 1 + FLAG.reach / FLAG.off;
+      const aside = !before
+        ? alongX
+          ? { x: 0, z: -1 }
+          : { x: Math.sign(spot.x) || 1, z: 0 }
+        : before.dz > 0.5
+          ? { x: -spot.dx * out, z: -spot.dz * out }
+          : { x: before.dx - spot.dx, z: before.dz - spot.dz };
       const flag = new Group();
       const cloth = new Group();
       const near = model.part('flag_cloth_a');
