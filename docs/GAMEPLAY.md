@@ -155,6 +155,8 @@ One cause was found afterwards, by the tests written for the new match logs: eve
 
 **The party of games (10 October 2026, build 0.6.0).** Not from a playtest: the owner's decision. The game had one kind of round, and the first thing a new player has to learn in it is three buttons. A round is now one of several games, most of them joystick-only, drawn at random, each on its own map, with a screen between games that names and explains the next one and a proper moment for the winner. Scoring became one table for every game, so the brawl's knockouts went from 3 points to 1. Whether the simple games are fun, and whether the brawl still holds its place among them, is for the next session's report to say: it now has a row per game.
 
+**The finish for 1.0 (10 October 2026, build 1.0.0).** Not from a playtest: the owner's decision, to make the game feel finished. No rule of any game changed. What changed is how a match is told: as a round ends the room is shown who came where and what it paid (a list on the TV, and each player's own place on their phone), which a "+6" flying to a card did not do; the roulette is drawn as it starts to turn, so it can stop on the game that is played; the last five seconds of any round are counted aloud; and every game whose state the whole room must know (a colour called, the lava coming, who has the bomb, whether the cat is looking) says it on the same card, in the same corner. Whether the list of places makes the scoring easier to follow is for people to say; nothing in the logs measures it.
+
 ## Checklist for anything that changes how the game plays
 
 1. It answers something seen in play or decided by the owner, and you can say which pillar it serves.
