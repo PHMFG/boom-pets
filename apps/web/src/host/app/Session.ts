@@ -526,6 +526,8 @@ export class Session {
           this.socket?.send('all', { t: 'haptic', pattern: 'warn' });
           this.audio.announce('lavaWarn');
         }
+        // The same card that names a called colour or what the cat is doing says where the lava is.
+        hud.set({ call: event.phase === 'calm' ? null : event.phase === 'alarm' ? { icon: CALL_ICON.lavaWarn, name: strings.words3d.lavaWarn, color: colors.gold } : { icon: CALL_ICON.lava, name: strings.words3d.lava, color: colors.danger } });
         this.syncPhones();
         break;
       case 'reveal':
