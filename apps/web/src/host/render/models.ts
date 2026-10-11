@@ -11,6 +11,8 @@ export const MODEL_IDS = [
   'potato',
   'grow',
   'paint',
+  'lava',
+  'race',
 ] as const;
 export type ModelId = (typeof MODEL_IDS)[number];
 
