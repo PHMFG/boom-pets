@@ -300,6 +300,8 @@ export class SlotReels {
 // ── Capsule machine ──────────────────────────────────────────────────────────
 
 const RAINBOW = seatTokens.map(seat => seat.color);
+/** Colours a second the open capsule glides through. Under the fastest anything may pulse (`motion.alarm`). */
+const RAINBOW_PACE = 2.4;
 
 /** The SUPER gacha machine. Its whole show is a function of the gacha's clock, so it can never drift out of step. */
 export class GachaMachine {
@@ -313,6 +315,7 @@ export class GachaMachine {
   private shell: MeshToonMaterial | null = null;
   private landed = false;
   private readonly tint = new Color();
+  private readonly next = new Color();
 
   constructor() {
     this.group.add(this.machine);
@@ -353,7 +356,11 @@ export class GachaMachine {
     capsule.scale.setScalar(1 + reveal * 0.5);
     if (reveal < 0.4) this.tint.set(colors.steel);
     else if (reveal < 0.7) this.tint.set(colors.gold).multiplyScalar(1.6);
-    else this.tint.set(RAINBOW[Math.floor(time * 12) % RAINBOW.length]!).multiplyScalar(2);
+    else {
+      // Through the player colours, each melting into the next: it glides, since a hard change this bright would be a blink faster than anything may blink.
+      const turn = time * RAINBOW_PACE;
+      this.tint.set(RAINBOW[Math.floor(turn) % RAINBOW.length]!).lerp(this.next.set(RAINBOW[(Math.floor(turn) + 1) % RAINBOW.length]!), turn % 1).multiplyScalar(2);
+    }
     // Grey, it is a thing like any other. Cracked, it is lit from inside and burns the same from every side.
     const lit = reveal >= 0.4;
     this.shell?.color.copy(this.tint).multiplyScalar(lit ? 0.2 : 1);
