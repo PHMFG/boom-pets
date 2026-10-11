@@ -4,7 +4,23 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Worlds modelled in Blender.** Every map's scenery used to be built in code from boxes, cones and cylinders. It is now modelled in Blender by a script per map (`pnpm models`), as chunky toys with rounded edges, and painted by the game from its own colours. Batata Quente's pan has a rolled rim and a riveted handle, sits on a cast-iron grate over teardrop flames, on a stove with knobs, a pot, a wooden spoon and a salt shaker.
+- **The places of a round.** As a round ends a list comes up on the right: who came first, second and so on, and what the round paid each of them, with the winner's row in gold. Before, only a "+6" flying to a card said so.
+- **A curtain between worlds.** One map used to snap into the next. A curtain of ink now closes to a point as the roulette stops and opens on the new world, which grows out from the middle: floor first, then everything round it. The same curtain covers the change to the podium, a rematch and the way back to the lobby.
+- **A first look at each world.** While a game's card is up the camera shows its world from low and far, drifting round it, and rises to where the game is played from during the countdown.
+
+### Changed
+
+- **The roulette stops on the game that is played.** The reel used to stop on the same picture every time and a different game's card would then appear. It is wider now, shows the pictures passing under two gold pointers, slows, and stops on the game to come a moment before its card. Phones still learn the game only when the reel stops.
+- **The round's winner gets the camera.** As a round ends the camera comes down to the winner's eye level, close, and stays with it; it used to circle a spot the winner had already walked away from. The winner dances, the others shake their heads, and every pet's bubble says how it feels. The podium is seen from the front, like an audience, instead of from above.
+- The line over a game's card says which round of the match it is ("Rodada 2 de 5") once the game is known.
+- The reel's last tick is a bright note, the curtain closes with a rush of air, and each row of a round's places arrives with a rising tick.
+
+### Fixed
+
+- On the phone, the word under the A button that says what it does in the game being played ("Pula", "Empurra", "Morde") was cut off by the button's own circle.
 
 ## [0.6.0] - 2026-10-10
 
