@@ -1,5 +1,6 @@
 // Everything on the platform that is not a pet: barrels, the Mystery Cube, meteors, ghosts,
-// slot reels, the capsule machine, pop-up words and the podium. All built from simple shapes.
+// slot reels, the capsule machine, pop-up words and the podium. The props are modelled in Blender
+// (tools/blender/maps/brawl.py); light, what carries a picture, and the podium are made here.
 import type { Barrel, Cube, GachaView, Ghost, Meteor, PowerId, Tier } from '@boom/game';
 import { tuning } from '@boom/game';
 import {
@@ -10,52 +11,62 @@ import {
   CylinderGeometry,
   DoubleSide,
   Group,
-  IcosahedronGeometry,
   Mesh,
   MeshBasicMaterial,
   RingGeometry,
-  SphereGeometry,
-  TorusGeometry,
+  Vector3,
   type Camera,
   type MeshToonMaterial,
+  type Object3D,
 } from 'three';
 import type { PetId } from '../../shared/pets';
 import { POWER_ICON, TIER_COLOR } from '../../shared/powers';
 import { colors, seats as seatTokens } from '../../shared/tokens';
 import { createPet, type PetInstance } from '../render/assets';
-import { labelTexture, tileTexture } from '../render/emoji';
+import { tileTexture } from '../render/emoji';
 import { toonMaterial } from '../render/materials';
+import { Model } from '../render/models';
 import { Word3D } from '../render/Text3D';
 
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 const backOut = (t: number, strength = 2.2) => 1 + (strength + 1) * (t - 1) ** 3 + strength * (t - 1) ** 2;
-const ink = new MeshBasicMaterial({ color: colors.ink });
 const inkShell = new MeshBasicMaterial({ color: colors.ink, side: BackSide });
 export const seatColor = (seat: number): string => seatTokens[seat % seatTokens.length]!.color;
 
-// ── Barrel ───────────────────────────────────────────────────────────────────
+/**
+ * The brawl's modelled props. One copy of the file serves every barrel, cube, meteor and machine of the
+ * whole game. It is made the first time a prop is needed, and by then the models are loaded.
+ */
+let kept: Model | null = null;
+const props = (): Model => (kept ??= new Model('brawl'));
 
-const barrelBody = new CylinderGeometry(tuning.barrel.radius, tuning.barrel.radius, tuning.barrel.halfHeight * 2, 18);
-const barrelBand = new CylinderGeometry(tuning.barrel.radius + 0.03, tuning.barrel.radius + 0.03, 0.09, 18);
+/** Gives one copy a material of its own for one of its colours, to change as it likes and to free when it goes. */
+function ownMaterial(root: Object3D, color: string): MeshToonMaterial {
+  const painted: Mesh[] = [];
+  root.traverse(node => {
+    if (node instanceof Mesh && node.userData.color === color) painted.push(node);
+  });
+  const mesh = painted[0];
+  if (!mesh) throw new Error(`The prop has nothing coloured "${color}".`);
+  const material = (mesh.material as MeshToonMaterial).clone();
+  mesh.material = material;
+  return material;
+}
+
+// ── Barrel ───────────────────────────────────────────────────────────────────
 
 export class BarrelView {
   readonly group = new Group();
-  private readonly body: MeshToonMaterial = toonMaterial({ color: colors.danger });
+  private readonly body: MeshToonMaterial;
   private readonly bobOffset = Math.random() * 6;
   private age = 0;
 
   constructor() {
-    const body = new Mesh(barrelBody, this.body);
-    body.castShadow = true;
-    const shell = new Mesh(barrelBody, inkShell);
-    shell.scale.set(1.12, 1.06, 1.12);
-    this.group.add(body, shell);
-    for (const height of [-0.26, 0.26]) {
-      const band = new Mesh(barrelBand, ink);
-      band.position.y = height;
-      this.group.add(band);
-    }
+    const barrel = props().part('barrel');
+    // Its staves are its own, so one barrel can go white-hot without the rest.
+    this.body = ownMaterial(barrel, 'danger');
+    this.group.add(barrel);
   }
 
   update(barrel: Barrel, alpha: number, dt: number, time: number): void {
@@ -78,26 +89,20 @@ export class BarrelView {
 // ── Mystery Cube ─────────────────────────────────────────────────────────────
 
 // Shared by every cube, so a match that spawns dozens of them allocates these once.
-const cubeBox = new BoxGeometry(0.85, 0.85, 0.85);
-const cubeChute = new ConeGeometry(0.9, 0.7, 10, 1, true);
 const cubeBeam = new CylinderGeometry(0.28, 0.28, 14, 10, 1, true);
-const chuteMaterial = toonMaterial({ color: colors.cream });
 const beamMaterial = new MeshBasicMaterial({ color: new Color(colors.gold).multiplyScalar(1.5), transparent: true, opacity: 0.22, depthWrite: false });
 
 export class CubeView {
   readonly group = new Group();
   private readonly box = new Group();
-  private readonly chute: Mesh;
-  private readonly face = new MeshBasicMaterial({ map: labelTexture('?', colors.gold, colors.ink) });
+  private readonly chute: Object3D;
   private age = 0;
+  /** Seconds since it touched down: the parachute squishes away over the first of them. */
+  private down = 0;
 
   constructor() {
-    const box = new Mesh(cubeBox, this.face);
-    const shell = new Mesh(cubeBox, inkShell);
-    shell.scale.setScalar(1.12);
-    this.box.add(box, shell);
-    this.chute = new Mesh(cubeChute, chuteMaterial);
-    this.chute.position.y = 1.5;
+    this.box.add(props().part('cube'));
+    this.chute = props().part('chute');
     // A column of light so the cube can be found from across the room.
     const beam = new Mesh(cubeBeam, beamMaterial);
     beam.position.y = 7;
@@ -106,39 +111,54 @@ export class CubeView {
 
   update(cube: Cube, dt: number, time: number): void {
     this.age += dt;
+    this.down = cube.landed ? this.down + dt : 0;
     this.group.position.set(cube.x, cube.y + (cube.landed ? Math.sin(time * 3) * 0.12 : 0), cube.z);
     this.box.rotation.set(0, time * 1.8, cube.landed ? 0 : Math.sin(time * 5) * 0.2);
     // The question mark pulses, slowly.
-    this.box.scale.setScalar((this.age < 0.3 ? backOut(this.age / 0.3) : 1) * (1 + Math.sin(time * 4) * 0.06));
-    this.chute.visible = !cube.landed;
+    const arrive = this.age < 0.3 ? backOut(this.age / 0.3) : 1;
+    this.box.scale.setScalar(arrive * (1 + Math.sin(time * 4) * 0.06));
+    // The parachute sways on the way down, and is let go on the floor: a swell, then gone.
+    const leave = clamp01(this.down / 0.16);
+    this.chute.visible = leave < 1;
+    this.chute.rotation.z = Math.sin(time * 4) * 0.1;
+    this.chute.scale.setScalar(Math.max(0.001, arrive * (leave < 0.3 ? 1 + 0.08 * (leave / 0.3) : 1.08 * (1 - (leave - 0.3) / 0.7))));
   }
 
   dispose(): void {
     this.group.removeFromParent();
-    this.face.dispose();
   }
 }
 
 // ── Meteor ───────────────────────────────────────────────────────────────────
 
-const rock = new IcosahedronGeometry(0.75, 0);
-/** Brighter than white, so the bloom makes it burn. */
-const rockMaterial = new MeshBasicMaterial({ color: new Color(colors.danger).multiplyScalar(2.6) });
+/** Where a meteor starts from, relative to where it lands. Its fire points back up this way. */
+const METEOR_FROM = new Vector3(7, 30, -5);
+const UP = new Vector3(0, 1, 0);
 
 export class MeteorView {
   readonly group = new Group();
+  private readonly rock: Object3D;
+  private readonly fire: Object3D;
 
   constructor() {
-    this.group.add(new Mesh(rock, rockMaterial));
+    this.rock = props().part('meteor');
+    this.fire = props().part('meteor_fire');
+    this.fire.quaternion.setFromUnitVectors(UP, METEOR_FROM.clone().normalize());
+    this.group.add(this.rock, this.fire);
   }
 
   /** Falls along a slant and speeds up, arriving exactly as the timer hits zero. */
   update(meteor: Meteor, time: number): void {
     const t = 1 - clamp01(meteor.left / meteor.total);
     const fall = t * t;
-    this.group.position.set(meteor.x + (1 - fall) * 7, (1 - fall) * 30, meteor.z - (1 - fall) * 5);
-    this.group.rotation.set(time * 7, time * 5, 0);
+    this.group.position.copy(METEOR_FROM).multiplyScalar(1 - fall);
+    this.group.position.x += meteor.x;
+    this.group.position.z += meteor.z;
     this.group.scale.setScalar(meteor.radius * 0.5);
+    // The rock tumbles; the fire behind it only flickers, and stretches as the rock speeds up.
+    this.rock.rotation.set(time * 7, time * 5, 0);
+    const flicker = Math.sin(time * 15) * 0.1;
+    this.fire.scale.set(1 + flicker, 0.7 + t * 0.5 + Math.sin(time * 11) * 0.08, 1 - flicker);
   }
 
   dispose(): void {
@@ -208,6 +228,8 @@ export class GhostView {
 
 const reelBox = new BoxGeometry(0.44, 0.44, 0.44);
 const REEL_STOPS = [0.5, 0.75, 1.0];
+/** How far the reels stand above the spot the stage gives them: clear of the pet's name tag, which is drawn over that spot. */
+const REEL_LIFT = 0.9;
 const ALL_ICONS = Object.values(POWER_ICON);
 
 /** Three little drums over a pet's head. They stop left to right on a result that was decided before they spun. */
@@ -224,10 +246,14 @@ export class SlotReels {
   constructor(tier: Tier, power: PowerId) {
     this.tier = tier;
     this.power = power;
+    // The case the reels spin in is modelled; the reels carry pictures, so they are made here.
+    const frame = props().part('reels');
+    frame.position.y = REEL_LIFT;
+    this.group.add(frame);
     for (let index = 0; index < 3; index++) {
       const material = new MeshBasicMaterial({ map: tileTexture(ALL_ICONS[index]!, colors.cream) });
       const mesh = new Mesh(reelBox, material);
-      mesh.position.x = (index - 1) * 0.52;
+      mesh.position.set((index - 1) * 0.52, REEL_LIFT, 0);
       this.group.add(mesh);
       this.reels.push({ mesh, material, stopped: false, punch: 0, swapIn: 0 });
     }
@@ -283,47 +309,14 @@ export class GachaMachine {
   onLand: (() => void) | null = null;
   private readonly machine = new Group();
   private readonly lever = new Group();
-  private readonly capsule: Mesh;
-  private readonly capsuleMaterial = new MeshBasicMaterial({ color: colors.steel });
+  private capsule: Object3D | null = null;
+  /** The top half of the capsule, which changes colour as it cracks. */
+  private shell: MeshToonMaterial | null = null;
   private landed = false;
   private readonly tint = new Color();
 
   constructor() {
-    const base = new Mesh(new BoxGeometry(1.5, 1.1, 1.3), toonMaterial({ color: colors.danger }));
-    base.position.y = 0.55;
-    const baseShell = new Mesh(base.geometry, inkShell);
-    baseShell.position.copy(base.position);
-    baseShell.scale.setScalar(1.07);
-    const globe = new Mesh(new SphereGeometry(0.85, 20, 14), new MeshBasicMaterial({ color: colors.tierRare, transparent: true, opacity: 0.4, depthWrite: false }));
-    globe.position.y = 1.75;
-    const globeShell = new Mesh(globe.geometry, inkShell);
-    globeShell.position.copy(globe.position);
-    globeShell.scale.setScalar(1.06);
-    const cap = new Mesh(new CylinderGeometry(0.4, 0.5, 0.25, 14), toonMaterial({ color: colors.gold }));
-    cap.position.y = 2.65;
-    this.machine.add(baseShell, base, globeShell, globe, cap);
-    // Capsules waiting inside the globe.
-    RAINBOW.forEach((color, index) => {
-      const ball = new Mesh(new SphereGeometry(0.2, 10, 8), toonMaterial({ color }));
-      const angle = (index / RAINBOW.length) * Math.PI * 2;
-      ball.position.set(Math.sin(angle) * 0.42, 1.45 + (index % 2) * 0.3, Math.cos(angle) * 0.42);
-      this.machine.add(ball);
-    });
-    const chute = new Mesh(new BoxGeometry(0.5, 0.4, 0.2), ink);
-    chute.position.set(0, 0.35, 0.68);
-    const handle = new Mesh(new BoxGeometry(0.12, 0.9, 0.12), ink);
-    handle.position.y = 0.45;
-    const knob = new Mesh(new SphereGeometry(0.2, 12, 10), toonMaterial({ color: colors.gold }));
-    knob.position.y = 0.95;
-    this.lever.add(handle, knob);
-    this.lever.position.set(0.9, 0.7, 0);
-    this.machine.add(chute, this.lever);
-
-    this.capsule = new Mesh(new SphereGeometry(0.42, 16, 12), this.capsuleMaterial);
-    const capsuleBand = new Mesh(new TorusGeometry(0.42, 0.05, 6, 20), ink);
-    capsuleBand.rotation.x = Math.PI / 2;
-    this.capsule.add(capsuleBand);
-    this.group.add(this.machine, this.capsule);
+    this.group.add(this.machine);
     this.group.visible = false;
   }
 
@@ -333,6 +326,7 @@ export class GachaMachine {
       this.landed = false;
       return;
     }
+    const capsule = this.capsule ?? this.build();
     const { machineAt, leverUntil, revealAt, duration } = tuning.gacha;
     this.group.visible = true;
     this.group.position.set(x, 0, z);
@@ -354,19 +348,39 @@ export class GachaMachine {
     // The fake-out: a grey capsule that shakes, cracks to gold, then goes rainbow.
     const out = clamp01((gacha.time - leverUntil) / 0.2);
     const reveal = clamp01((gacha.time - leverUntil) / (revealAt - leverUntil));
-    this.capsule.visible = gacha.time >= leverUntil && gacha.time < revealAt;
+    capsule.visible = gacha.time >= leverUntil && gacha.time < revealAt;
     const shake = reveal * 0.12;
-    this.capsule.position.set(Math.sin(time * 70) * shake, 0.5 + backOut(out) * 0.9 + Math.cos(time * 63) * shake, 1.3);
-    this.capsule.scale.setScalar(1 + reveal * 0.5);
+    capsule.position.set(Math.sin(time * 70) * shake, 0.5 + backOut(out) * 0.9 + Math.cos(time * 63) * shake, 1.3);
+    capsule.scale.setScalar(1 + reveal * 0.5);
     if (reveal < 0.4) this.tint.set(colors.steel);
     else if (reveal < 0.7) this.tint.set(colors.gold).multiplyScalar(1.6);
     else this.tint.set(RAINBOW[Math.floor(time * 12) % RAINBOW.length]!).multiplyScalar(2);
-    this.capsuleMaterial.color.copy(this.tint);
+    // Grey, it is a thing like any other. Cracked, it is lit from inside and burns the same from every side.
+    const lit = reveal >= 0.4;
+    this.shell?.color.copy(this.tint).multiplyScalar(lit ? 0.2 : 1);
+    this.shell?.emissive.copy(this.tint).multiplyScalar(lit ? 0.8 : 0);
   }
 
   /** Where the capsule bursts, for the particles. */
   get capsulePosition(): { x: number; y: number; z: number } {
     return { x: this.group.position.x, y: 1.4, z: this.group.position.z + 1.3 };
+  }
+
+  /** Puts the machine together the first time a gacha plays: the stage is made while the models are still loading. */
+  private build(): Object3D {
+    const model = props();
+    const body = model.part('gacha');
+    // The glass is see-through, and the far wall of the globe behind the capsules is pale, so they show.
+    const glass = model.own(body, 'glass');
+    if (glass) Object.assign(glass, { transparent: true, opacity: 0.32, depthWrite: false });
+    this.lever.add(model.part('gacha_lever'));
+    this.lever.position.set(0.9, 0.7, 0);
+    this.machine.add(body, this.lever);
+    const capsule = model.part('gacha_capsule');
+    this.shell = model.own(capsule, 'steel');
+    this.capsule = capsule;
+    this.group.add(capsule);
+    return capsule;
   }
 }
 

@@ -36,6 +36,7 @@ export const maps = {
   potato: { pan: '#F0F3F8', panDark: '#E1E6EE', rim: '#3A3550', grip: '#6A5F80', stove: '#F1E6D6', burner: '#2B2638', flame: '#FF7A1A', flameHot: '#FFD25A', spoon: '#C8935B', bomb: '#2B2638', steel: '#CFCADD' },
   frita: { grass: '#F0F9E6', grassDark: '#E1F2D3', line: '#FFFFFF', lawn: '#A9DC8F', hedge: '#5FAE6E', hedgeDark: '#4B9460', wood: '#C8935B', slide: '#FFB23E', metal: '#9AA3B8', sand: '#F3E3B5' },
   paint: { paper: '#FFFFFF', paperDark: '#F1F3F7', tape: '#F2DFA0', desk: '#C99A66', pencil: '#F4B63F', wood: '#E9C99A', lead: '#3A3550', eraser: '#F28FB0', bucket: '#9AA3B8' },
+  brawl: { cloudDeep: '#B1B6EE', cloudNight: '#7E83C6', cloudDeepNight: '#5C619F', dusk: '#3B4189', rock: '#9189B4', rockDark: '#6F6794', earth: '#C9A27E', grass: '#A9DC8F', leaf: '#6DBF7B', leafDark: '#57A96C', wood: '#B98A5E', roof: '#F0707F', balloonWarm: '#FF9D7E', balloonCool: '#5CC8C2', balloonSun: '#FFD166', flame: '#FFB23E', window: '#FFD25A', lantern: '#FFE2A0', cubeLight: '#FFE27A', chute: '#FF9D7E', meteor: '#4A3A5E', ember: '#FF6A1A', emberHot: '#FFC23E', glass: '#BFEFFF', glassBack: '#EAF8FF' },
 } as const;
 
 export type SeatShape = 'circle' | 'triangle' | 'square' | 'star' | 'diamond' | 'cross';
