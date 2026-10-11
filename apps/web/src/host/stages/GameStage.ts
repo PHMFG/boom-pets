@@ -130,6 +130,8 @@ export class GameStage {
 
   setGame(game: Game): void {
     this.game = game;
+    // Everything is loaded by now: the map put up while loading is built again, with its models.
+    this.showMap(new BrawlMap(this.kit, { night: false, ripple: false }));
   }
 
   /** Shows the room code as big letters standing at the back of the platform while in the lobby. */

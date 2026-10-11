@@ -1,10 +1,12 @@
 // Batata Quente: a frying pan on a stove, under a pink evening sky. The pan is the whole arena and its rim
 // is the wall. The bomb rides over whoever holds it, swelling and beating faster as its fuse burns down.
+// The pan, the stove and the bomb are modelled in Blender (tools/blender/maps/potato.py).
 import type { AnyRound, GameEvent } from '@boom/game';
 import { tuning } from '@boom/game';
-import { BoxGeometry, Color, ConeGeometry, CylinderGeometry, Group, IcosahedronGeometry, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, TorusGeometry, type MeshToonMaterial } from 'three';
+import { Color, CylinderGeometry, Group, IcosahedronGeometry, Mesh, MeshBasicMaterial, RingGeometry, type MeshToonMaterial, type Object3D } from 'three';
 import { motion } from '../../../shared/motion';
 import { colors, maps, seats } from '../../../shared/tokens';
+import { Model } from '../../render/models';
 import { DANGER, HOT, random, type MapView, type SkyId, type StageKit } from '../kit';
 import { disposeToys, toy } from './toys';
 
@@ -12,8 +14,6 @@ const RADIUS = tuning.potato.radius;
 const BLAST = tuning.potato.blastRadius;
 const palette = maps.potato;
 const COOL = new Color(palette.bomb);
-const FLAME = new Color(palette.flame).multiplyScalar(1.5);
-const FLAME_HOT = new Color(palette.flameHot).multiplyScalar(1.7);
 /** Beats a second: slow on a fresh fuse, and on a short one as quick as anything in the game may pulse. */
 const BEAT = { slow: 1, fast: 1000 / motion.alarm.ms };
 /** The last seconds of a fuse, when the reach of the blast is drawn round the holder. */
@@ -29,25 +29,22 @@ class Bomb {
   readonly group = new Group();
   /** Where the spark is, for the map to shed sparks from. */
   readonly tip = { x: 0, y: 0, z: 0 };
-  private readonly body: Mesh;
+  private readonly body: MeshToonMaterial | null;
   private readonly fuse: Mesh;
   private readonly spark: Mesh;
   private shown = 0;
   private beat = 0;
   private placed = false;
 
-  constructor() {
-    this.body = toy(new SphereGeometry(0.4, 16, 12), palette.bomb, 1.1);
-    const shine = new Mesh(new SphereGeometry(0.1, 8, 6), new MeshBasicMaterial({ color: colors.white }));
-    shine.position.set(-0.15, 0.17, 0.3);
-    const cap = toy(new CylinderGeometry(0.13, 0.16, 0.14, 10), palette.grip, 1.12);
-    cap.position.y = 0.41;
+  /** `shell` is the modelled bomb, and `body` the material of its black ball, which reddens. */
+  constructor(shell: Object3D, body: MeshToonMaterial | null) {
+    this.body = body;
     // The fuse grows from its foot, so shortening it burns it down from the tip.
     this.fuse = toy(new CylinderGeometry(0.035, 0.035, FUSE.length, 6).translate(0, FUSE.length / 2, 0), palette.spoon, 1);
     this.fuse.position.y = FUSE.foot;
     this.fuse.rotation.z = FUSE.lean;
     this.spark = new Mesh(new IcosahedronGeometry(0.12, 0), new MeshBasicMaterial({ color: HOT }));
-    this.group.add(this.body, shine, cap, this.fuse, this.spark);
+    this.group.add(shell, this.fuse, this.spark);
     this.group.scale.setScalar(0.001);
   }
 
@@ -75,7 +72,7 @@ class Bomb {
     // It swells as the fuse burns, and goes from black to red.
     this.group.scale.setScalar(Math.max(0.001, backOut(this.shown) * (1.15 + heat * 0.35 + this.pulse * 0.14)));
     this.group.rotation.z = Math.sin(time * 9) * 0.05 * (1 + heat * 2);
-    (this.body.material as MeshToonMaterial).color.copy(COOL).lerp(DANGER, heat * heat * 0.85);
+    this.body?.color.copy(COOL).lerp(DANGER, heat * heat * 0.85);
 
     const length = 0.2 + 0.8 * over.left;
     this.fuse.scale.y = length;
@@ -95,8 +92,11 @@ class Bomb {
     this.group.scale.setScalar(0.001);
   }
 
+  /** The fuse and the spark are made here; the shell is the model's. */
   dispose(): void {
-    disposeToys(this.group);
+    disposeToys(this.fuse);
+    this.spark.geometry.dispose();
+    (this.spark.material as MeshBasicMaterial).dispose();
   }
 }
 
@@ -107,13 +107,13 @@ export class PotatoMap implements MapView {
   readonly bounds = { minX: -RADIUS, maxX: RADIUS, minZ: -RADIUS, maxZ: RADIUS };
 
   private readonly kit: StageKit;
-  private readonly scenery = new Group();
-  private readonly bomb = new Bomb();
+  private readonly model = new Model('potato');
+  private readonly bomb: Bomb;
   /** A broken ring that turns under whoever holds the bomb. Broken, so it is never taken for a seat's ring. */
   private readonly mark = new Group();
   /** How far the blast will throw, drawn round the holder for the fuse's last moments. */
   private readonly reach: Mesh;
-  private readonly flames: Mesh[] = [];
+  private readonly flames: Object3D[] = [];
   private readonly danger = new MeshBasicMaterial({ color: colors.danger });
   private markSize = 0;
 
@@ -128,8 +128,19 @@ export class PotatoMap implements MapView {
     this.mark.position.y = this.reach.position.y = 0.05;
     this.mark.scale.setScalar(0.001);
     this.reach.scale.setScalar(0.001);
-    this.group.add(this.scenery, this.bomb.group, this.mark, this.reach);
-    this.build();
+    const shell = this.model.part('bomb');
+    this.bomb = new Bomb(shell, this.model.own(shell, 'bomb'));
+    this.group.add(this.model.scene, this.bomb.group, this.mark, this.reach);
+    // Flames lick up round the pan's edge, a tall one and a short hot one in turn.
+    const count = 22;
+    for (let index = 0; index < count; index++) {
+      const angle = (index / count) * Math.PI * 2;
+      const flame = this.model.part(index % 2 === 0 ? 'flame_hot' : 'flame');
+      flame.position.set(Math.sin(angle) * (RADIUS + 1.2), -1.7, Math.cos(angle) * (RADIUS + 1.2));
+      flame.rotation.y = index * 2.4;
+      this.flames.push(flame);
+      this.group.add(flame);
+    }
   }
 
   handle(event: GameEvent, round: AnyRound): void {
@@ -181,8 +192,10 @@ export class PotatoMap implements MapView {
     // The burner under the pan: each flame flickers at its own pace, and they stand taller as a fuse runs out.
     this.flames.forEach((flame, index) => {
       const flicker = 0.8 + 0.2 * Math.sin(time * (7 + (index % 3)) + index * 1.9);
-      flame.scale.set(1, flicker * (1 + (holder ? 1 - left : 0) * 0.5), 1);
+      const lean = Math.sin(time * (3 + (index % 4)) + index) * 0.12;
+      flame.scale.set(1 + lean * 0.4, flicker * (1 + (holder ? 1 - left : 0) * 0.5), 1 - lean * 0.4);
     });
+    this.model.update(dt);
   }
 
   dispose(): void {
@@ -190,92 +203,7 @@ export class PotatoMap implements MapView {
     this.mark.children.forEach(dash => (dash as Mesh).geometry.dispose());
     this.reach.geometry.dispose();
     this.danger.dispose();
-    this.flames.forEach(flame => {
-      flame.geometry.dispose();
-      (flame.material as MeshBasicMaterial).dispose();
-    });
-    disposeToys(this.scenery);
+    this.model.dispose();
     this.group.removeFromParent();
-  }
-
-  /** The pan, its handle, the stove it sits on and a wooden spoon left beside it. */
-  private build(): void {
-    // The cooking surface: pale, with two wide rings a shade deeper so movement over it can be read.
-    [
-      [RADIUS + 0.3, palette.pan],
-      [RADIUS * 0.75, palette.panDark],
-      [RADIUS * 0.5, palette.pan],
-      [RADIUS * 0.25, palette.panDark],
-    ].forEach(([radius, color], index) => {
-      const disc = toy(new CylinderGeometry(radius as number, radius as number, 0.1, 56), color as string, 1);
-      disc.position.y = -0.05 + index * 0.004;
-      disc.castShadow = false;
-      disc.receiveShadow = true;
-      this.scenery.add(disc);
-    });
-    const body = toy(new CylinderGeometry(RADIUS + 0.7, RADIUS + 0.2, 1.06, 56), palette.rim, 1.012);
-    body.position.y = -0.6;
-    // The rim is the wall: low, so it never hides a pet standing against the near side.
-    const rim = toy(new TorusGeometry(RADIUS + 0.48, 0.26, 10, 64), palette.rim, 1.012);
-    rim.rotation.x = Math.PI / 2;
-    rim.position.y = 0.1;
-    this.scenery.add(body, rim);
-
-    const handle = new Group();
-    const arm = toy(new BoxGeometry(6.4, 0.42, 1.2), palette.rim, 1.03);
-    arm.position.x = RADIUS + 3.6;
-    const grip = toy(new BoxGeometry(3.6, 0.6, 1.5), palette.grip, 1.04);
-    grip.position.x = RADIUS + 5.4;
-    handle.add(arm, grip);
-    handle.position.y = -0.2;
-    handle.rotation.y = 0.55;
-    this.scenery.add(handle);
-
-    const stove = toy(new BoxGeometry(44, 2, 34), palette.stove, 1);
-    stove.position.y = -3.2;
-    stove.castShadow = false;
-    stove.receiveShadow = true;
-    const burner = toy(new CylinderGeometry(RADIUS - 0.4, RADIUS + 0.4, 0.9, 32), palette.burner, 1.01);
-    burner.position.y = -1.75;
-    this.scenery.add(stove, burner);
-    for (let index = 0; index < 4; index++) {
-      const arm = toy(new BoxGeometry(RADIUS * 2 + 4.4, 0.3, 0.5), palette.burner, 1.02);
-      arm.position.y = -1.2;
-      arm.rotation.y = (index / 4) * Math.PI;
-      this.scenery.add(arm);
-    }
-    // The other burners, cold, and the knobs along the front.
-    for (const [x, z, size] of [[-15, -9, 3.4], [15.5, -10, 2.6], [-15, 9, 2.6]] as const) {
-      const cold = toy(new CylinderGeometry(size, size + 0.3, 0.5, 24), palette.burner, 1.02);
-      cold.position.set(x, -1.95, z);
-      this.scenery.add(cold);
-    }
-    for (let index = 0; index < 4; index++) {
-      const knob = toy(new CylinderGeometry(0.9, 1, 0.7, 16), palette.grip, 1.05);
-      knob.position.set(-7.5 + index * 5, -1.85, RADIUS + 6.2);
-      this.scenery.add(knob);
-    }
-
-    // Flames lick up round the pan's edge. Brighter than white, so the glow picks them up.
-    const count = 22;
-    for (let index = 0; index < count; index++) {
-      const angle = (index / count) * Math.PI * 2;
-      const hot = index % 2 === 0;
-      const flame = new Mesh(new ConeGeometry(hot ? 0.34 : 0.5, hot ? 1.1 : 1.5, 6).translate(0, hot ? 0.55 : 0.75, 0), new MeshBasicMaterial({ color: hot ? FLAME_HOT : FLAME }));
-      flame.position.set(Math.sin(angle) * (RADIUS + 1.15), -1.75, Math.cos(angle) * (RADIUS + 1.15));
-      this.flames.push(flame);
-      this.group.add(flame);
-    }
-
-    const spoon = new Group();
-    const shaft = toy(new CylinderGeometry(0.3, 0.36, 9, 8), palette.spoon, 1.05);
-    shaft.rotation.z = Math.PI / 2;
-    const bowl = toy(new SphereGeometry(1.5, 14, 10), palette.spoon, 1.04);
-    bowl.scale.set(1.25, 0.35, 1);
-    bowl.position.x = -5.6;
-    spoon.add(shaft, bowl);
-    spoon.position.set(-RADIUS - 5.6, -1.85, 2.5);
-    spoon.rotation.y = 1.15;
-    this.scenery.add(spoon);
   }
 }

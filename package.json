@@ -14,6 +14,8 @@
     "inspect:pets": "node tools/inspect-glb.ts \"assets-raw/cube-pets/Models/GLB format\"",
     "assets": "node tools/sync-assets.ts",
     "font": "node tools/font.ts",
+    "models": "node tools/models.ts",
+    "look": "node tools/look.ts",
     "fake": "node tools/fake-phones.ts",
     "sounds": "node tools/sounds.ts",
     "voice": "node tools/voice.ts",

@@ -13,6 +13,7 @@ import type { Nameplates } from '../hud/Nameplates';
 import { hud, type FeedItem, type FeedWho, type Options, type PlayerCard, type PowerNote } from '../hud/store';
 import { HostSocket, type PhoneRequest } from '../net/HostSocket';
 import { isPetId, loadPets } from '../render/assets';
+import { loadModels } from '../render/models';
 import { GameStage } from '../stages/GameStage';
 import { PlaytestLog } from './PlaytestLog';
 
@@ -98,7 +99,13 @@ export class Session {
       }
     });
 
-    void Promise.all([initPhysics(), loadPets(done => hud.set({ loadProgress: done }))]).then(() => {
+    // The bar fills with whichever of the two lots of models is further behind.
+    const loaded = { pets: 0, models: 0 };
+    const progress = (part: keyof typeof loaded) => (done: number) => {
+      loaded[part] = done;
+      hud.set({ loadProgress: Math.min(loaded.pets, loaded.models) });
+    };
+    void Promise.all([initPhysics(), loadPets(progress('pets')), loadModels(progress('models'))]).then(() => {
       if (this.disposed) return;
       this.game = new Game(this.seed);
       this.stage.setGame(this.game);
