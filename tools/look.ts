@@ -184,6 +184,8 @@ try {
     });
     await shoot('finale-round-end');
     await waitFor('finale');
+    // The winner's banner is put on the page the moment the winner is named, whenever that falls on this machine's clock.
+    void page.waitForFunction(() => document.querySelector('.finale-winner') !== null, null, { timeout: 60_000 }).then(() => mark('finale-winner'), () => undefined);
     for (const second of [1, 2.4, 3.6, 5.2, 6.5, 8.4]) {
       await page.waitForTimeout(second === 1 ? 1000 : 1200);
       await shoot(`finale-${second}`);
@@ -272,6 +274,7 @@ try {
       if (moment.name.endsWith('-end')) window(moment.name, moment.at - 0.2, 3);
       if (moment.name.endsWith('-reveal')) window(moment.name, moment.at - 1.2, 3);
       if (moment.name.endsWith('-finale')) window(moment.name, moment.at - 0.8, 3);
+      if (moment.name === 'finale-winner') window(moment.name, moment.at - 0.4, 3);
       if (moment.name.endsWith('-countdown')) window(moment.name, moment.at - 0.5, 2);
     }
     console.log(marks.map(moment => `${moment.name} at ${moment.at.toFixed(1)} s`).join(', '));

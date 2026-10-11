@@ -18,6 +18,7 @@ import {
 } from 'three';
 import type { PetId } from '../../shared/pets';
 import { POWER_ICON, TIER_COLOR } from '../../shared/powers';
+import { motion } from '../../shared/motion';
 import { strings } from '../../shared/strings.pt-BR';
 import { colors } from '../../shared/tokens';
 import { Decals } from '../fx/Decals';
@@ -46,6 +47,8 @@ const HERO_ABOVE = 1.6;
 const ROUND_FACES = { won: '🥳', lost: ['😤', '😭', '🙄', '😵‍💫', '🫠', '😑'] } as const;
 /** The first look at a new world: how far off for its size, how low (degrees), from which side it starts (radians) and how fast it drifts round. */
 const ESTABLISH = { near: 9, perMetre: 1.25, pitch: 27, from: -0.3, spin: 0.14 };
+/** The word VITÓRIA!: over the winner's crown, behind it, so it covers no face. It starts to leave `leave` seconds before the banner arrives, so the two are never up together. */
+const VICTORY_WORD = { y: 5.05, z: -1.2, size: 1.1, leave: 0.4 };
 /** Where the camera looks at the podium: over the winner's head, which leaves the top of the picture to the banner that names them. */
 const PODIUM_SHOT = { x: 0, y: 2.1, z: 0.4 };
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -305,7 +308,8 @@ export class GameStage {
         this.renderer.kick(0.6);
         this.rig.look({ at: () => PODIUM_SHOT, distance: 12.5, seconds: 3600, pitch: 20, sway: 0.5 });
         this.rig.punchIn(0.5);
-        this.words.pop(strings.words3d.victory, 0, 0.7, 3, { size: 1.2, color: colors.gold, seconds: 3.4 });
+        // The word has the top of the picture for one beat; then the banner that names the winner takes its place.
+        this.words.pop(strings.words3d.victory, 0, VICTORY_WORD.y, VICTORY_WORD.z, { size: VICTORY_WORD.size, color: colors.gold, seconds: motion.victory.ms / 1000 - VICTORY_WORD.leave });
         const palette = [...spots.map(spot => new Color(seatColor(spot.seat))), new Color(colors.gold), WHITE];
         for (const side of [-1, 1]) this.confetti(side * 4.2, 0.6, 1.6, palette, 70);
         return;

@@ -139,14 +139,23 @@ export function RoundResults({ result }: { result: RoundResult }) {
 
 /** The end of a match: the question while the drums roll, then the winner's name in the winner's colour. */
 export function Finale({ winners }: { winners: { seat: number; name: string }[] }) {
-  const first = winners[0];
-  if (!first) return <p className="finale-drum sticker">{strings.finale.drum}</p>;
-  const token = seatTokens[first.seat % seatTokens.length]!;
+  // What the banner last showed, so it still shows it while it squishes out.
+  const shown = useRef(winners);
+  if (winners.length > 0) shown.current = winners;
+  const named = shown.current;
+  const token = seatTokens[(named[0]?.seat ?? 0) % seatTokens.length]!;
   return (
-    <div className="finale-winner sticker" style={{ '--seat': token.color } as CSSProperties}>
-      <span className="finale-trophy">🏆</span>
-      <h2 className="finale-name">{letters(winners.map(winner => winner.name).join(strings.finale.and))}</h2>
-      <p className="finale-won">{winners.length > 1 ? strings.finale.tied : strings.finale.won}</p>
-    </div>
+    <>
+      <Presence show={winners.length === 0}>{() => <p className="finale-drum sticker">{strings.finale.drum}</p>}</Presence>
+      <Presence show={winners.length > 0}>
+        {() => (
+          <div className="finale-winner sticker" style={{ '--seat': token.color } as CSSProperties}>
+            <span className="finale-trophy">🏆</span>
+            <h2 className="finale-name">{letters(named.map(winner => winner.name).join(strings.finale.and))}</h2>
+            <p className="finale-won">{named.length > 1 ? strings.finale.tied : strings.finale.won}</p>
+          </div>
+        )}
+      </Presence>
+    </>
   );
 }

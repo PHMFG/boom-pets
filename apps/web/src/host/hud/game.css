@@ -780,13 +780,31 @@
   top: calc(34 * var(--u));
   left: 50%;
   z-index: 2;
+  display: grid;
+  /* Each at its own size: the drum line must not stretch to the height of the banner it shares the place with. */
+  place-items: start center;
   translate: -50% 0;
   white-space: nowrap;
 }
 
+/* The drum line and the winner's banner take turns in the same place. */
+.finale > * {
+  grid-area: 1 / 1;
+}
+
+/* The name waits for the word VITÓRIA! to leave the place it is about to take. */
 .finale-winner {
   position: relative;
   margin-top: calc(50 * var(--u));
+  animation-delay: var(--victory);
+}
+
+.finale-winner .pop-letter {
+  animation-delay: calc(var(--victory) + var(--pop-in-ms) + var(--i) * var(--stagger));
+}
+
+.finale-winner .finale-trophy {
+  animation-delay: calc(var(--victory) + var(--pop-in-ms)), calc(var(--victory) + var(--pop-in-ms) * 2);
 }
 
 .finale-drum {

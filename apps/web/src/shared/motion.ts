@@ -40,6 +40,8 @@ export const motion = {
   tick: { ms: 320 },
   /** The title. Letters drop in one after another, then hop in a wave; the tag line and the prompt follow; on a key the letters fly off. */
   title: { dropMs: 520, dropStaggerMs: 70, hopMs: 2600, hopDelayMs: 900, hopStaggerMs: 110, tagDelayMs: 620, promptDelayMs: 800, flyMs: 360 },
+  /** The winner's two beats: the word VITÓRIA! over the podium for this long, and then the banner with the winner's name in its place. */
+  victory: { ms: 1300 },
   /** The results: rows arrive one after another once the podium is up. */
   results: { delayMs: 600, staggerMs: 120 },
 } as const;

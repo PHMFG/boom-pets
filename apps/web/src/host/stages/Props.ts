@@ -442,6 +442,16 @@ export type PodiumEntry = { seat: number; model: PetId; place: number };
 
 type Spot = { pet: PetInstance; holder: Group; step: Object3D; paint: MeshToonMaterial | null; seat: number; place: number; height: number; x: number; shownAt: number | null; crown: Object3D | null };
 
+/** Where those who missed the podium stand, in the order they are placed: behind the cannons, in front of the balloons. */
+const CROWD_SPOTS = [
+  { x: -3.8, z: -1.7 },
+  { x: 3.8, z: -1.7 },
+  { x: -5.5, z: -2.6 },
+  { x: 5.5, z: -2.6 },
+  { x: -2.4, z: -3.2 },
+  { x: 2.4, z: -3.2 },
+] as const;
+
 /**
  * The end of a match, on a stage of its own (tools/blender/maps/finale.py). The steps are there from the
  * start but empty: each place is revealed when the simulation says so, third place first. The lamps at the
@@ -478,11 +488,10 @@ export class Podium {
       holder.scale.setScalar(0.001);
       this.group.add(holder);
       if (index >= 3 || entry.place > 3) {
-        // Off the podium: a place at the side, out past the cannons and nearer the front, turned toward it.
-        const side = this.crowd.length % 2 === 0 ? -1 : 1;
-        const row = Math.floor(this.crowd.length / 2);
-        holder.position.set(side * (5.8 + row * 1.5), 0, 3 + row * 0.5);
-        holder.rotation.y = -side * 0.9;
+        // Off the podium: a place beside it and a little behind, where the camera in front of the stage sees it, turned toward the winner.
+        const spot = CROWD_SPOTS[this.crowd.length % CROWD_SPOTS.length]!;
+        holder.position.set(spot.x, 0, spot.z);
+        holder.rotation.y = -Math.sign(spot.x) * 0.5;
         pet.actions.get('idle')?.play();
         this.crowd.push({ pet, holder });
         return;

@@ -92,6 +92,7 @@ export function applyTokens(root: HTMLElement): void {
   set('feed', `${motion.feed.ms}ms`);
   set('ease-spin', motion.spin.css);
   set('landing', `${motion.landing.ms}ms`);
+  set('victory', `${motion.victory.ms}ms`);
   set('iris', `${motion.iris.ms}ms ${motion.iris.css}`);
   set('round-results-delay', `${motion.roundResults.delayMs}ms`);
   set('round-results-stagger', `${motion.roundResults.staggerMs}ms`);

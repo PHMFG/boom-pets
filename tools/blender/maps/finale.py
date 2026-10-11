@@ -102,7 +102,8 @@ for index in range(1, 14):
     lean = math.degrees(math.atan2(b.z - a.z, b.x - a.x))
     flags.append(slab('bunting_flag_%d' % index, [(-0.3, 0.02), (0, -0.66), (0.3, 0.02)], 0.06, ('gold', 'cream', 'velvet')[index % 3], at=(middle.x, middle.y, middle.z - 0.02), rot=(90, lean * 0.6, 0), bevel=0.02))
 bunting = tag(join('bunting_a', rope, *flags), outline=0.035, shadow=False)
-for index in range(1, 4):
+# Along the back and both sides. Not along the front: the camera stands there, and a line of flags would cross the picture.
+for index in (1, 3):
     copy(bunting, 'bunting_%s' % 'abcd'[index], at=(0, 0, 0), rot=(0, 0, index * 90))
 
 
