@@ -4,7 +4,18 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **The round's list says why.** In the games that count something, each row of the list of places now carries what the game counted for that player (tiles painted, food eaten, how far along the way), counting up as the row arrives, between the name and the points. A share of the way is shown as a percentage, on the list and on the players' cards.
+- For developers: `pnpm listen` measures how loud every sound is; `pnpm look --soak` plays three long matches and counts what is held after every change of world; `pnpm rehearse` runs a whole evening with simulated phones in real time.
+
+### Changed
+
+- **Three sounds nobody could hear.** Measured, the tap of a dash, a missed grab and the "tired" blip were 6 to 15 dB under every other sound in the game. They are raised to sit with the rest: a press with no sound feels like a press that did not count. The lava's siren is a little louder too.
+
+### Fixed
+
+- The game kept a shadow map on the graphics card for every different pet whose portrait it had drawn, up to 24 of them, for as long as the page stayed open.
 
 ## [1.0.0] - 2026-10-10
 

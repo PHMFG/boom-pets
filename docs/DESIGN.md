@@ -117,7 +117,7 @@ It is read from a sofa, by people who are mostly looking at their own pet.
 | Top left | One explanation at a time, over the sky: a first-play hint, or the card explaining a power |
 | Top right | The feed: who knocked out whom, and how |
 | Middle | The banner for who took the round. Between games, the roulette and then the next game's card: the one time something large may cover the middle, because nothing is being played |
-| Right, as a round ends | The round's places, best first, with what the round paid each player: shape, name and points, the winner's row in gold. It arrives a second after the round ends, so the winner has the screen first |
+| Right, as a round ends | The round's places, best first: shape, name, what the game counted for that player where it counts anything (tiles, food, the share of the way, counting up as the row arrives) and what the round paid, the winner's row in gold. It arrives a second after the round ends, so the winner has the screen first |
 | Top centre, at the end | "E o campeão é…" while the drums roll. When the winner drops in, the 3D word VITÓRIA! has that place for one beat (`victory`); then the winner's name in the winner's colour takes it. The camera frames the podium in what the banner leaves free |
 | Bottom | One card per player: shape, portrait, name, score, and under the name what the game being played counts: luck pips in the brawl, tiles or food in a game that has a number of its own ("?" while it is kept secret) |
 | Over each pet | Its name tag in the player's colour, pointing down at the pet, with a badge for a power it is holding and a hand when a player could grab it |
@@ -231,6 +231,7 @@ A new effect goes on this ladder next to something of the same weight, and is no
 
 - One track fades into the next; nothing cuts. Music sits under the effects, ducks for big moments (a gacha, an explosion) and goes muffled in slow motion.
 - If a track's file is missing, a synthesised tune stands in, so the game is never silent.
+- **Sounds are balanced by measurement** (`pnpm listen`): an event's sound peaks around -20 dB below full scale, an impact or a blast around -4, and the announcer at full scale. A press always makes a sound that can be heard over the music, however small the move. A new sound is measured before it is kept, and sits within a few decibels of its neighbours.
 - **The announcer is a stadium voice, and the loudest thing in the game.** His lines are recorded (`strings.announcer`, `pnpm voice`) and played deeper than recorded, doubled, pushed into grit, squashed flat and thrown into a big hall with an echo after it; the big lines land with a low boom, and the music gets out of the way. He speaks only at the moments the whole room should look up: the next game and its name, the countdown, the lava's alarm, a colour called in Cor Certa, the final round, the end of a round and of the match, the winner, a SUPER and its curse, the revenge swap, a chain of explosions. A new line has to be one of those moments, or he becomes noise.
 - Sound follows size: a bigger charge whooshes longer and louder, a bigger blast booms longer, and each link of a chain reaction thumps higher.
 - Every event that matters is heard as well as seen. S mutes.
