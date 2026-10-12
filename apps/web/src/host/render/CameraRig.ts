@@ -18,6 +18,8 @@ const ZOOM_IN = 1.4;
 const FOLLOW = 3.2;
 /** How fast it tips down to a hero's eye level and back up. */
 const TIP = 2.6;
+/** A hit's jolt: how hard the picture is thrown the way the hit went (metres a second for a jolt of 1), and the spring that brings it back. */
+const JOLT = { throw: 7, stiffness: 150, damping: 14, most: 0.6 };
 const damp = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 
 /** A shot of one thing. `at` is asked every frame, so the thing may move. */
@@ -47,6 +49,8 @@ export class CameraRig {
   private trauma = 0;
   private punch = 0;
   private punchSpeed = 0;
+  /** How far a hit has thrown the picture along the floor, and how fast it is moving. */
+  private readonly lurch = { x: 0, z: 0, vx: 0, vz: 0 };
   private size = { width: 1, height: 1 };
   private insets: Insets = { left: 0, bottom: 0, top: 0 };
   private hold: (Shot & { left: number }) | null = null;
@@ -69,6 +73,17 @@ export class CameraRig {
   /** A quick push toward the action that springs back. */
   punchIn(amount: number): void {
     this.punchSpeed -= amount * 9;
+  }
+
+  /**
+   * A shove along the floor that springs back: the whole picture lurches the way a hit went, which a shake, going
+   * every way at once, cannot say. `(dx, dz)` is the direction; `amount` is 0 to 1, a full-charge hit.
+   */
+  jolt(dx: number, dz: number, amount: number): void {
+    const length = Math.hypot(dx, dz);
+    if (length < 0.001) return;
+    this.lurch.vx += (dx / length) * amount * JOLT.throw;
+    this.lurch.vz += (dz / length) * amount * JOLT.throw;
   }
 
   /** Looks at one spot for a while (a gacha, the podium), optionally circling it. */
@@ -156,6 +171,16 @@ export class CameraRig {
     this.punchSpeed += (-this.punch * 90 - this.punchSpeed * 11) * dt;
     this.punch += this.punchSpeed * dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.7);
+    // The jolt is a spring too, in two half steps so that a slow frame cannot fling it.
+    const lurch = this.lurch;
+    for (let half = 0; half < 2; half++) {
+      lurch.vx += (-lurch.x * JOLT.stiffness - lurch.vx * JOLT.damping) * (dt / 2);
+      lurch.vz += (-lurch.z * JOLT.stiffness - lurch.vz * JOLT.damping) * (dt / 2);
+      lurch.x += lurch.vx * (dt / 2);
+      lurch.z += lurch.vz * (dt / 2);
+    }
+    const thrown = Math.hypot(lurch.x, lurch.z);
+    const held = (thrown > JOLT.most ? JOLT.most / thrown : 1) * this.shakeScale;
 
     this.pitch += (pitch - this.pitch) * damp(TIP, dt);
 
@@ -163,6 +188,9 @@ export class CameraRig {
     const flat = Math.cos(this.pitch) * distance;
     this.camera.position.set(this.center.x + Math.sin(this.yaw) * flat, this.center.y + Math.sin(this.pitch) * distance, this.center.z + Math.cos(this.yaw) * flat);
     this.camera.lookAt(this.center);
+    // Moved after it has taken aim, so the picture slides and does not turn.
+    this.camera.position.x += lurch.x * held;
+    this.camera.position.z += lurch.z * held;
     // Shake grows with the square of trauma: small hits barely move the picture, big ones throw it.
     const shake = this.trauma * this.trauma * this.shakeScale;
     if (shake > 0.0005) {

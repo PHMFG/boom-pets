@@ -98,6 +98,12 @@ const FACES = { caught: '😳', finished: '🎉', pepper: '🥵' } as const;
  * this far behind the lane and this tall. `jump` is how far pets still start at a blast, in blast radiuses.
  */
 const EYES = { rival: 3.4, sky: 6, drop: 9, wary: 2.5, cat: { behind: 3.4, tall: 5 }, jump: 2.4 };
+/** The puffs a pet leaves behind it in the air: how fast it must be going across the floor to count as sent flying (metres a second), how many puffs a second, and how far below the floor a falling pet stops leaving them. */
+const TRAIL = { speed: 5, rate: 30, deep: -7 };
+/** A landing: the speed (metres a second) past which it leaves a ring and past which the camera feels it; the ring's radius, how much wider for each metre a second, and how long it takes to run out (seconds). */
+const LANDING = { hard: 6.5, heavy: 10.5, ring: 0.55, perSpeed: 0.05, seconds: 0.28 };
+/** A pet shattering: how many pieces; how hard they are thrown up from the floor, and from below the edge when it fell (metres a second); the ring it leaves, and how far inside the floor's edge that is drawn. */
+const SHATTER = { pieces: 26, up: [5, 12], fromBelow: [10, 17], ring: 2.2, inset: 0.4 } as const;
 /** The stars round a dizzy pet's head: how many, how wide and how fast they go round (radians a second), and how many times a second each leaves a spark. */
 const STARS = { count: 3, wide: 0.62, turn: 6.5, rate: 45 };
 
@@ -359,6 +365,8 @@ export class GameStage {
         view?.hitStop(FEEL.hitStop);
         view?.daze(FEEL.daze);
         view?.emote('😵', 0.9);
+        const swept = game.round.petById(event.pet);
+        if (swept) this.rig.jolt(swept.vx, swept.vz, 0.4);
         return;
       }
       case 'bite': {
@@ -370,11 +378,13 @@ export class GameStage {
         bitten?.hit(0.6);
         bitten?.hitStop(FEEL.catchStop);
         bitten?.daze(FEEL.daze);
+        if (biter && bitten) this.rig.jolt(bitten.feet.x - biter.feet.x, bitten.feet.z - biter.feet.z, 0.5);
         return;
       }
       case 'eat': {
         const view = this.pets.get(event.pet);
-        if (event.kind === 'melon') view?.bounce(0.7);
+        // A gulp: a small one for a small thing, a hop for a slice of melon.
+        if (event.kind !== 'pepper') view?.bounce(event.kind === 'melon' ? 0.8 : 0.45);
         if (event.kind !== 'pepper') return;
         view?.slump();
         view?.emote(FACES.pepper, FEEL.fright);
@@ -448,9 +458,13 @@ export class GameStage {
           return;
         }
         const power = 0.3 + event.charge * 0.7;
+        const attacker = game.round.petById(event.pet);
+        // Which way the blow went: the stars fly that way and the picture lurches that way, harder with the charge.
+        const way = attacker ? { x: attacker.dashX, z: attacker.dashZ } : { x: 0, z: 0 };
         this.decals.shock(event.x, event.z, event.radius, WHITE, 0.35);
-        this.stars(event.x, event.y + 0.3, event.z, 6 + Math.round(event.charge * 10));
+        this.stars(event.x, event.y + 0.3, event.z, 6 + Math.round(event.charge * 10), way.x * (3 + event.charge * 6), way.z * (3 + event.charge * 6));
         this.rig.shake(0.12 + event.charge * 0.4);
+        this.rig.jolt(way.x, way.z, 0.25 + event.charge * 0.75);
         if (event.charge > 0.7) this.renderer.kick(0.35);
         // The harder the hit, the longer the pose is held and the longer its victim sees stars afterwards.
         const stop = event.charge > 0.8 ? FEEL.heavyStop : FEEL.hitStop;
@@ -514,9 +528,15 @@ export class GameStage {
         return;
       }
       case 'throwHit': {
+        // The picture lurches the way the thrown pet was going when it landed on the other.
+        const thrown = this.pets.get(event.pet);
+        const struck = this.pets.get(event.victim);
+        const way = thrown && struck ? { x: struck.feet.x - thrown.feet.x, z: struck.feet.z - thrown.feet.z } : { x: 0, z: 0 };
+        const far = Math.hypot(way.x, way.z) || 1;
         this.decals.shock(event.x, event.z, 1.8, WHITE, 0.35);
-        this.stars(event.x, 0.9, event.z, 12);
+        this.stars(event.x, 0.9, event.z, 12, (way.x / far) * 4, (way.z / far) * 4);
         this.rig.shake(0.3);
+        this.rig.jolt(way.x, way.z, 0.7);
         for (const id of [event.pet, event.victim]) {
           const view = this.pets.get(id);
           view?.hit(0.7);
@@ -535,12 +555,19 @@ export class GameStage {
       case 'land': {
         const view = this.pets.get(event.pet);
         if (view) this.dust(view.feet.x, view.feet.z, Math.min(10, 2 + Math.round(event.speed / 3)));
-        if (event.speed > 12) this.rig.shake(0.1);
+        // Coming down hard (off a jump, a throw, a blast, or dropped back in) it stamps a ring into the floor, wider the harder.
+        // (Decals lie on the floor itself, so not for a landing on something that stands on it.)
+        if (view && event.speed > LANDING.hard && game.round.floorY(view.feet.x, view.feet.z) < 0.3) this.decals.shock(view.feet.x, view.feet.z, LANDING.ring + event.speed * LANDING.perSpeed, WHITE, LANDING.seconds);
+        if (event.speed > LANDING.heavy) this.rig.shake(0.1);
         return;
       }
-      case 'fall':
-        this.pets.get(event.pet)?.emote('😱', 1.5);
+      case 'fall': {
+        const view = this.pets.get(event.pet);
+        view?.emote('😱', 1.5);
+        // Dust kicked off the edge it went over, so the eye has the spot.
+        if (view) this.dust(view.feet.x, view.feet.z, 7);
         return;
+      }
       case 'eliminated':
         return this.onEliminated(event);
       case 'roll': {
@@ -845,13 +872,17 @@ export class GameStage {
         this.particles.spark({ x: x + Math.sin(angle) * wide, y: high + Math.sin(angle * 2) * 0.08, z: z + Math.cos(angle) * wide, life: 0.16, size: 0.2 * view.dazed, sizeEnd: 0.05, spin: 9, color: HOT });
       }
     }
-    if (pet.thrown && Math.random() < 0.5) this.particles.puff({ x, y: y + 0.5, z, life: 0.35, size: 0.3, sizeEnd: 0.1, color: SMOKE[0]! });
+    const chance = (perSecond: number) => Math.random() < perSecond * dt;
+    // Sent through the air (thrown, or knocked off its feet by a hit or a blast) it leaves a trail of puffs, so the
+    // eye can follow where it went. Going over the edge it leaves one too, in white, straight up the way it fell.
+    const flung = pet.thrown || (!pet.grounded && pet.carriedBy === null && pet.dashTime <= 0 && pet.authority < 0.45 && Math.hypot(pet.vx, pet.vz) > TRAIL.speed);
+    if (flung && !pet.falling && chance(TRAIL.rate)) this.particles.puff({ x, y: y + 0.5, z, life: 0.35, size: 0.3, sizeEnd: 0.1, color: SMOKE[0]! });
+    if (pet.falling && y > TRAIL.deep && chance(TRAIL.rate)) this.particles.puff({ x: x + random(-0.2, 0.2), y: y + 1, z: z + random(-0.2, 0.2), vy: 3, life: 0.4, size: 0.34, sizeEnd: 0.1, color: WHITE });
     // The round's winner stands in a trickle of confetti in their own colour.
     if (winner && Math.random() < 8 * dt) this.confetti(x, y + 2.2, z, [seat.clone(), WHITE], 2);
     if (pet.dashTime > 0) {
       this.particles.spark({ x, y: y + 0.65 * pet.scale, z, life: 0.2, size: 0.75 * pet.scale, sizeEnd: 0.3, color: seat.multiplyScalar(1.5) });
     }
-    const chance = (perSecond: number) => Math.random() < perSecond * dt;
     view.aura.setScalar(0);
     switch (pet.power) {
       case 'rocket':
@@ -973,17 +1004,31 @@ export class GameStage {
     const view = this.pets.get(event.pet);
     const x = view?.feet.x ?? event.x;
     const z = view?.feet.z ?? event.z;
-    // A pet that fell is far below by now; the pieces fly up from the edge it went over.
+    // A pet that fell is far below by now; the pieces fly up from the edge it went over, hard enough to come back
+    // up over it, where the room is looking.
+    const fell = (view?.feet.y ?? 0) < -0.5;
     const y = Math.max(view?.feet.y ?? 0, -1.5) + 0.6;
     const palette = petPalette(view?.model ?? 'fox');
-    for (let index = 0; index < 22; index++) {
+    const [least, most] = fell ? SHATTER.fromBelow : SHATTER.up;
+    for (let index = 0; index < SHATTER.pieces; index++) {
       const angle = random(0, Math.PI * 2);
       const speed = random(2, 7);
-      this.particles.cube({ x, y, z, vx: Math.sin(angle) * speed, vy: random(5, 12), vz: Math.cos(angle) * speed, life: random(1.1, 1.9), size: random(0.14, 0.3), gravity: 24, spin: random(-12, 12), bounce: true, color: palette[index % palette.length]! });
+      this.particles.cube({ x, y, z, vx: Math.sin(angle) * speed, vy: random(least, most), vz: Math.cos(angle) * speed, life: random(1.1, 1.9), size: random(0.16, 0.34), gravity: 24, spin: random(-12, 12), bounce: true, color: palette[index % palette.length]! });
     }
     this.poof(x, y, z);
     this.removePet(event.pet);
     if (event.decoy) return;
+    // A ring in its player's colour where it went: on the nearest floor there is, when it went over an edge or down a hole.
+    const { bounds } = this.map;
+    const middle = { x: (bounds.minX + bounds.maxX) / 2, z: (bounds.minZ + bounds.maxZ) / 2 };
+    const spot = { x: clamp(x, bounds.minX + SHATTER.inset, bounds.maxX - SHATTER.inset), z: clamp(z, bounds.minZ + SHATTER.inset, bounds.maxZ - SHATTER.inset) };
+    const round = this.game?.round;
+    for (let step = 0; step < 8 && round && !round.isFloor(spot.x, spot.z); step++) {
+      const far = Math.hypot(middle.x - spot.x, middle.z - spot.z) || 1;
+      spot.x += ((middle.x - spot.x) / far) * 0.5;
+      spot.z += ((middle.z - spot.z) / far) * 0.5;
+    }
+    if (round?.isFloor(spot.x, spot.z)) this.decals.shock(spot.x, spot.z, SHATTER.ring, new Color(seatColor(event.seat)), 0.5);
     if (event.killer !== null) this.confetti(x, y + 0.5, z, [new Color(seatColor(event.killer)), WHITE], 16);
     this.rig.punchIn(0.35);
     this.rig.shake(0.2);
@@ -1051,10 +1096,11 @@ export class GameStage {
     }
   }
 
-  private stars(x: number, y: number, z: number, count: number): void {
+  /** Stars thrown out from a blow. `(driftX, driftZ)` carries them the way the blow went, in metres a second. */
+  private stars(x: number, y: number, z: number, count: number, driftX = 0, driftZ = 0): void {
     for (let index = 0; index < count; index++) {
       const angle = random(0, Math.PI * 2);
-      this.particles.spark({ x, y, z, vx: Math.sin(angle) * random(3, 8), vy: random(2, 7), vz: Math.cos(angle) * random(3, 8), life: random(0.25, 0.5), size: random(0.1, 0.2), gravity: 14, spin: 14, color: HOT });
+      this.particles.spark({ x, y, z, vx: Math.sin(angle) * random(3, 8) + driftX, vy: random(2, 7), vz: Math.cos(angle) * random(3, 8) + driftZ, life: random(0.25, 0.5), size: random(0.1, 0.2), gravity: 14, spin: 14, color: HOT });
     }
   }
 
