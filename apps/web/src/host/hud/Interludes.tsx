@@ -4,7 +4,7 @@ import { PLAYABLE_MODES, tuning, type GameMode } from '@boom/game';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { COUNT_SUFFIX, GAME_CONTROLS, GAME_ICON } from '../../shared/games';
 import { seatShapeSvg } from '../../shared/glyphs';
-import { motion } from '../../shared/motion';
+import { between, motion } from '../../shared/motion';
 import { strings } from '../../shared/strings.pt-BR';
 import { seats as seatTokens } from '../../shared/tokens';
 import { Presence } from './Presence';
@@ -51,7 +51,7 @@ const REEL = 22;
  * that game's card takes its place: its picture, name, the one line that says what to do, and what each
  * control does.
  */
-export function ModeIntro({ mode, upcoming, final, round, rounds }: { mode: GameMode | null; upcoming: GameMode | null; final: boolean; round: number; rounds: number }) {
+export function ModeIntro({ mode, upcoming, final, round, rounds, className = '' }: { mode: GameMode | null; upcoming: GameMode | null; final: boolean; round: number; rounds: number; className?: string }) {
   // The games in their usual order, round and round, arranged so that the last picture is the one to stop on.
   const reel = useMemo(() => {
     const last = Math.max(0, PLAYABLE_MODES.indexOf(upcoming ?? 'brawl'));
@@ -60,11 +60,11 @@ export function ModeIntro({ mode, upcoming, final, round, rounds }: { mode: Game
   const shown = useRef<GameMode>('brawl');
   if (mode) shown.current = mode;
   return (
-    <div className="intro">
-      {/* While the reel runs it promises a game; once the card is up it says which round of the match this is. */}
-      <p className="intro-next" key={mode === null ? 'next' : 'round'}>
-        {mode === null ? strings.intro.next : strings.intro.round(round, rounds)}
-      </p>
+    // `className` is how `Presence` marks the whole screen as leaving, so it squishes out as the countdown starts.
+    <div className={`intro ${className}`}>
+      {/* While the reel runs it promises a game; once the card is up it says which round of the match this is. One line squishes out as the other pops in. */}
+      <Presence show={mode === null}>{() => <p className="intro-promise">{strings.intro.next}</p>}</Presence>
+      <Presence show={mode !== null}>{() => <p className="intro-next">{strings.intro.round(round, rounds)}</p>}</Presence>
       <Presence show={mode === null}>
         {() => (
           <div className="intro-reel sticker" style={{ '--spin': `${tuning.match.introRoulette * 1000}ms`, '--count': reel.length } as CSSProperties}>
@@ -129,11 +129,17 @@ function CountUp({ to, wait }: { to: number; wait: number }) {
   return <>{shown}</>;
 }
 
-/** As a round ends: every player's place in it, what the game counted for them, and what the round paid them, best first. */
-export function RoundResults({ result }: { result: RoundResult }) {
+/** When a row of a round's list starts to arrive, in milliseconds after the list was put up: the winner has the screen first, then the box and its first row together, then the rest one by one. */
+export const roundRowAt = (index: number) => motion.roundResults.delayMs + between.list.leadMs + index * motion.roundResults.staggerMs;
+
+/**
+ * As a round ends: every player's place in it, what the game counted for them, and what the round paid them, best first.
+ * The list builds itself: each row's place opens as the row pops in, so the box grows with it and is never up empty.
+ */
+export function RoundResults({ result, className = '' }: { result: RoundResult; className?: string }) {
   const counted = result.rows.some(row => row.count !== null);
   return (
-    <section className={counted ? 'round-results is-counted sticker' : 'round-results sticker'}>
+    <section className={`round-results sticker${counted ? ' is-counted' : ''} ${className}`}>
       <h3>
         <span className="round-results-icon">{GAME_ICON[result.mode]}</span>
         {strings.games[result.mode].name}
@@ -143,17 +149,19 @@ export function RoundResults({ result }: { result: RoundResult }) {
         {result.rows.map((row, index) => {
           const token = seatTokens[row.seat % seatTokens.length]!;
           return (
-            <li key={row.seat} className={row.place === 1 ? 'round-row is-first' : 'round-row'} style={{ '--i': index, '--seat': token.color } as CSSProperties}>
-              <span className="round-place">{strings.hud.place(row.place)}</span>
-              <span className="round-shape" dangerouslySetInnerHTML={{ __html: seatShapeSvg(token.shape, token.color) }} />
-              <span className="round-name">{row.name}</span>
-              {counted && (
-                <span className="round-count">
-                  {GAME_ICON[result.mode]} <CountUp to={row.count ?? 0} wait={motion.roundResults.delayMs + motion.popIn.ms + index * motion.roundResults.staggerMs} />
-                  {COUNT_SUFFIX[result.mode]}
-                </span>
-              )}
-              <span className="round-points">+{row.points}</span>
+            <li key={row.seat} className="round-slot" style={{ '--i': index } as CSSProperties}>
+              <div className={row.place === 1 ? 'round-row is-first' : 'round-row'} style={{ '--seat': token.color } as CSSProperties}>
+                <span className="round-place">{strings.hud.place(row.place)}</span>
+                <span className="round-shape" dangerouslySetInnerHTML={{ __html: seatShapeSvg(token.shape, token.color) }} />
+                <span className="round-name">{row.name}</span>
+                {counted && (
+                  <span className="round-count">
+                    {GAME_ICON[result.mode]} <CountUp to={row.count ?? 0} wait={roundRowAt(index) + motion.popIn.ms / 2} />
+                    {COUNT_SUFFIX[result.mode]}
+                  </span>
+                )}
+                <span className="round-points">+{row.points}</span>
+              </div>
             </li>
           );
         })}

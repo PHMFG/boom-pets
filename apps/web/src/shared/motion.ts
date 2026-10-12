@@ -45,3 +45,21 @@ export const motion = {
   /** The results: rows arrive one after another once the podium is up. */
   results: { delayMs: 600, staggerMs: 120 },
 } as const;
+
+/**
+ * ── Between rounds ──────────────────────────────────────────────────────────
+ * What is on the TV when no round is being played: the reel and the card, the lists of places, the podium.
+ * One block, so the passage from one round to the next can be read in one place. The ones a stylesheet needs
+ * are published as `--between-*` by `host/hud/GameScreen.tsx`.
+ */
+export const between = {
+  /**
+   * A list that builds itself (a round's places, the final table). A box is never up with nothing in it: its
+   * first row starts `leadMs` after the box does, and each row's place in the list opens as the row arrives
+   * (over `openMs`, quick at first, so the place is there before the row has grown into it), so the box grows
+   * with what it holds.
+   */
+  list: { leadMs: 140, openMs: 280, openCss: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+  /** The final table: its rows this far apart, and how long a row's score takes to count up. */
+  table: { staggerMs: 150, countMs: 600 },
+} as const;

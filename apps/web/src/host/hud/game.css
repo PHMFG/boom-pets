@@ -568,7 +568,9 @@
   grid-area: 2 / 1;
 }
 
-.intro-next {
+/* The line over the reel and the line over the card take turns in the same place. */
+.intro-next,
+.intro-promise {
   grid-area: 1 / 1;
   color: var(--white);
   font: 400 calc(60 * var(--u)) / 1 var(--font-display);
@@ -678,12 +680,13 @@
 /* ── The end of a round: who came where ─────────────────────────────────── */
 
 .round-results {
+  --row: calc(70 * var(--u));
+  --row-gap: calc(10 * var(--u));
+
   position: absolute;
   top: calc(250 * var(--u));
   right: calc(44 * var(--u));
   z-index: 2;
-  display: grid;
-  gap: calc(12 * var(--u));
   width: calc(520 * var(--u));
   padding: calc(18 * var(--u)) calc(22 * var(--u)) calc(22 * var(--u));
   rotate: 1.5deg;
@@ -718,11 +721,21 @@
 }
 
 .round-results ol {
-  display: grid;
-  gap: calc(10 * var(--u));
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/*
+ * The list builds itself. A row's place in it opens as the row pops in, so the box grows a row at a time and is
+ * never up with nothing in it: the first row starts with the box, the rest follow one by one.
+ */
+.round-slot {
+  --at: calc(var(--round-results-delay) + var(--between-list-lead) + var(--i) * var(--round-results-stagger));
+
+  height: calc(var(--row) + var(--row-gap));
+  padding-top: var(--row-gap);
+  animation: slot-open var(--between-list-open) both var(--at);
 }
 
 /* A row wears its player's colour as a band on the left, and their shape: never colour alone. */
@@ -730,13 +743,14 @@
   display: flex;
   align-items: center;
   gap: calc(14 * var(--u));
-  padding: calc(8 * var(--u)) calc(18 * var(--u)) calc(8 * var(--u)) calc(14 * var(--u));
+  height: var(--row);
+  padding: 0 calc(18 * var(--u)) 0 calc(14 * var(--u));
   border: calc(4 * var(--u)) solid var(--ink);
   border-left: calc(18 * var(--u)) solid var(--seat);
   border-radius: calc(18 * var(--u));
   background: var(--white);
   font: 400 calc(40 * var(--u)) / 1 var(--font-display);
-  animation: pop-in var(--pop-in) both calc(var(--round-results-delay) + var(--pop-in-ms) + var(--i) * var(--round-results-stagger));
+  animation: pop-in var(--pop-in) both var(--at);
 }
 
 .round-row.is-first {
@@ -863,12 +877,12 @@
 
 /* The name's letters arrive with the box, not after it: a box is never up with nothing in it. */
 .finale-winner .pop-letter {
-  animation-delay: calc(var(--victory) + var(--pop-in-ms) / 2 + var(--i) * var(--stagger));
+  animation-delay: calc(var(--victory) + var(--i) * var(--stagger));
 }
 
 .finale-winner .finale-won {
   animation: pop-in var(--pop-in) both;
-  animation-delay: calc(var(--victory) + var(--pop-in-ms) / 2 + var(--letters) * var(--stagger));
+  animation-delay: calc(var(--victory) + var(--letters) * var(--stagger));
 }
 
 .finale-winner .finale-trophy {
@@ -1458,37 +1472,45 @@
 /* ── Results ────────────────────────────────────────────────────────────── */
 
 .results {
+  --row: calc(84 * var(--u));
+  --row-gap: calc(10 * var(--u));
+
   position: absolute;
   top: calc(36 * var(--u));
   left: calc(36 * var(--u));
-  display: flex;
-  flex-direction: column;
-  gap: calc(14 * var(--u));
   width: calc(760 * var(--u));
   padding: calc(22 * var(--u)) calc(26 * var(--u));
   rotate: -1deg;
+  transform-origin: top left;
 }
 
 .results h1 {
+  margin-bottom: calc(4 * var(--u));
   font-size: calc(64 * var(--u));
   line-height: 1;
   text-align: center;
 }
 
 .results ol {
-  display: flex;
-  flex-direction: column;
-  gap: calc(10 * var(--u));
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* Like a round's list, the table builds itself: the box grows a row at a time, best first, and is never up empty. */
+.result-slot {
+  --at: calc(var(--between-list-lead) + var(--order) * var(--between-table-stagger));
+
+  height: calc(var(--row) + var(--row-gap));
+  padding-top: var(--row-gap);
+  animation: slot-open var(--between-list-open) both var(--at);
 }
 
 .result-row {
   display: flex;
   align-items: center;
   gap: calc(14 * var(--u));
-  height: calc(84 * var(--u));
+  height: var(--row);
   padding: 0 calc(16 * var(--u));
   border: calc(4 * var(--u)) solid var(--ink);
   border-left-width: calc(16 * var(--u));
@@ -1496,8 +1518,7 @@
   border-radius: calc(16 * var(--u));
   background: var(--white);
   font: 400 calc(32 * var(--u)) / 1.1 var(--font-display);
-  animation: pop-in var(--pop-in) both;
-  animation-delay: calc(var(--results-delay) + var(--order) * var(--results-stagger));
+  animation: pop-in var(--pop-in) both var(--at);
 }
 
 .result-place {
@@ -1530,9 +1551,17 @@
   font-size: calc(40 * var(--u));
 }
 
+/* What the keys do comes last, after the last row: until then the rows have the bottom of the box to arrive in. */
 .results-keys {
+  --at: calc(var(--between-list-lead) + var(--order) * var(--between-table-stagger));
+
+  height: calc(48 * var(--u));
+  padding-top: calc(14 * var(--u));
   font: 800 calc(28 * var(--u)) / 1.2 var(--font-text);
   text-align: center;
+  animation:
+    slot-open var(--between-list-open) both var(--at),
+    pop-in var(--pop-in) both var(--at);
 }
 
 /* ── Debug overlay (backtick) ───────────────────────────────────────────── */
@@ -1651,6 +1680,14 @@
 
   100% {
     transform: scale(0);
+  }
+}
+
+/* A row's place in a list opening for it. */
+@keyframes slot-open {
+  from {
+    height: 0;
+    padding-top: 0;
   }
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { renderSVG } from 'uqr';
 import { seatShapeSvg } from '../../shared/glyphs';
 import { GAME_CONTROLS, GAME_ICON } from '../../shared/games';
+import { between } from '../../shared/motion';
 import { MENU_ICON } from '../../shared/powers';
 import { strings } from '../../shared/strings.pt-BR';
 import { VERSION } from '../../shared/version';
@@ -26,6 +27,12 @@ type MenuItem = (typeof MENU)[number];
 
 /** The title's letters fly apart on the way out, which takes a little longer than a plain squish. */
 const TITLE_EXIT_MS = 380;
+/** The timings of what is shown between rounds (`between` in motion.ts), for the stylesheet. */
+const BETWEEN_VARS = {
+  '--between-list-lead': `${between.list.leadMs}ms`,
+  '--between-list-open': `${between.list.openMs}ms ${between.list.openCss}`,
+  '--between-table-stagger': `${between.table.staggerMs}ms`,
+} as CSSProperties;
 
 const seatStyle = (seat: number, extra: Record<string, string | number> = {}) => ({ '--seat': seatTokens[seat % seatTokens.length]!.color, ...extra }) as CSSProperties;
 
@@ -203,7 +210,7 @@ export function GameScreen() {
   const prompt = startIn !== null ? text.startingIn(startIn) : seats.length === 0 ? (options.bots ? text.startBots : '') : text.start;
 
   return (
-    <main className={`game phase-${phase}${title ? ' is-title' : ''}`}>
+    <main className={`game phase-${phase}${title ? ' is-title' : ''}`} style={BETWEEN_VARS}>
       <div ref={stageHost} className="game-stage" />
       <div ref={plateLayer} className="nameplate-layer" />
 
@@ -334,7 +341,8 @@ export function GameScreen() {
       <Presence show={!title && phase === 'intro' && intro !== null}>
         {() => <ModeIntro mode={shownIntro.current?.mode ?? null} upcoming={shownIntro.current?.upcoming ?? null} final={shownIntro.current?.final ?? false} round={round} rounds={rounds} />}
       </Presence>
-      <Presence show={!title && phase === 'roundEnd' && roundResult !== null}>{() => <RoundResults result={shownRoundResult.current ?? { mode: 'brawl', double: false, rows: [] }} />}</Presence>
+      {/* The list belongs to the round that is over: when the curtain shuts on that round's world, it leaves with it. */}
+      <Presence show={!title && phase === 'roundEnd' && roundResult !== null && !curtain}>{() => <RoundResults result={shownRoundResult.current ?? { mode: 'brawl', double: false, rows: [] }} />}</Presence>
       <Presence show={!title && phase === 'finale' && finale !== null}>
         {() => (
           <div className="finale" ref={finaleBox}>
@@ -438,21 +446,24 @@ export function GameScreen() {
           <section ref={resultsPanel} className="results sticker">
             <h1>{strings.hud.resultsTitle}</h1>
             <ol>
+              {/* The table builds itself like a round's list: a row's place opens as the row pops in, so the box is never up empty. */}
               {results.map((row, index) => (
-                <li key={row.seat} className="result-row" style={seatStyle(row.seat, { '--order': index })}>
-                  <span className="result-place">{strings.hud.place(row.place)}</span>
-                  {row.portrait && <img className="result-portrait" src={row.portrait} alt="" />}
-                  <span className="result-name">{row.name}</span>
-                  {row.award && (
-                    <span className="result-award">
-                      <span aria-hidden="true">{row.award.icon}</span> {row.award.name}
-                    </span>
-                  )}
-                  <span className="result-score">{strings.hud.points(row.score)}</span>
+                <li key={row.seat} className="result-slot" style={{ '--order': index } as CSSProperties}>
+                  <div className="result-row" style={seatStyle(row.seat)}>
+                    <span className="result-place">{strings.hud.place(row.place)}</span>
+                    {row.portrait && <img className="result-portrait" src={row.portrait} alt="" />}
+                    <span className="result-name">{row.name}</span>
+                    {row.award && (
+                      <span className="result-award">
+                        <span aria-hidden="true">{row.award.icon}</span> {row.award.name}
+                      </span>
+                    )}
+                    <span className="result-score">{strings.hud.points(row.score)}</span>
+                  </div>
                 </li>
               ))}
             </ol>
-            <p className="results-keys">
+            <p className="results-keys" style={{ '--order': results.length } as CSSProperties}>
               {strings.hud.again} · {strings.hud.toLobby}
             </p>
           </section>
