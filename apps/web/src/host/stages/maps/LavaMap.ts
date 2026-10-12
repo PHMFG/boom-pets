@@ -263,8 +263,11 @@ export class LavaMap implements MapView {
   focus(round: AnyRound, points: { x: number; z: number }[]): void {
     if (round.gameMode !== 'lava') return;
     const { rules } = round;
+    // What the stage has asked for already (the pets, and what follows them) is on the pile too, about a layer over
+    // the lava: moved up the screen by that much, all together, so the picture stays as close as it was on the slab.
+    const lift = Math.max(0, rules.level + tuning.lava.height) * LEAN;
+    for (const point of points) point.z -= lift;
     for (const piece of rules.pieces) if (piece.layer >= rules.wave - 1) points.push({ x: piece.x, z: piece.z - piece.top * LEAN });
-    for (const pet of round.pets) points.push({ x: pet.x, z: pet.z - Math.max(0, round.feetOf(pet)) * LEAN });
   }
 
   frame(round: AnyRound | null, dt: number, time: number): void {
