@@ -98,12 +98,14 @@ const FACES = { caught: '😳', finished: '🎉', pepper: '🥵' } as const;
  * this far behind the lane and this tall. `jump` is how far pets still start at a blast, in blast radiuses.
  */
 const EYES = { rival: 3.4, sky: 6, drop: 9, wary: 2.5, cat: { behind: 3.4, tall: 5 }, jump: 2.4 };
+/** Something has just happened: how far off pets turn to look at it (metres; a blast is looked at from `blast` times its own radius), and for how long (seconds). */
+const GLANCE = { near: 7, blast: 4, seconds: motion.feel.glanceMs / 1000 };
 /** The puffs a pet leaves behind it in the air: how fast it must be going across the floor to count as sent flying (metres a second), how many puffs a second, and how far below the floor a falling pet stops leaving them. */
 const TRAIL = { speed: 5, rate: 30, deep: -7 };
 /** A landing: the speed (metres a second) past which it leaves a ring and past which the camera feels it; the ring's radius, how much wider for each metre a second, and how long it takes to run out (seconds). */
 const LANDING = { hard: 6.5, heavy: 10.5, ring: 0.55, perSpeed: 0.05, seconds: 0.28 };
-/** A pet shattering: how many pieces; how hard they are thrown up from the floor, and from below the edge when it fell (metres a second); the ring it leaves, and how far inside the floor's edge that is drawn. */
-const SHATTER = { pieces: 26, up: [5, 12], fromBelow: [10, 17], ring: 2.2, inset: 0.4 } as const;
+/** A pet shattering: how many pieces; how hard they are thrown up from the floor, and from below the edge when it fell (metres a second), where they also spread that much less; the ring it leaves, and how far inside the floor's edge that is drawn. */
+const SHATTER = { pieces: 26, up: [5, 12], fromBelow: [10, 16], narrow: 0.55, ring: 2.2, inset: 0.4 } as const;
 /** The stars round a dizzy pet's head: how many, how wide and how fast they go round (radians a second), and how many times a second each leaves a spark. */
 const STARS = { count: 3, wide: 0.62, turn: 6.5, rate: 45 };
 
@@ -564,8 +566,10 @@ export class GameStage {
       case 'fall': {
         const view = this.pets.get(event.pet);
         view?.emote('😱', 1.5);
-        // Dust kicked off the edge it went over, so the eye has the spot.
-        if (view) this.dust(view.feet.x, view.feet.z, 7);
+        if (!view) return;
+        // Dust kicked off the edge it went over, so the eye has the spot; and whoever is near watches it go.
+        this.dust(view.feet.x, view.feet.z, 7);
+        this.onlookers(view.feet.x, view.feet.z, event.pet);
         return;
       }
       case 'eliminated':
@@ -799,6 +803,13 @@ export class GameStage {
     this.reels.delete(id);
   }
 
+  /** Something has just happened to a pet at a spot: every other pet near enough turns to look. */
+  private onlookers(x: number, z: number, except: number): void {
+    for (const view of this.pets.values()) {
+      if (view.petId !== except && Math.hypot(view.feet.x - x, view.feet.z - z) < GLANCE.near) view.glanceAt(x, z, GLANCE.seconds);
+    }
+  }
+
   /** The pet a seat is playing right now, as it is drawn. */
   private viewOfSeat(seat: number): PetView | undefined {
     const pet = this.game?.round.petOfSeat(seat);
@@ -1012,12 +1023,14 @@ export class GameStage {
     const [least, most] = fell ? SHATTER.fromBelow : SHATTER.up;
     for (let index = 0; index < SHATTER.pieces; index++) {
       const angle = random(0, Math.PI * 2);
-      const speed = random(2, 7);
+      // From below they go up as a fountain, taller than it is wide: they are in the air longer, and would scatter over the whole floor.
+      const speed = random(2, 7) * (fell ? SHATTER.narrow : 1);
       this.particles.cube({ x, y, z, vx: Math.sin(angle) * speed, vy: random(least, most), vz: Math.cos(angle) * speed, life: random(1.1, 1.9), size: random(0.16, 0.34), gravity: 24, spin: random(-12, 12), bounce: true, color: palette[index % palette.length]! });
     }
     this.poof(x, y, z);
     this.removePet(event.pet);
     if (event.decoy) return;
+    this.onlookers(x, z, event.pet);
     // A ring in its player's colour where it went: on the nearest floor there is, when it went over an edge or down a hole.
     const { bounds } = this.map;
     const middle = { x: (bounds.minX + bounds.maxX) / 2, z: (bounds.minZ + bounds.maxZ) / 2 };
@@ -1049,10 +1062,12 @@ export class GameStage {
     this.rig.shake(0.2 + radius * 0.13);
     this.renderer.kick(radius * 0.16);
     // Whoever the blast reaches comes down seeing stars; whoever is only near it jumps, the nearer the higher.
+    // And everybody within sight of it turns to look.
     for (const view of this.pets.values()) {
       const far = Math.hypot(view.feet.x - x, view.feet.z - z) / radius;
       if (far < 1) view.daze(FEEL.dazeLong);
       else if (far < EYES.jump) view.startle(1 - (0.5 * (far - 1)) / (EYES.jump - 1));
+      if (far >= 1 && far < GLANCE.blast) view.glanceAt(x, z, GLANCE.seconds);
     }
     // The big word is for blasts worth shouting about, and never twice in a row.
     if (big && (chain >= 1 || radius > 3)) this.popWord(strings.words3d.kaboom, x, 3.6, z, 1.4 + Math.min(chain, 3) * 0.3, colors.danger);

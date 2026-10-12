@@ -63,6 +63,8 @@ export const motion = {
     windedMs: 700,
     /** How long a pet goes on looking at something after it stops mattering: no head snaps back in one frame. */
     lookHoldMs: 300,
+    /** How long pets nearby turn to look at something that has just happened: a blast, a pet going over the edge, a knockout. */
+    glanceMs: 800,
     /** The bubble over a pet that had a fright, and over one that is relieved. */
     frightMs: 800,
   },

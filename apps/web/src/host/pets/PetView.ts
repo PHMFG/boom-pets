@@ -120,7 +120,8 @@ export class PetView {
   private readonly forward = new Spring(0, 190, 15);
   /** Between the legs and the body: turning it turns the head, and the feet stay where the pet is really facing. */
   private readonly neck = new Group();
-  private readonly gaze = { x: 0, z: 0, up: 0, left: 0 };
+  /** What it is looking at, for how much longer, and for how long nothing else may take its eye (something has just happened there). */
+  private readonly gaze = { x: 0, z: 0, up: 0, left: 0, held: 0 };
   private headTurn = 0;
   private headTip = 0;
   /** Seconds of seeing stars still to come, and how dizzy it is drawn right now, 0 to 1. */
@@ -207,7 +208,12 @@ export class PetView {
    * over the floor. Called every frame for as long as the thing matters; the pet looks away soon after it stops.
    */
   watch(x: number, z: number, up = 0): void {
-    Object.assign(this.gaze, { x, z, up, left: LOOK.hold });
+    if (this.gaze.held <= 0) Object.assign(this.gaze, { x, z, up, left: LOOK.hold });
+  }
+
+  /** Something has just happened over there: it looks that way for `seconds`, whatever else it was watching. */
+  glanceAt(x: number, z: number, seconds: number): void {
+    Object.assign(this.gaze, { x, z, up: 0, left: seconds, held: seconds });
   }
 
   /** A fright: it jumps on the spot, drawn up tall, and rears back. `strength` is 0 to 1. */
@@ -436,6 +442,7 @@ export class PetView {
    */
   private look(speed: number, charging: boolean, hangs: boolean, dt: number): void {
     this.gaze.left = Math.max(0, this.gaze.left - dt);
+    this.gaze.held = Math.max(0, this.gaze.held - dt);
     let turnTo = 0;
     let tipTo = hangs ? SLUMP.nod : 0;
     if (this.gaze.left > 0 && this.steady && !charging && this.spin < 0.1) {
