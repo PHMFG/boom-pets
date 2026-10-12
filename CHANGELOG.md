@@ -4,6 +4,10 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.2.2] - 2026-10-11
+
 From the match logs of the owner's own sessions, read late: two people had played 1.0.0 without bots, and five people had played 1.2.0.
 
 ### Changed
