@@ -44,4 +44,26 @@ export const motion = {
   victory: { ms: 1300 },
   /** The results: rows arrive one after another once the podium is up. */
   results: { delayMs: 600, staggerMs: 120 },
+  /**
+   * How a pet reacts on the game screen while a round is played (`host/pets/PetView.ts`, and the events in
+   * `host/stages/GameStage.ts`). Milliseconds of the round's own clock, which slow motion stretches.
+   */
+  feel: {
+    /** A hit that lands holds both pets' poses this long; a catch (a grab, a bite) a little longer; the hardest hits (a full charge, a thrown pet landing on a rival) longer still. */
+    hitStopMs: 80,
+    catchStopMs: 100,
+    heavyStopMs: 120,
+    /** Sent flying, a pet sees stars for this long once it is back on its feet: after a hit, and after a blast or a throw. */
+    dazeMs: 1000,
+    dazeLongMs: 1400,
+    /** Pleased with itself (it scored; longer when it crossed the line) and fed up (sent back; shorter for a dash at thin air): how long the pose is held. */
+    cheerMs: 800,
+    finishMs: 1400,
+    slumpMs: 1100,
+    windedMs: 700,
+    /** How long a pet goes on looking at something after it stops mattering: no head snaps back in one frame. */
+    lookHoldMs: 300,
+    /** The bubble over a pet that had a fright, and over one that is relieved. */
+    frightMs: 800,
+  },
 } as const;

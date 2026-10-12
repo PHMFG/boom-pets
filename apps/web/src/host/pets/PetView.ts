@@ -1,9 +1,11 @@
 // One pet on screen. The model plays its shipped clips; everything else (squash, lean, charge shake,
 // dash stretch, hit spin, teeter, flail) is code-driven on wrapper groups above the model, so the
-// two never fight:  root > yaw > lean > squash > jitter > model.
+// two never fight:  root > yaw > lean > squash > jitter > model. Inside the model one more group is slipped in,
+// between the legs and the body, so that a pet can turn its head (which is its body) to look at something.
 import type { Pet } from '@boom/game';
 import { tuning } from '@boom/game';
 import { Color, Group, Mesh, MeshBasicMaterial, RingGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { motion } from '../../shared/motion';
 import type { PetClip, PetId } from '../../shared/pets';
 import { colors } from '../../shared/tokens';
 import { createPet, INK_LINE, isPetId, OUTLINE, type PetInstance } from '../render/assets';
@@ -17,6 +19,18 @@ const CLIMB = { least: 0.35, most: 1.2, rate: 20 };
 const HEAD = 2.38;
 const STAND = tuning.pet.radius + tuning.pet.halfHeight;
 const CROSSFADE = 0.12;
+/**
+ * Looking at something: how far the head turns to either side while standing and while running (radians), how far
+ * it tips back to look up at something in the sky, how fast it turns (a second), and the angle past which a thing
+ * is behind the pet and it does not try.
+ */
+const LOOK = { standing: 0.9, running: 0.35, up: 0.34, rate: 10, behind: 2.6, hold: motion.feel.lookHoldMs / 1000 };
+/** Dizzy: how far it sways (radians), how fast the sway goes round (radians a second), and the seconds over which it wears off. */
+const DAZE = { sway: 0.2, turn: 8, ease: 0.4 };
+/** Fed up: how low it sinks and how far its head hangs (radians). */
+const SLUMP = { squat: 0.86, nod: 0.3 };
+/** How far a pet shudders from side to side while a hit holds its pose (metres), and how fast (radians a second). */
+const RATTLE = { reach: 0.07, rate: 95 };
 const ring = new RingGeometry(0.66, 0.94, 40).rotateX(-Math.PI / 2);
 /** The ink edge of the ring: a wider ring lying just under it. */
 const ringEdge = new RingGeometry(0.59, 1.01, 40).rotateX(-Math.PI / 2);
@@ -66,6 +80,8 @@ export type PetContext = {
   loser: boolean;
   /** Its phone dropped: it sleeps where it stands. */
   asleep: boolean;
+  /** "Menos tremor e brilho" is on: nothing shudders. */
+  gentle: boolean;
   dust(x: number, z: number, count: number): void;
   steam(x: number, y: number, z: number): void;
   poof(x: number, y: number, z: number): void;
@@ -100,9 +116,25 @@ export class PetView {
   private readonly size = new Spring(0, 170, 13);
   private readonly squat = new Spring(1, 300, 13);
   private readonly stretch = new Spring(1, 320, 18);
+  /** Leaning into a run. A spring, so a pet that stops rocks back on its heels before it settles. */
+  private readonly forward = new Spring(0, 190, 15);
+  /** Between the legs and the body: turning it turns the head, and the feet stay where the pet is really facing. */
+  private readonly neck = new Group();
+  private readonly gaze = { x: 0, z: 0, up: 0, left: 0 };
+  private headTurn = 0;
+  private headTip = 0;
+  /** Seconds of seeing stars still to come, and how dizzy it is drawn right now, 0 to 1. */
+  private dizzy = 0;
+  private swaying = 0;
+  private mood: 'cheer' | 'slump' | null = null;
+  private moodLeft = 0;
+  /** Hops still to come after the one in the air. */
+  private hops = 0;
+  /** On its feet and in charge of itself: the only state in which it reacts to anything. */
+  private steady = false;
+  private wasDashing = false;
   private readonly bubbleSize = new Spring(0, 260, 16);
   private facing = 0;
-  private leanForward = 0;
   private leanSide = 0;
   private spin = 0;
   private tumble = 0;
@@ -143,8 +175,8 @@ export class PetView {
     this.bubble.renderOrder = 5;
     this.bubble.visible = false;
 
-    this.asset.model.scale.setScalar(MODEL_SCALE);
-    this.jitter.add(this.asset.model);
+    this.neck.rotation.order = 'YXZ';
+    this.adopt();
     this.squash.add(this.jitter);
     this.lean.add(this.squash);
     this.yaw.add(this.lean);
@@ -168,6 +200,53 @@ export class PetView {
   bounce(strength = 1): void {
     if (this.hop === 0) this.hopSpeed = 4.2 * strength;
     this.squat.speed += 3 * strength;
+  }
+
+  /**
+   * Something to look at, in the world: the pet turns its head to it, and tips it back when it is `up` metres
+   * over the floor. Called every frame for as long as the thing matters; the pet looks away soon after it stops.
+   */
+  watch(x: number, z: number, up = 0): void {
+    Object.assign(this.gaze, { x, z, up, left: LOOK.hold });
+  }
+
+  /** A fright: it jumps on the spot, drawn up tall, and rears back. `strength` is 0 to 1. */
+  startle(strength = 1): void {
+    if (!this.steady) return;
+    if (this.hop === 0) this.hopSpeed = 3.6 * strength;
+    this.squat.speed += 5 * strength;
+    this.forward.speed -= 4 * strength;
+  }
+
+  /** Sent flying: once it is back on its feet it sways and sees stars for that long. */
+  daze(seconds: number): void {
+    this.dizzy = Math.max(this.dizzy, seconds);
+  }
+
+  /** How dizzy it is right now, 0 to 1: the stage draws the stars going round its head. */
+  get dazed(): number {
+    return this.swaying;
+  }
+
+  /** Pleased with itself: two hops, and it nods along while it stands still. */
+  cheer(seconds: number = motion.feel.cheerMs / 1000): void {
+    this.mood = 'cheer';
+    this.moodLeft = seconds;
+    if (!this.steady) return;
+    this.bounce(1);
+    this.hops = 1;
+  }
+
+  /** Fed up: it sinks, hangs its head and shakes it, for as long as it stands still. */
+  slump(seconds: number = motion.feel.slumpMs / 1000): void {
+    this.mood = 'slump';
+    this.moodLeft = seconds;
+    if (this.steady) this.squat.speed -= 3;
+  }
+
+  /** Taking off: it stretches up off the floor. */
+  leap(): void {
+    this.squat.speed += 6;
   }
 
   /** Shows an emoji in a speech bubble. With `sticky` it stays until `clearEmote`. */
@@ -216,8 +295,16 @@ export class PetView {
     const carried = pet.carriedBy !== null;
     const airborne = !pet.grounded && !carried;
     const knocked = pet.authority < 0.45 && !dashing;
+    this.steady = pet.grounded && !carried && !dashing && !knocked && !pet.falling && !context.asleep;
+    const standing = this.steady && speed < 0.5 && !charging;
+    // A mood waits for the pet to be on the floor: one dropped back in sulks once it has landed.
+    if (pet.grounded) this.moodLeft = Math.max(0, this.moodLeft - dt);
+    const mood = this.moodLeft > 0 ? this.mood : null;
+    // The stars are for after the flight: being dizzy only wears off once it is back on its feet.
+    if (this.steady && !frozen) this.dizzy = Math.max(0, this.dizzy - dt);
+    this.swaying += ((this.steady ? Math.min(1, this.dizzy / DAZE.ease) : 0) - this.swaying) * damp(10, dt);
 
-    this.playClip(this.chooseClip(pet, speed, context), this.clipSpeed(pet, speed, context));
+    this.playClip(this.chooseClip(pet, speed, context, mood), this.clipSpeed(pet, speed, context));
     if (!frozen) this.asset.mixer.update(dt);
 
     // Facing, plus the spin from a hit unwinding on top.
@@ -225,10 +312,17 @@ export class PetView {
     this.spin = Math.max(0, this.spin - dt * 17);
     this.glance *= Math.exp(-3 * dt);
     this.yaw.rotation.y = this.facing + this.spin + this.glance;
+    this.look(speed, charging, mood === 'slump' && standing, dt);
 
-    // Lean into the run and the dash; lean back while winding up a charge.
+    // Lean into the run and the dash; lean back while winding up a charge. Coming out of a dash it digs its heels in.
     const wantForward = dashing ? 0.5 : charging ? -0.14 * charge : Math.min(1, speed / tuning.pet.speed) * 0.17;
-    this.leanForward += (wantForward - this.leanForward) * damp(12, dt);
+    if (this.wasDashing && !dashing && pet.grounded) {
+      this.forward.speed -= 5;
+      this.squat.speed -= 2.5;
+      context.dust(this.feet.x + Math.sin(pet.facing) * 0.5, this.feet.z + Math.cos(pet.facing) * 0.5, 3);
+    }
+    this.wasDashing = dashing;
+    const leanForward = this.forward.step(wantForward, dt);
     let wantSide = 0;
     if (pet.teeter) wantSide = Math.sin(time * 13) * 0.24;
     else if (carried) wantSide = Math.sin(time * 21) * 0.3;
@@ -237,15 +331,19 @@ export class PetView {
     // Knocked through the air or falling: tumble end over end.
     if ((knocked && airborne) || pet.falling) this.tumble += dt * (pet.falling ? 9 : 6);
     else this.tumble *= Math.exp(-9 * dt);
-    this.lean.rotation.set(this.leanForward + this.tumble, 0, this.leanSide);
+    // Dizzy: the whole pet sways round in a circle.
+    const sway = this.swaying * DAZE.sway;
+    this.lean.rotation.set(leanForward + this.tumble + Math.sin(time * DAZE.turn) * sway, 0, this.leanSide + Math.cos(time * DAZE.turn) * sway);
 
     // Squash and stretch, keeping volume: shorter means wider.
     if (pet.grounded && !this.wasGrounded) this.squat.speed -= Math.min(9, 2 + Math.abs(pet.vy) * 0.5);
     let wantSquat = 1;
     if (context.asleep) wantSquat = 0.84 + Math.sin(time * 1.6) * 0.03;
     else if (charging) wantSquat = 1 - 0.2 * charge;
-    else if (airborne) wantSquat = 1 + Math.max(-0.16, Math.min(0.24, pet.vy * 0.03));
+    // Through the air it is drawn out along its way, up and down alike, so that the landing has something to squash.
+    else if (airborne) wantSquat = 1 + Math.min(0.24, Math.abs(pet.vy) * 0.03);
     else if (pet.power === 'jelly') wantSquat = 1 + Math.sin(time * 9) * 0.14;
+    else if (mood === 'slump' && standing) wantSquat = SLUMP.squat;
     const tall = Math.max(0.45, this.squat.step(wantSquat, dt));
     const long = Math.max(0.5, this.stretch.step(dashing ? 1.6 : 1, dt));
     const wide = 1 / Math.sqrt(tall * long);
@@ -255,13 +353,23 @@ export class PetView {
     if (this.hop > 0 || this.hopSpeed > 0) {
       this.hopSpeed -= 20 * dt;
       this.hop = Math.max(0, this.hop + this.hopSpeed * dt);
-      if (this.hop === 0) this.hopSpeed = 0;
+      if (this.hop === 0) {
+        this.hopSpeed = 0;
+        // A cheer is more than one hop: it lands, squashes and goes up again.
+        if (this.hops > 0 && this.steady) {
+          this.hops--;
+          this.hopSpeed = 3.6;
+          this.squat.speed += 3;
+        } else this.hops = 0;
+      }
     }
 
     // Charging: swell, and shake faster and faster. Past the warning it throbs instead.
     this.shake += dt * Math.PI * 2 * lerp(8, 30, charge);
     const tremble = charging ? 0.012 + 0.03 * charge : 0;
-    this.jitter.position.set(Math.sin(this.shake) * tremble, this.hop, Math.cos(this.shake * 1.3) * tremble);
+    // A hit that holds the pose makes it shudder on the spot: the pause is felt, not mistaken for a stall.
+    const rattle = frozen && !context.gentle ? Math.sin(time * RATTLE.rate) * RATTLE.reach : 0;
+    this.jitter.position.set(Math.sin(this.shake) * tremble + rattle, this.hop, Math.cos(this.shake * 1.3) * tremble);
     const throb = warning ? 1 + Math.sin(time * Math.PI * 2 * 2.8) * 0.09 : 1;
     const fall = pet.falling ? Math.max(0.15, 1 + (pet.y + 1) / 9) : 1;
     const overall = Math.max(0, this.size.step(pet.scale, dt)) * (1 + 0.25 * charge) * throb * fall;
@@ -321,7 +429,45 @@ export class PetView {
     this.bubble.material.dispose();
   }
 
-  private chooseClip(pet: Pet, speed: number, context: PetContext): PetClip {
+  /**
+   * Turns the head toward whatever the stage said to watch, as far as a neck goes, and lets it hang when the
+   * pet is fed up. Only a pet on its feet with nothing better to do looks around: one winding up a dash, flying
+   * or carried faces where it is going.
+   */
+  private look(speed: number, charging: boolean, hangs: boolean, dt: number): void {
+    this.gaze.left = Math.max(0, this.gaze.left - dt);
+    let turnTo = 0;
+    let tipTo = hangs ? SLUMP.nod : 0;
+    if (this.gaze.left > 0 && this.steady && !charging && this.spin < 0.1) {
+      const dx = this.gaze.x - this.feet.x;
+      const dz = this.gaze.z - this.feet.z;
+      const far = Math.hypot(dx, dz);
+      const aside = Math.atan2(dx, dz) - this.facing - this.glance;
+      const off = Math.atan2(Math.sin(aside), Math.cos(aside));
+      const inSight = far > 0.3 && Math.abs(off) < LOOK.behind;
+      if (inSight) turnTo = Math.max(-LOOK.standing, Math.min(LOOK.standing, off)) * (speed > 2.5 ? LOOK.running / LOOK.standing : 1);
+      // Up at something in the sky: tipped back, and further the nearer overhead it is.
+      if (this.gaze.up > 0 && inSight) tipTo = -LOOK.up * Math.min(1, Math.atan2(this.gaze.up, far + 0.5) / 1.2);
+    }
+    this.headTurn += (turnTo - this.headTurn) * damp(LOOK.rate, dt);
+    this.headTip += (tipTo - this.headTip) * damp(LOOK.rate, dt);
+    this.neck.rotation.set(this.headTip, this.headTurn, 0);
+  }
+
+  /** Takes the model in: sizes it, and slips the neck in between its legs and its body. */
+  private adopt(): void {
+    this.asset.model.scale.setScalar(MODEL_SCALE);
+    this.jitter.add(this.asset.model);
+    // The clips are bound to the body itself, so they go on playing wherever it hangs in the tree.
+    const body = this.asset.model.getObjectByName('body');
+    // The body of the model it was before goes with that model.
+    this.neck.clear();
+    if (!body?.parent) return;
+    body.parent.add(this.neck);
+    this.neck.add(body);
+  }
+
+  private chooseClip(pet: Pet, speed: number, context: PetContext, mood: 'cheer' | 'slump' | null): PetClip {
     if (context.asleep) return 'static';
     if (pet.carriedBy !== null) return 'gesture-negative';
     if (pet.falling || (!pet.grounded && pet.authority < 0.6)) return 'run';
@@ -333,6 +479,8 @@ export class PetView {
     if (speed > 0.5) return 'walk';
     if (context.winner) return 'dance';
     if (context.loser) return 'gesture-negative';
+    if (mood === 'cheer') return 'gesture-positive';
+    if (mood === 'slump' || this.swaying > 0.3) return 'gesture-negative';
     return 'idle';
   }
 
@@ -359,8 +507,7 @@ export class PetView {
   private swapModel(model: PetId, context: PetContext): void {
     this.asset.dispose();
     this.asset = createPet(model, this.seatColor);
-    this.asset.model.scale.setScalar(MODEL_SCALE);
-    this.jitter.add(this.asset.model);
+    this.adopt();
     this.model = model;
     this.clip = null;
     // Changing pet is a magic trick: a puff of smoke and the new one pops out of it.
