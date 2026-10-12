@@ -430,3 +430,7 @@ The owner played (a copy still on 1.0.0, as it turned out) and asked for bigger 
 ### 1.2.1: what a second pair of eyes found (2026-10-11)
 
 After 1.2.0 was tagged, every screen was photographed and handed to an agent that had not seen the work, with `docs/DESIGN.md` and nothing else. It found what the builder's own looking had not: name tags lying across the pets behind them, Cor Certa's bigger floor no longer fitting the picture, furniture too low to show who was on it, six pets starting a race in one heap. All fixed here. One thing it reported was not real, and telling the two apart needed a new tool: a still taken through a slow software renderer showed the winner's box over the word VITÓRIA!, and a film drawn on the graphics card showed the word gone before the box arrives.
+
+### 1.2.2: what the logs of real sessions said (2026-10-11)
+
+The match logs in `playtests/` had not been read since 1.0.0. They held two things nobody had said aloud: the owner's "very short" had been two people playing without bots (the lava game over in 7 seconds, the potato in 8.5), and 1.2.0 had already been played by five people on five phones. Every round length in this plan had been tuned with four bots. `pnpm balance --players=` now plays any number, and the potato's fuses are longer when fewer than four play.

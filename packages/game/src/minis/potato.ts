@@ -12,6 +12,8 @@ export class PotatoRules implements MiniRules {
   /** Seconds left on the fuse, and what it started at. */
   fuse = 0;
   fuseTotal = 1;
+  /** Seconds every fuse of this round is longer by, for having started with few players. Unknown until the first bomb. */
+  private few: number | null = null;
   /** How many bombs have gone off. */
   bombs = 0;
   /** Seconds until the next bomb is handed out. */
@@ -36,11 +38,14 @@ export class PotatoRules implements MiniRules {
     if (this.holder === null) {
       this.wait -= STEP;
       if (this.wait > 0 || alive.length < 2) return;
-      // A new bomb, for someone picked by the roll. Each fuse is shorter than the last.
+      // A new bomb, for someone picked by the roll. Each fuse is shorter than the last, and all of them longer in a
+      // round that started with few players, which has few bombs.
       const first = alive[field.rng.int(alive.length)]!;
       this.holder = first.seat;
       this.giver = null;
-      this.fuse = this.fuseTotal = Math.max(potato.fuseMin, potato.fuse - this.bombs * potato.fuseStep);
+      // Counted once, from how many started: the round does not get slower as it thins out.
+      this.few ??= Math.max(0, potato.fullAt - alive.length) * potato.fuseFew;
+      this.fuse = this.fuseTotal = Math.max(potato.fuseMin, potato.fuse - this.bombs * potato.fuseStep) + this.few;
       field.emit({ t: 'potato', holder: first.seat, from: null, fuse: this.fuse });
       return;
     }

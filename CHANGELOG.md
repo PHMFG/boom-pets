@@ -4,7 +4,19 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-Nothing yet.
+From the match logs of the owner's own sessions, read late: two people had played 1.0.0 without bots, and five people had played 1.2.0.
+
+### Changed
+
+- **Batata Quente with two or three players lasts longer.** A round has one bomb fewer than it has players, so with two it was a single fuse: over in about ten seconds, which is how it went all three times two people played it. With fewer than four players every fuse is now 5 seconds longer for each player short of four. Two players get one fuse of 19.5 seconds, time for the bomb to change hands several times; three get a round of about 32 seconds, like four. Four to six are as before.
+
+### Fixed
+
+- The notes for 1.2.0 said a race has eleven to thirteen obstacles. It has eleven to seventeen: the race five people ran had sixteen.
+
+### For whoever is balancing
+
+- `pnpm balance 20 --players=2` (2 to 6) plays with that many players instead of four. Every number so far had been tuned with four bots, and people play in twos and in fives: a game where pets are out is a different length for each. With bots, by number of players from two to six: O Chão é Lava 27, 35, 45, 44, 49 s; Batata Quente 21, 32, 32, 42, 51 s; Cor Certa 40 to 45 s; the race about 49 s whatever the number.
 
 ## [1.2.1] - 2026-10-11
 
@@ -35,7 +47,7 @@ From the owner, after playing (the copy open on their computer was still 1.0.0):
 ### Changed
 
 - **O Chão é Lava is a new game: furniture falls from the sky.** Instead of rocks rising out of the floor, each wave drops furniture onto it, one piece after another, each marked in gold where it will land: a pouf and an armchair hold one pet, a low table two, a sofa three, a bed four. Get up on a piece before the lava covers the floor; a piece that lands on you lifts you. There is never one piece for everybody, so the room always splits. The first two waves have room for everyone, then there is one place too few and the shove matters, and from the fifth wave two too few. When the lava goes, the furniture tips and sinks, and new pieces fall somewhere else. The floor is 20 by 16 (it was 14 by 12) and a round with four bots lasts about 40 seconds, twice what it did in the build the owner called short. Each piece whistles down and lands with a thud, heavier for a sofa than for a pouf.
-- **Corrida Maluca draws a new track every round, and it is twice as long.** No two races are run on the same track any more: each round the game draws one from thousands, 150 to 174 metres of it (it was 76), winding from one side of the floor to the far back corner. Some have long straights, some are all corners. (Asked for by the owner: "each round the map changes layout and challenges".) The obstacles change too: eleven to thirteen of them, in a different order and in different places each time, and a beam may now be any of the track's three rows, not only the middle one. Every obstacle has a run-up before it, and there is a flag to come back at outside every corner. With bots a race takes about 49 seconds. The card between rounds shows the track you are about to run.
+- **Corrida Maluca draws a new track every round, and it is twice as long.** No two races are run on the same track any more: each round the game draws one from thousands, 150 to 174 metres of it (it was 76), winding from one side of the floor to the far back corner. Some have long straights, some are all corners. (Asked for by the owner: "each round the map changes layout and challenges".) The obstacles change too: eleven to seventeen of them, in a different order and in different places each time, and a beam may now be any of the track's three rows, not only the middle one. Every obstacle has a run-up before it, and there is a flag to come back at outside every corner. With bots a race takes about 49 seconds. The card between rounds shows the track you are about to run.
 - **Every other floor is about a quarter bigger each way**, so there is room to run and to get away: Pinta o Chão's paper is 18 by 15, Come e Cresce's blanket 20 by 15, Cor Certa's floor 16 by 16 (each patch four tiles a side), Batata Quente's pan 7.5 metres to the rim, Batatinha Frita's lane 32 by 11. What depends on distance moved with them: more food at once, buckets a little more often and splashing wider, a longer count before a colour drops, a bomb holder a touch faster. The picnic, the desk, the stage, the park and the kitchen were scaled to their new floors; spectators kept their size. Bate-Bate keeps its 16 by 16, because its size is what its knockouts are paced by.
 
 ### Fixed

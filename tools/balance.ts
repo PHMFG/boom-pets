@@ -1,8 +1,11 @@
 // Plays bot-only matches without a screen and prints pacing numbers, to check a tuning change.
 // Usage: pnpm balance [matches=20] [--mode=lava]   (one game only; without it, games are drawn as in a real match)
+//        pnpm balance 20 --players=2           (that many players instead of four: people play in twos and in sixes,
+//                                               and a game whose rounds depend on who is left is a different length for each)
 import { Game, GAME_MODES, initPhysics, type GameMode, type SampledInput } from '../packages/game/src/index.ts';
 
 const matches = Number(process.argv[2]) || 20;
+const players = Math.min(6, Math.max(2, Number(process.argv.find(arg => arg.startsWith('--players='))?.split('=')[1]) || 4));
 const wanted = process.argv.find(arg => arg.startsWith('--mode='))?.split('=')[1]?.split(',') ?? [];
 const modes = wanted.filter((mode): mode is GameMode => (GAME_MODES as readonly string[]).includes(mode));
 if (wanted.length !== modes.length) {
@@ -29,7 +32,14 @@ const powers: Record<string, { ran: number; knockouts: number }> = {};
 
 for (let seed = 1; seed <= matches; seed++) {
   const game = new Game(seed * 977);
-  game.startMatch({ rounds: 5, bots: true, petPool: pets, botName: index => `Bot ${index + 1}`, modes: modes.length > 0 ? modes : undefined });
+  if (players === 4) game.startMatch({ rounds: 5, bots: true, petPool: pets, botName: index => `Bot ${index + 1}`, modes: modes.length > 0 ? modes : undefined });
+  else {
+    // A match only fills itself with bots up to four. Any other number is seated as people and each handed to a
+    // bot, the way the game does for a phone that has gone for good.
+    game.setLobbySeats(Array.from({ length: players }, (_, seat) => ({ seat, pet: pets[seat]!, name: `Bot ${seat + 1}`, bot: null })));
+    game.startMatch({ rounds: 5, bots: false, petPool: pets, botName: index => `Bot ${index + 1}`, modes: modes.length > 0 ? modes : undefined });
+    for (let seat = 0; seat < players; seat++) game.handToBot(seat);
+  }
   let sawKnockout = false;
   /** The power each seat started last: a knockout "by power" is that power's doing. */
   const lastPower = new Map<number, string>();
@@ -69,7 +79,7 @@ for (let seed = 1; seed <= matches; seed++) {
 }
 
 const average = (values: number[]) => (values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length)).toFixed(1);
-console.log(`${matches} matches`);
+console.log(`${matches} matches${players === 4 ? '' : ` of ${players} players`}`);
 console.log('Each game: rounds, average length, shortest to longest, how many hit the time cap, ties for first, and wins by seat (bots take the seats in a fixed order of styles).');
 for (const [mode, entry] of Object.entries(games)) {
   const sorted = [...entry.seconds].sort((a, b) => a - b);

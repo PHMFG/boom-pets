@@ -701,12 +701,24 @@ describe('Cor Certa', () => {
 });
 
 describe('Batata Quente', () => {
+  it('gives fewer players longer fuses, so a round of two is not over in one short fuse', () => {
+    const fuses = [2, 3, 4, 6].map(players => {
+      const { field, run, of } = makeField('potato', players);
+      run(Math.round(potato.firstWait / STEP) + 2);
+      const fuse = of('potato')[0]!.fuse;
+      field.free();
+      return fuse;
+    });
+    expect(fuses).toEqual([potato.fuse + 2 * potato.fuseFew, potato.fuse + potato.fuseFew, potato.fuse, potato.fuse]);
+  });
+
   it('hands a bomb to someone, passes it on a touch but not straight back, and takes out whoever holds it at the end', () => {
     const { field, run, set, of, walk } = makeField('potato', 3);
     const rules = field.rules;
     expect(rules.holder).toBeNull();
     run(Math.round(potato.firstWait / STEP) + 2);
-    expect(of('potato')[0]).toMatchObject({ from: null, fuse: potato.fuse });
+    // Three players are one short of a full pan, so their fuses are that much longer.
+    expect(of('potato')[0]).toMatchObject({ from: null, fuse: potato.fuse + potato.fuseFew });
     const first = rules.holder!;
     const [second, third] = [0, 1, 2].filter(which => which !== first) as [number, number];
     // Whoever holds it is faster than the rest.
@@ -741,7 +753,7 @@ describe('Batata Quente', () => {
     for (let guard = 0; guard < 60 * 40 && !field.finished; guard++) run(1);
     expect(field.finished).toBe(true);
     const fresh = of('potato').filter(event => event.from === null);
-    expect(fresh.map(event => event.fuse)).toEqual([potato.fuse, potato.fuse - potato.fuseStep]);
+    expect(fresh.map(event => event.fuse)).toEqual([potato.fuse + potato.fuseFew, potato.fuse - potato.fuseStep + potato.fuseFew]);
     expect(field.out).toHaveLength(2);
     expect(field.ranking()).toEqual([field.aliveSeats(), [field.out[1]], [field.out[0]]]);
     // Nobody can leave the arena.

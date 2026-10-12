@@ -182,6 +182,13 @@ export const potato = {
   fuse: 9.5,
   fuseStep: 0.7,
   fuseMin: 5.5,
+  /**
+   * A round has one bomb fewer than it has players, so a round of two was a single fuse: over in eleven seconds,
+   * which is how two people played it (8.5 s, three times, in the logs of 1.0.0). With fewer than `fullAt`
+   * players every fuse is this many seconds longer for each player short of that.
+   */
+  fullAt: 4,
+  fuseFew: 5,
   /** How close two pets must be for the bomb to pass, beyond touching. */
   touch: 0.12,
   /** Seconds the bomb cannot go straight back to whoever just passed it. */
