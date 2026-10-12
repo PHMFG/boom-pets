@@ -73,6 +73,13 @@ const VICTORY_WORD = { y: 5.05, z: -1.2, size: 1.1, leave: 0.4 };
 const CANNON = { x: 5.0, y: 1.5, z: 0.7 };
 /** Where the camera looks at the podium: over the winner's head, which leaves the top of the picture to the banner that names them. */
 const PODIUM_SHOT = { x: 0, y: 2.4, z: 0.4 };
+/** While the drums roll: how far off the camera settles, and how much farther back it starts as the curtain opens. */
+const PODIUM_DRUMS = { distance: 17, back: 5 };
+/**
+ * How quickly the picture slides into the room the HUD leaves it, when a panel comes or goes between rounds (the
+ * join card, the results table). It is a spring that neither jumps nor overshoots; higher is quicker.
+ */
+const INSET_PACE = 9;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 /** Seconds ahead the camera looks along a pet's path, so a pet sent flying is still in the picture where it lands. */
 const LOOK_AHEAD = 0.2;
@@ -116,7 +123,10 @@ export class GameStage {
   private game: Game | null = null;
   private winners = new Set<number>();
   private asleep = new Set<number>();
+  /** The room the HUD takes: what the camera is using this frame, what it is sliding to, and how fast each side is moving. */
   private insets = { left: 0, bottom: 0, top: 0 };
+  private insetGoal = { left: 0, bottom: 0, top: 0 };
+  private insetSpeed = { left: 0, bottom: 0, top: 0 };
   /** Where each seat's name tag stands by its pet, and for how long that has been covering somebody. */
   private readonly tags = new Map<number, TagState>();
   private size = { width: 1, height: 1 };
@@ -189,10 +199,12 @@ export class GameStage {
     this.scene.add(this.roomWord.group);
   }
 
-  /** Pixels covered by HUD on the left, bottom and top. The action is framed in what remains. */
+  /**
+   * Pixels covered by HUD on the left, bottom and top. The action is framed in what remains. The picture slides
+   * there (`slideInsets`): a panel arriving must not make the whole world jump sideways.
+   */
   setInsets(left: number, bottom: number, top: number): void {
-    this.insets = { left, bottom, top };
-    this.fit();
+    this.insetGoal = { left, bottom, top };
   }
 
   /** The title screen: the camera circles the platform slowly while the bots brawl. */
@@ -635,6 +647,7 @@ export class GameStage {
       }
       this.rig.focus(x * 0.8, z * 0.8, 21, Infinity, 0.16);
     }
+    this.slideInsets(dt);
     this.rig.frame(this.focusPoints(game), dt);
     this.mapFrames++;
     this.placeNames(game, dt);
@@ -746,8 +759,10 @@ export class GameStage {
       this.scene.add(this.podium.group);
       if (phase === 'finale') {
         this.renderer.setSaturation(-0.6);
-        // From the front and low, like an audience: faces, not the tops of heads.
-        this.rig.look({ at: () => PODIUM_SHOT, distance: 17, seconds: 3600, pitch: 26, sway: 0.25 });
+        // From the front and low, like an audience: faces, not the tops of heads. The curtain opens on the shot
+        // already in place (the camera was with the last round's winner, somewhere else on another map), and
+        // all that moves while the drums roll is a slow push in toward the empty steps.
+        this.rig.cut({ at: () => PODIUM_SHOT, distance: PODIUM_DRUMS.distance, seconds: 3600, pitch: 26, sway: 0.25 }, 0, PODIUM_DRUMS.back);
       } else {
         this.podium.revealAll();
         this.celebrating = true;
@@ -1009,6 +1024,26 @@ export class GameStage {
     this.size = { width, height };
     this.renderer.setSize(width, height);
     this.rig.setViewport(width, height, this.insets);
+  }
+
+  /** Moves the room the camera frames in toward what the HUD now leaves free, each side on a spring that starts and stops softly. */
+  private slideInsets(dt: number): void {
+    let moved = false;
+    for (const side of ['left', 'bottom', 'top'] as const) {
+      const away = this.insets[side] - this.insetGoal[side];
+      if (away === 0 && this.insetSpeed[side] === 0) continue;
+      moved = true;
+      // Critically damped, and solved exactly for the frame's length, so a slow frame cannot throw it past its goal.
+      const push = (this.insetSpeed[side] + INSET_PACE * away) * dt;
+      const decay = Math.exp(-INSET_PACE * dt);
+      this.insetSpeed[side] = (this.insetSpeed[side] - INSET_PACE * push) * decay;
+      this.insets[side] = this.insetGoal[side] + (away + push) * decay;
+      if (Math.abs(this.insets[side] - this.insetGoal[side]) < 0.5 && Math.abs(this.insetSpeed[side]) < 1) {
+        this.insets[side] = this.insetGoal[side];
+        this.insetSpeed[side] = 0;
+      }
+    }
+    if (moved) this.rig.setViewport(this.size.width, this.size.height, this.insets);
   }
 
   /**
