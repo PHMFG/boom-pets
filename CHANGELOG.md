@@ -4,7 +4,15 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
-Nothing yet.
+Asked how the session with five people on 1.2.0 went, the owner said: fun, on the right track. Asked what to change, they chose one rule (O Chão é Lava should be a climb) and better animation everywhere: more impact, livelier pets, smoother transitions.
+
+### Changed
+
+- **O Chão é Lava is a climb.** The lava no longer comes and goes: it rises and never stops. Furniture still falls from the sky, but now it piles up: each layer lands on the one before, a step higher, and the lava takes the layers from the bottom. Stand under a gold outline and the piece carries you up as it lands, or step up onto it after; a pet climbs one step and no more. Whoever is still on the layer below the newest when the alarm ends is out, and so is anyone who falls into the lava at any time, which makes a shove off the edge of a sofa the whole game. The first three layers have room for everyone; after that there is a place too few. On the furniture everyone walks a little slower, because a table is small. Every piece has a flat, pale top now, and a leg to stand on. A round with four bots lasts about 36 seconds; with two, 22.
+
+### Fixed
+
+- When a shove or a bite reached two pets at once, it always hit the one who had joined the game first. It hits the nearest now. (Found while measuring the new lava game: seat 1 was being pushed off more than anyone.)
 
 ## [1.2.2] - 2026-10-11
 

@@ -8,7 +8,7 @@ export type { AnyField, AnyRound } from './rounds';
 export { Field, type MiniRules } from './minis/field';
 export type { AnyRules } from './minis';
 export type { Bucket, PaintRules } from './minis/paint';
-export { FURNITURE_KINDS, seatsOf, type Furniture, type FurnitureKind, type LavaRules } from './minis/lava';
+export { FURNITURE_KINDS, reach as furnitureReach, seatsOf, type Furniture, type FurnitureKind, type LavaRules } from './minis/lava';
 export type { Food, FoodKind, GrowRules } from './minis/grow';
 export type { ColorRules } from './minis/color';
 export type { PotatoRules } from './minis/potato';

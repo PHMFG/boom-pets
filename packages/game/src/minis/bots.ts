@@ -2,10 +2,10 @@
 // a guess a person could make, and everything is worked out from the round as it stands, because a bot may
 // take over a seat in the middle of one.
 import type { Rng } from '../rng';
-import { color, potato } from '../tuning';
+import { color, lava, potato } from '../tuning';
 import type { AnyRound } from '../rounds';
 import { TILE, type Pet } from '../types';
-import { seatsOf } from './lava';
+import { reach, seatsOf, type Furniture } from './lava';
 
 export type MiniPlan = { x: number; z: number; tapA?: boolean };
 
@@ -22,6 +22,74 @@ const arrive = (me: Pet, x: number, z: number): MiniPlan => {
   // The gain is low enough that being late does not turn the approach into a swing back and forth.
   return distance < 0.15 ? STILL : toward(me, x, z, Math.min(1, distance / 2.6));
 };
+
+type Spot = { x: number; z: number };
+type Box = { x0: number; x1: number; z0: number; z1: number };
+const boxOf = (piece: Furniture): Box => ({ x0: piece.x - reach(piece).x, x1: piece.x + reach(piece).x, z0: piece.z - reach(piece).z, z1: piece.z + reach(piece).z });
+
+/**
+ * The spot nearest a pet in what two pieces' tops have in common, a little in from its edges, if that is at least
+ * `least` across both ways; and nothing if they only touch. The nearest, not the middle: a crowd that all heads for
+ * one point pushes itself off the edge.
+ */
+function common(a: Furniture, b: Furniture, least: number, me: Spot): Spot[] {
+  const [first, second] = [boxOf(a), boxOf(b)];
+  const [x0, x1, z0, z1] = [Math.max(first.x0, second.x0), Math.min(first.x1, second.x1), Math.max(first.z0, second.z0), Math.min(first.z1, second.z1)];
+  if (x1 - x0 < least || z1 - z0 < least) return [];
+  const inX = Math.min(0.35, (x1 - x0) / 2);
+  const inZ = Math.min(0.35, (z1 - z0) / 2);
+  return [{ x: Math.min(x1 - inX, Math.max(x0 + inX, me.x)), z: Math.min(z1 - inZ, Math.max(z0 + inZ, me.z)) }];
+}
+
+/**
+ * Where to head for, to get from where a pet is to a spot on the same floor of furniture without leaving it:
+ * the spot itself if it is on the piece the pet stands on, and otherwise the way through to the next piece toward it,
+ * a step past the seam the two meet at.
+ */
+function through(floor: readonly Furniture[], me: Spot, goal: Spot): Spot {
+  const holds = (piece: Furniture, spot: Spot) => Math.abs(piece.x - spot.x) <= reach(piece).x + 0.05 && Math.abs(piece.z - spot.z) <= reach(piece).z + 0.05;
+  const from = floor.find(piece => holds(piece, me));
+  const to = floor.find(piece => holds(piece, goal));
+  if (!from || !to || from === to) return goal;
+  const meets = (a: Furniture, b: Furniture) => {
+    const [first, second] = [boxOf(a), boxOf(b)];
+    return Math.min(first.x1, second.x1) - Math.max(first.x0, second.x0) >= -0.01 && Math.min(first.z1, second.z1) - Math.max(first.z0, second.z0) >= -0.01;
+  };
+  // Outward from the piece the goal is on, until the one the pet is on is reached: what led to it is the next piece on the way.
+  const toward = new Map<Furniture, Furniture | null>([[to, null]]);
+  const queue = [to];
+  for (let piece = queue.shift(); piece && !toward.has(from); piece = queue.shift()) {
+    for (const other of floor) {
+      if (toward.has(other) || !meets(piece, other)) continue;
+      toward.set(other, piece);
+      queue.push(other);
+    }
+  }
+  const next = toward.get(from);
+  if (!next) return goal;
+  const [first, second] = [boxOf(from), boxOf(next)];
+  const [x0, x1, z0, z1] = [Math.max(first.x0, second.x0), Math.min(first.x1, second.x1), Math.max(first.z0, second.z0), Math.min(first.z1, second.z1)];
+  // The seam is long one way and a hair across the other: through its middle, and half a metre on into the next piece.
+  const sideways = x1 - x0 < z1 - z0;
+  return sideways ? { x: (x0 + x1) / 2 + Math.sign(next.x - from.x) * 0.5, z: (z0 + z1) / 2 } : { x: (x0 + x1) / 2, z: (z0 + z1) / 2 + Math.sign(next.z - from.z) * 0.5 };
+}
+
+/**
+ * Nobody walks off an edge on purpose. A bot's hands are a quarter second behind its eyes, so it looks as far ahead
+ * as it will travel before it could stop, and a step that would end over a drop is not taken. (Being pushed off is another matter.)
+ */
+function careful(round: Extract<AnyRound, { gameMode: 'lava' }>, me: Pet, feet: number, plan: MiniPlan): MiniPlan {
+  const length = Math.hypot(plan.x, plan.z);
+  if (length < 0.05 || !me.grounded) return plan;
+  const speed = Math.hypot(me.vx, me.vz);
+  const far = 0.5 + speed * 0.4;
+  for (let ahead = 0.25; ahead <= far; ahead += 0.25) {
+    if (round.floorY(me.x + (plan.x / length) * ahead, me.z + (plan.z / length) * ahead, feet) >= feet - 0.2) continue;
+    // Still going that way: lean back against it. Otherwise just do not go.
+    return speed > 0.6 ? { x: -me.vx / speed, z: -me.vz / speed } : STILL;
+  }
+  return plan;
+}
 
 export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
   if (round.gameMode === 'brawl') return STILL;
@@ -49,19 +117,40 @@ export function miniPlan(round: AnyRound, seat: number, rng: Rng): MiniPlan {
       return toward(me, centre.x, centre.z);
     }
     case 'lava': {
-      // The nearest seat nobody else is standing on, on any piece: one that has landed, or one still marked on the
-      // floor. If every seat is taken, the nearest one, and whoever is on it gets a shove.
-      const seats = round.rules.pieces.flatMap(piece => seatsOf(piece));
-      const taken = (spot: { x: number; z: number }) => round.pets.some(other => other !== me && other.alive && Math.hypot(other.x - spot.x, other.z - spot.z) < 0.55);
+      const rules = round.rules;
+      const feet = round.feetOf(me);
       const near = (spot: { x: number; z: number }) => Math.hypot(spot.x - me.x, spot.z - me.z);
-      seats.sort((a, b) => near(a) - near(b));
-      const seat = seats.find(candidate => !taken(candidate)) ?? seats[0];
-      if (!seat) return STILL;
-      if (!taken(seat)) return arrive(me, seat.x, seat.z);
-      const owner = round.pets.find(other => other !== me && other.alive && Math.hypot(other.x - seat.x, other.z - seat.z) < 0.55);
-      if (!owner) return arrive(me, seat.x, seat.z);
-      // Push in, and shove when close enough to connect. Not every time: a person hesitates too.
-      return { ...toward(me, owner.x, owner.z), tapA: near(owner) < 1.6 && rng.chance(0.3) };
+      // The newest layer is the one to be on: its pieces that have landed, or are still only marked.
+      const newest = rules.pieces.filter(piece => piece.layer === rules.wave);
+      // And the floor this pet is on now: every landed piece level with its feet. They touch, so it is one floor to walk on.
+      const mine = rules.pieces.filter(piece => piece.landed && Math.abs(piece.top - feet) < 0.2);
+      const up = feet >= rules.wave * lava.height - 0.2;
+      let goal: { x: number; z: number } | null = null;
+      if (!up) {
+        // Not up there yet. The way up is where a new piece reaches over the floor this pet is on: the middle of what
+        // the two have in common, the nearest such place. From the slab itself, any new piece will do.
+        for (const piece of newest) {
+          const spots = feet < 0.2 ? [{ x: piece.x, z: piece.z }] : mine.flatMap(under => common(piece, under, 0.5, me));
+          for (const spot of spots) if (!goal || near(spot) < near(goal)) goal = spot;
+        }
+        // Nowhere to step up from here: it has fallen behind, and can only hope.
+        if (!goal) return STILL;
+      } else {
+        // Up there: the nearest seat nobody else is standing on, on a piece that is down. If every seat is taken, the
+        // nearest one, and whoever is on it gets a shove.
+        const seats = mine.flatMap(piece => seatsOf(piece));
+        const taken = (spot: { x: number; z: number }) => round.pets.some(other => other !== me && other.alive && Math.hypot(other.x - spot.x, other.z - spot.z) < 0.55);
+        seats.sort((a, b) => near(a) - near(b));
+        const seat = seats.find(candidate => !taken(candidate)) ?? seats[0];
+        if (!seat) return STILL;
+        const owner = taken(seat) ? round.pets.find(other => other !== me && other.alive && Math.hypot(other.x - seat.x, other.z - seat.z) < 0.55) : undefined;
+        // Push in, and shove when close enough to connect. Not every time: a person hesitates too.
+        if (owner) return { ...careful(round, me, feet, toward(me, owner.x, owner.z)), tapA: near(owner) < 1.6 && rng.chance(0.3) };
+        goal = seat;
+      }
+      // Across the floor it is on, piece by piece, and never off an edge on purpose.
+      const next = feet < 0.2 ? goal : through(mine, me, goal);
+      return careful(round, me, feet, arrive(me, next.x, next.z));
     }
     case 'grow': {
       const rules = round.rules;

@@ -8,7 +8,7 @@ import { color, frita, grow, lava, paint, pet as petTune, potato, race, STEP } f
 import { TILE, type GameEvent, type GameMode, type MiniMode, type SeatSetup } from '../types';
 import { Field, rankBy } from './field';
 import { makeRules, type AnyRules } from './index';
-import { FURNITURE_KINDS, seatsOf } from './lava';
+import { FURNITURE_KINDS, reach, seatsOf, type Furniture } from './lava';
 
 const PETS = ['fox', 'cat', 'dog', 'pig', 'cow', 'bee'];
 const seat = (index: number): SeatSetup => ({ seat: index, pet: PETS[index]!, name: `P${index}`, bot: null });
@@ -175,15 +175,16 @@ describe('Pinta o Chão', () => {
 
 describe('O Chão é Lava', () => {
   type LavaField = ReturnType<typeof makeField<'lava'>>;
-  const seatsIn = (field: LavaField['field']) => field.rules.pieces.flatMap(piece => seatsOf(piece));
+  const seatsIn = (field: LavaField['field'], layer = field.rules.wave) => field.rules.pieces.filter(piece => piece.layer === layer).flatMap(piece => seatsOf(piece));
   /** A spot no piece ever lands on: furniture keeps clear of the walls. */
-  const corner = (field: LavaField['field'], which = 0) => ({ x: (which % 2 === 0 ? -1 : 1) * (field.columns / 2 - 0.8), z: -field.rows / 2 + 0.8 });
-  /** Walks several pets at once, each to its own spot, so the wave's clock is not spent on one at a time. */
+  const corner = (field: LavaField['field'], which = 0) => ({ x: (which % 2 === 0 ? -1 : 1) * (field.columns / 2 - 0.4), z: field.rows / 2 - 0.4 });
+  /** Walks several pets at once, each to its own spot, so the layer's clock is not spent on one at a time. */
   const send = ({ field, run, set }: LavaField, targets: [number, { x: number; z: number }][]) => {
     for (let guard = 0; guard < 900; guard++) {
       let moving = false;
       for (const [which, spot] of targets) {
-        const pet = field.petOfSeat(which)!;
+        const pet = field.petOfSeat(which);
+        if (!pet) continue;
         const distance = Math.hypot(spot.x - pet.x, spot.z - pet.z);
         if (distance < 0.08) {
           set(which, {});
@@ -199,71 +200,147 @@ describe('O Chão é Lava', () => {
     run(6);
   };
   const landed = (lavaField: LavaField) => lavaField.of('furniture').filter(event => event.phase === 'land').length;
+  /** Whether two pieces' tops have some floor in common, or at least touch. */
+  const touching = (a: Furniture, b: Furniture) => Math.abs(a.x - b.x) <= reach(a).x + reach(b).x + 0.001 && Math.abs(a.z - b.z) <= reach(a).z + reach(b).z + 0.001;
+  /** Whether every piece of a list can be walked to from the first without leaving them. */
+  const oneFloor = (pieces: Furniture[]) => {
+    const reached = new Set([pieces[0]]);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const piece of pieces) {
+        if (reached.has(piece) || ![...reached].some(other => touching(piece, other!))) continue;
+        reached.add(piece);
+        grew = true;
+      }
+    }
+    return reached.size === pieces.length;
+  };
 
-  it('seats exactly as many pets on each kind of furniture as it says, with room for each', () => {
+  it('seats exactly as many pets on each kind of furniture as it says, with room for each, all on its top', () => {
     for (const kind of FURNITURE_KINDS) {
       for (const turned of [false, true]) {
-        const seats = seatsOf({ id: 1, kind, x: 3, z: -2, turned, at: 0, landed: true });
+        const piece = { kind, x: 3, z: -2, turned };
+        const seats = seatsOf(piece);
         expect(seats, kind).toHaveLength(lava.pieces[kind].seats);
+        for (const seat of seats) {
+          expect(Math.abs(seat.x - piece.x), kind).toBeLessThanOrEqual(reach(piece).x - 0.3);
+          expect(Math.abs(seat.z - piece.z), kind).toBeLessThanOrEqual(reach(piece).z - 0.3);
+        }
         // No two closer than a pet is wide.
         for (const a of seats) for (const b of seats) if (a !== b) expect(Math.hypot(a.x - b.x, a.z - b.z), kind).toBeGreaterThanOrEqual(2 * petTune.radius - 0.001);
       }
     }
   });
 
-  it('drops a seat for every pet in the first wave, marked before it lands, then takes out whoever is not on one', () => {
+  it('drops a seat for every pet in the first layer, marked before it lands, then takes whoever is still on the floor', () => {
     const lavaField = makeField('lava', 3);
     const { field, run, of } = lavaField;
     const rules = field.rules;
     run(1);
-    // The wave to learn on: nobody has to be left out.
-    const pieces = rules.pieces;
+    expect(rules.wave).toBe(1);
     expect(seatsIn(field)).toHaveLength(3);
-    // Each piece is announced with how long it takes to come down, one after another, and none is down yet.
-    expect(of('furniture').map(event => [event.phase, event.id])).toEqual(pieces.map(piece => ['fall', piece.id]));
-    of('furniture').forEach((event, index) => expect(event.seconds).toBeCloseTo(lava.dropFirst + index * lava.dropEvery, 1));
+    // Marked from the start, on the floor, and not there to stand on yet.
+    const pieces = [...rules.pieces];
+    expect(of('furniture').filter(event => event.phase === 'fall')).toHaveLength(pieces.length);
+    expect(landed(lavaField)).toBe(0);
     for (const piece of pieces) expect(field.floorY(piece.x, piece.z)).toBe(0);
-    expect(of('lava')[0]).toMatchObject({ phase: 'calm', wave: 1 });
-    expect(of('lava')[0]!.seconds).toBeCloseTo(lava.dropFirst + (pieces.length - 1) * lava.dropEvery + lava.calm, 5);
-
+    expect(rules.level).toBeLessThan(0);
+    // Two climb on; the third stays on the floor, in a corner.
     const seats = seatsIn(field);
     send(lavaField, [[0, seats[0]!], [1, seats[1]!], [2, corner(field)]]);
-    while (landed(lavaField) < pieces.length) run(1);
-    // On furniture a pet stands that much higher.
-    expect(field.petOfSeat(0)!.y).toBeCloseTo(petTune.radius + petTune.halfHeight + lava.height, 2);
+    expect(landed(lavaField)).toBe(pieces.length);
+    expect(field.feetOf(field.petOfSeat(0)!)).toBeCloseTo(lava.height, 2);
+    expect(field.feetOf(field.petOfSeat(2)!)).toBeCloseTo(0, 2);
+    // The alarm, and all the while the lava climbs. Nobody is out before it is over the floor.
     while (rules.phase === 'calm') run(1);
-    expect(of('lava').at(-1)).toMatchObject({ phase: 'alarm', seconds: lava.alarm });
-    // The alarm is a warning: nobody is out yet.
+    expect(of('lava').at(-1)).toMatchObject({ phase: 'alarm', wave: 1, seconds: lava.alarm });
+    const before = rules.level;
+    run(30);
+    expect(rules.level).toBeGreaterThan(before);
     expect(field.out).toEqual([]);
-    while (rules.phase === 'alarm') run(1);
+    while (rules.wave === 1) run(1);
+    expect(rules.level).toBeCloseTo(lava.toe, 2);
     expect(field.out).toEqual([2]);
     expect(of('eliminated')[0]).toMatchObject({ seat: 2, cause: 'lava' });
-    expect(field.ghosts[0]).toMatchObject({ seat: 2, cursor: false });
-    expect(field.finished).toBe(false);
     field.free();
   });
 
-  it('lifts a pet that a piece lands on, and hurts nobody', () => {
+  it('builds each layer as one floor, a step above the last and reaching over it, inside the walls', () => {
+    for (let seed = 1; seed <= 25; seed++) {
+      const { field, run } = makeField('lava', 6, seed);
+      const rules = field.rules;
+      run(1);
+      const layers = new Map<number, Furniture[]>();
+      // Nobody climbs, so the round is over at the first flood: the layers are called by hand to see many of them.
+      for (let layer = 1; layer <= 8; layer++) {
+        const pieces = rules.pieces.filter(piece => piece.layer === layer);
+        layers.set(layer, pieces);
+        expect(pieces.length).toBeGreaterThan(0);
+        for (const piece of pieces) {
+          expect(piece.top).toBeCloseTo(layer * lava.height, 5);
+          expect(Math.abs(piece.x) + reach(piece).x).toBeLessThanOrEqual(field.columns / 2 - lava.edge + 0.001);
+          expect(Math.abs(piece.z) + reach(piece).z).toBeLessThanOrEqual(field.rows / 2 - lava.edge + 0.001);
+        }
+        // One floor: every piece can be walked to from any other, and none runs into another by more than a seam.
+        expect(oneFloor(pieces)).toBe(true);
+        for (const a of pieces) for (const b of pieces) if (a !== b) expect(Math.min(reach(a).x + reach(b).x - Math.abs(a.x - b.x), reach(a).z + reach(b).z - Math.abs(a.z - b.z))).toBeLessThanOrEqual(lava.seam + 0.002);
+        // And a way up from the layer below: some piece of it reaches over a piece of that one, by room enough to stand in.
+        const below = layers.get(layer - 1);
+        const room = Math.min(lava.shared, lava.overlap) - 0.001;
+        if (below) expect(pieces.some(piece => below.some(under => Math.min(reach(piece).x + reach(under).x - Math.abs(piece.x - under.x), reach(piece).z + reach(under).z - Math.abs(piece.z - under.z)) >= room))).toBe(true);
+        (rules as unknown as { startLayer(field: unknown): void }).startLayer(field);
+      }
+      field.free();
+    }
+  });
+
+  it('carries up a pet that a piece lands on, and hurts nobody', () => {
     const lavaField = makeField('lava', 2);
     const { field, run, of } = lavaField;
     run(1);
     const piece = field.rules.pieces[0]!;
     const pet = field.petOfSeat(0)!;
-    // Set down on the piece's mark at once (a pet is set down a little to one side of where it is asked to be), well before the piece arrives.
-    field.respawn(pet, piece.x, piece.z - 0.45);
-    run(60);
-    expect(landed(lavaField)).toBe(0);
+    // Standing on the mark, well before the piece comes down.
+    field.respawn(pet, piece.x - 0.2, piece.z - 0.2);
+    for (let guard = 0; guard < 600 && !piece.landed; guard++) run(1);
+    run(4);
+    expect(of('eliminated')).toEqual([]);
     expect(pet.grounded).toBe(true);
-    expect(pet.y).toBeCloseTo(petTune.radius + petTune.halfHeight, 2);
-    while (landed(lavaField) < 1) run(1);
-    run(30);
-    expect(of('eliminated')).toHaveLength(0);
-    expect(pet.grounded).toBe(true);
-    expect(pet.y).toBeCloseTo(petTune.radius + petTune.halfHeight + lava.height, 2);
+    expect(field.feetOf(pet)).toBeCloseTo(lava.height, 2);
     field.free();
   });
 
-  it('ends when one pet is left or none, with those lost in the same wave sharing a place', () => {
+  it('lets a pet step up one layer and down any number, and keeps it out of the side of what is too tall to climb', () => {
+    const lavaField = makeField('lava', 2);
+    const { field, run, set, walk } = lavaField;
+    const rules = field.rules;
+    run(1);
+    // Two pieces set by hand: a low one, and against its far side one two layers tall.
+    rules.pieces = [
+      { id: 91, kind: 'table', x: 0, z: 0, turned: false, layer: 1, top: lava.height, at: 0, landed: true },
+      { id: 92, kind: 'table', x: 0, z: -3, turned: false, layer: 2, top: 2 * lava.height, at: 0, landed: true },
+    ];
+    const pet = field.petOfSeat(0)!;
+    field.respawn(pet, 0, 3);
+    run(60);
+    // Up onto the low one from the floor, in one stride.
+    walk(0, 0, 0);
+    expect(field.feetOf(pet)).toBeCloseTo(lava.height, 2);
+    // Down off it and round to the tall one: from the floor that is a wall, and the pet stops beside it.
+    walk(0, 3, 0);
+    expect(field.feetOf(pet)).toBeCloseTo(0, 2);
+    walk(0, 3, -3);
+    set(0, { x: -1 });
+    run(90);
+    set(0, {});
+    run(6);
+    expect(field.feetOf(pet)).toBeCloseTo(0, 2);
+    expect(pet.x).toBeGreaterThanOrEqual(reach(rules.pieces[1]!).x + lava.side - 0.01);
+    expect(lavaField.of('eliminated')).toEqual([]);
+    field.free();
+  });
+
+  it('ends when one pet is left or none, with those lost to the same layer sharing a place', () => {
     const lavaField = makeField('lava', 3);
     const { field, run, of } = lavaField;
     const rules = field.rules;
@@ -271,55 +348,64 @@ describe('O Chão é Lava', () => {
     const seats = seatsIn(field);
     send(lavaField, [[0, seats[0]!], [1, seats[1]!], [2, corner(field)]]);
     while (rules.wave === 1) run(1);
-    // Wave two still has a seat for each of the two left, with less time once the furniture is down.
-    expect(seatsIn(field)).toHaveLength(2);
-    expect(of('lava').filter(event => event.phase === 'calm')[1]!.seconds).toBeCloseTo(lava.dropFirst + (rules.pieces.length - 1) * lava.dropEvery + lava.calm - lava.calmStep, 5);
-    const again = seatsIn(field);
-    send(lavaField, [[0, again[0]!], [1, again[1]!]]);
-    while (rules.wave === 2) run(1);
     expect(field.out).toEqual([2]);
-    // Wave three: one seat for two pets. Both walk away from it.
-    expect(seatsIn(field)).toHaveLength(1);
-    send(lavaField, [[0, corner(field, 0)], [1, corner(field, 1)]]);
+    // Layer two still has a seat for each of the two left, with less time once the furniture is down, and the lava
+    // goes on climbing toward the layer they stand on.
+    expect(seatsIn(field)).toHaveLength(2);
+    const second = rules.pieces.filter(piece => piece.layer === 2).length;
+    expect(of('lava').at(-1)).toMatchObject({ phase: 'flood', wave: 2, seconds: lava.flood });
+    const level = rules.level;
+    run(60);
+    expect(rules.level).toBeGreaterThan(level);
+    // Neither gets up: the second layer is taken away before it lands (or a piece of it might land on one of them and
+    // carry it up), so both are still on the first layer when the lava reaches it.
+    rules.pieces = rules.pieces.filter(piece => piece.layer === 1);
     while (!field.finished) run(1);
+    expect(rules.level).toBeCloseTo(lava.height + lava.toe, 1);
+    expect(of('lava').filter(event => event.phase === 'calm')[1]!.seconds).toBeCloseTo(lava.dropFirst + (second - 1) * lava.dropEvery + lava.calm - lava.calmStep - lava.flood, 5);
+    expect(field.out).toEqual([2, 0, 1]);
     expect(field.ranking()).toEqual([[0, 1], [2]]);
     field.free();
   });
 
-  it('has two seats too few from the late waves on, however many have squeezed through', () => {
+  it('has a seat too few after the first layers, and two too few from the late ones on', () => {
     const { field, run } = makeField('lava', 5);
     const rules = field.rules;
+    const call = () => (rules as unknown as { startLayer(field: unknown): void }).startLayer(field);
     run(1);
-    // Straight to the end of the flood before the first scarce wave, with all five still in.
-    rules.wave = lava.scarceFrom - 1;
-    rules.phase = 'flood';
-    rules.left = 0;
-    run(1);
-    expect(rules.wave).toBe(lava.scarceFrom);
-    expect(seatsIn(field)).toHaveLength(3);
+    for (let layer = 1; layer <= lava.scarceFrom; layer++) {
+      const short = layer <= lava.spareWaves ? 0 : layer < lava.scarceFrom ? 1 : 2;
+      // A layer may come out a seat smaller where there was no room for a piece, never bigger.
+      expect(seatsIn(field, layer).length).toBeLessThanOrEqual(5 - short);
+      expect(seatsIn(field, layer).length).toBeGreaterThanOrEqual(1);
+      call();
+    }
     field.free();
   });
 
-  it('lets a shove push a pet off its seat, and rests A after', () => {
+  it('lets a shove push a pet off a piece, down to the layer below, and rests A after', () => {
     const lavaField = makeField('lava', 2);
     const { field, run, set, of } = lavaField;
+    const rules = field.rules;
     run(1);
-    const seat = seatsIn(field)[0]!;
-    send(lavaField, [[0, seat], [1, { x: seat.x + 1.3, z: seat.z }]]);
-    while (landed(lavaField) < field.rules.pieces.length) run(1);
-    run(20);
-    const victim = field.petOfSeat(0)!;
-    expect(field.floorY(victim.x, victim.z)).toBe(lava.height);
-    set(1, { x: -1, edges: [press('a', true), press('a', false)] });
-    run(30);
-    expect(of('dashHit')[0]?.victims).toEqual([victim.id]);
-    expect(field.floorY(victim.x, victim.z)).toBe(0);
-    expect(field.petOfSeat(1)!.dashCooldown).toBeGreaterThan(0);
-    // A second press while it rests does nothing but say so.
-    set(1, { edges: [press('a', true)] });
-    run(1);
-    expect(of('tired')).toHaveLength(1);
-    expect(of('dash')).toHaveLength(1);
+    rules.pieces = [{ id: 91, kind: 'sofa', x: 0, z: 0, turned: false, layer: 1, top: lava.height, at: 0, landed: true }];
+    const [victim, shover] = [field.petOfSeat(0)!, field.petOfSeat(1)!];
+    // The victim near the sofa's end, the shover behind it, both up on it.
+    field.respawn(victim, 1.1, 0);
+    field.respawn(shover, 0.1, 0);
+    run(70);
+    expect(field.feetOf(victim)).toBeCloseTo(lava.height, 2);
+    set(1, { x: 1, edges: [press('a', true), press('a', false)] });
+    run(2);
+    set(1, {});
+    for (let guard = 0; guard < 120 && of('dashHit').length === 0; guard++) run(1);
+    expect(of('dashHit')).toHaveLength(1);
+    expect(shover.dashCooldown).toBeGreaterThan(0);
+    run(50);
+    // Off the end, on the floor, and still in the round: the lava is not there yet.
+    expect(victim.x).toBeGreaterThan(reach(rules.pieces[0]!).x);
+    expect(field.feetOf(victim)).toBeCloseTo(0, 1);
+    expect(field.out).toEqual([]);
     field.free();
   });
 });

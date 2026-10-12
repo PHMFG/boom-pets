@@ -1,20 +1,25 @@
-// O Chão é Lava: a slab of pale stone in the mouth of a volcano. For each wave furniture falls out of the sky
-// onto it (a pouf, an armchair, a table, a sofa, a bed), each marked on the floor before it lands; the sea of
-// lava round the slab climbs while the alarm sounds, and then covers everything but the furniture.
-// The crater, the furniture and what floats on the lava are modelled in Blender (tools/blender/maps/lava.py).
+// O Chão é Lava: a slab of pale stone in the mouth of a volcano, and a sea of lava that rises and never stops.
+// Furniture falls out of the sky (a pouf, an armchair, a table, a sofa, a bed), each piece outlined in gold where
+// it will land, and piles up: each layer lands on the one before, a step higher, and the lava takes the layers
+// from the bottom. The crater, the furniture and what floats on the lava are modelled in Blender
+// (tools/blender/maps/lava.py).
+//
+// The pets climb, and the picture has to stay with them. So it is the crater that moves: the sea and everything
+// that stands in it (the wall, the volcano, the skeleton, the spectators on their columns) rise together, and
+// the slab and the pile sink into them. Seen from the pile, which is where the camera is, that is the lava coming up.
 //
 // The crater is alive, and it answers the round. Spectators stand on the columns at the back and the sides and
 // follow the pets. Through the alarm the whole place shakes harder and harder: the volcano swells and smokes,
 // lava wells up in its mouth, the cracks in the wall glow, the current behind the slab quickens, and the
 // creatures of the lava duck under. When the lava comes the volcano goes off, and the dinosaur's skull clatters
 // at whoever was caught.
-import type { AnyRound, GameEvent } from '@boom/game';
-import { tuning } from '@boom/game';
-import { Color, CylinderGeometry, Group, Mesh, MeshBasicMaterial, type MeshToonMaterial, type Object3D } from 'three';
+import type { AnyRound, Furniture, GameEvent } from '@boom/game';
+import { furnitureReach, tuning } from '@boom/game';
+import { BoxGeometry, Color, CylinderGeometry, Group, Mesh, MeshBasicMaterial, type MeshToonMaterial, type Object3D } from 'three';
 import { strings } from '../../../shared/strings.pt-BR';
 import { colors, maps } from '../../../shared/tokens';
 import { Model } from '../../render/models';
-import { GOLD, HOT, random, type MapView, type SkyId, type StageKit } from '../kit';
+import { GOLD, HOT, random, WHITE, type MapView, type SkyId, type StageKit } from '../kit';
 import { TileField } from '../TileField';
 import { Crowd, type Spot } from './crowd';
 
@@ -26,8 +31,10 @@ const LAVA_HOT = new Color(palette.lavaHot).multiplyScalar(1.6);
 const SMOKE = new Color(colors.smoke);
 /** How bright the lava's own colour is drawn where it only lies there, and how much brighter the cracks in the wall get at the height of the alarm. */
 const GLOW = { rest: 1.35, alarm: 1.5 };
-/** How high the lava stands: far below while it is calm, at the slab's lip when the alarm ends, over the floor in a flood. */
-const LEVEL = { calm: -0.75, alarm: -0.06, flood: 0.3 };
+/** How high the sea stands against the crater it was modelled in. The two rise together, so this never changes. */
+const SEA = -0.2;
+/** The camera looks down at 52 degrees: something this high is drawn where something on the floor this much farther back would be. */
+const LEAN = 1 / Math.tan((52 * Math.PI) / 180);
 /**
  * The slab the crater was modelled round, in Blender. The slab is bigger now, and the crater is spread to fit:
  * everything of the model lives in a group stretched by `FIT`, and a spot of the model is `fit()` in the world.
@@ -38,11 +45,11 @@ const fit = (x: number, z: number) => ({ x: x * FIT.x, z: z * FIT.z });
 /** How much bigger the crater is drawn over all (it is not made taller): what its outlines are thinned by. */
 const DRAWN = Math.cbrt(FIT.x * FIT.z);
 /**
- * Furniture comes out of the sky: for how long it is seen falling and from how high, how long it takes to sink
- * when its wave is over and how far under it goes (deeper than its tallest piece stands, tipped), how it squashes
- * as it lands, and how wide a mark each kind leaves on the floor beforehand.
+ * Furniture comes out of the sky: for how long it is seen falling and from how high over where it lands, and how
+ * it squashes as it lands. Before that, where it will land is outlined in gold, at the height it will stand: how
+ * thick that line is, how far it swells and how often (slowly), and how fast it squeezes shut at the landing.
  */
-const FURNITURE = { fall: 0.65, height: 22, sink: 0.55, under: 2.5, squash: 0.28, settle: 0.3, mark: { pouf: 0.95, armchair: 1.15, table: 1.55, sofa: 2.3, bed: 1.9 } };
+const FURNITURE = { fall: 0.65, height: 22, squash: 0.28, settle: 0.3, line: 0.14, swell: 0.05, pace: 4.2, shut: 0.15 };
 /** Bubbles swelling out of the lava at any moment. */
 const BUBBLES = 9;
 /** Where the volcano stands and how high its mouth is, for what it throws. */
@@ -71,8 +78,11 @@ const ERUPTION = { seconds: 1.5, up: 0.22, down: 0.35, height: 1.15 };
 const backOut = (t: number) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
-/** A piece of furniture: seconds since it landed (null while it is still in the sky) and since its wave ended (null until then). */
-type PieceView = { id: number; view: Object3D; x: number; z: number; at: number; landed: number | null; leaving: number | null };
+/**
+ * A piece of furniture: the piece, the leg it stands on once it is down, and the gold outline of where it will land.
+ * `base` is how high its foot stands over the slab, and `landed` the seconds since it came down (null while it is still in the sky).
+ */
+type PieceView = { id: number; view: Object3D; leg: Object3D; mark: Group; x: number; z: number; base: number; at: number; landed: number | null };
 /** A bubble waits under the lava, swells for `life` seconds and bursts. */
 type Bubble = { view: Object3D; wait: number; age: number; life: number; size: number; burst: number | null };
 /** A spout waits under the lava, then shoots up, stands a moment and drops. */
@@ -94,6 +104,11 @@ export class LavaMap implements MapView {
   private readonly model = new Model('lava');
   /** Everything of the model, spread to fit the slab. */
   private readonly world = new Group();
+  /** The sea and all that stands in it: the crater, its spectators. It rises with the lava; the slab and the pile do not. */
+  private readonly rising = new Group();
+  /** One bar of the gold outline that marks a landing, stretched to each side of each piece; and what it is painted with. */
+  private readonly bar = new BoxGeometry(1, 0.05, 1);
+  private readonly gold = new MeshBasicMaterial({ color: GOLD });
   private readonly sea: Mesh;
   private readonly crowd: Crowd;
   /** Where the crowd and the creatures look: the middle of the pets still in. */
@@ -114,8 +129,8 @@ export class LavaMap implements MapView {
   private readonly rafts: Raft[] = [];
   private readonly vents: Vent[] = [];
   private pieces: PieceView[] = [];
-  private wave = 0;
-  private level = LEVEL.calm;
+  /** How high the lava stands over the slab, as the game has it, followed a little softly. */
+  private level: number = tuning.lava.start;
   private phase: 'calm' | 'alarm' | 'flood' = 'calm';
   private phaseLeft = 0;
   private phaseTotal = 1;
@@ -144,7 +159,11 @@ export class LavaMap implements MapView {
     this.world.scale.set(FIT.x, 1, FIT.z);
     this.world.add(model.scene);
     model.drawnAt(DRAWN);
-    this.group.add(this.tiles.mesh, this.sea, this.world);
+    this.sea.position.y = SEA - 0.2;
+    if (this.afloat) this.afloat.position.y = SEA;
+    this.rising.add(this.sea, this.world);
+    this.rising.position.y = this.level - SEA;
+    this.group.add(this.tiles.mesh, this.rising);
 
     // The model says where its lava is open, three numbers a spot: x, how far back, and how far from the slab.
     // The strip the current runs along is left to the rafts.
@@ -166,7 +185,7 @@ export class LavaMap implements MapView {
     }
     this.crowd = new Crowd(spots, { seed: 7 });
     this.crowd.watch(this.eye);
-    this.group.add(this.crowd.group);
+    this.rising.add(this.crowd.group);
 
     // Not drawn at all until their turn comes: things waiting under the lava are things drawn for nothing.
     const hidden = (name: string) => {
@@ -193,32 +212,36 @@ export class LavaMap implements MapView {
     if (event.t === 'lava') {
       this.phase = event.phase;
       this.phaseLeft = this.phaseTotal = event.seconds;
+      // The words stand over the pile, wherever it has got to.
+      const over = { x: this.eye.x, y: Math.max(0, this.level) + 3.6, z: this.eye.z - 1 - Math.max(0, this.level) * LEAN };
       if (event.phase === 'alarm') {
-        words.pop(strings.words3d.lavaWarn, 0, 3.6, -1, { size: 1.5, color: colors.gold, seconds: 1.2 });
+        words.pop(strings.words3d.lavaWarn, over.x, over.y, over.z, { size: 1.5, color: colors.gold, seconds: 1.2 });
         rig.shake(0.2);
         this.erupt(8);
       } else if (event.phase === 'flood') {
-        words.pop(strings.words3d.lava, 0, 3.8, -1, { size: 2, color: colors.danger, seconds: 1.3 });
+        words.pop(strings.words3d.lava, over.x, over.y + 0.2, over.z, { size: 2, color: colors.danger, seconds: 1.3 });
         rig.shake(0.45);
         renderer.kick(0.3);
         this.erupt(22);
         this.eruption = ERUPTION.seconds;
         this.crowd.gasp();
       } else if (event.wave > 1) {
-        // The lava has gone down again: a hand for whoever is still standing.
+        // A layer survived: a hand for whoever is still up there.
         this.crowd.clap();
       }
     } else if (event.t === 'roundWinner') {
       this.crowd.cheer(3);
       this.erupt(14);
     } else if (event.t === 'furniture') {
-      if (event.phase === 'fall') {
-        // Where it will land is marked on the floor for as long as it takes to come down.
-        this.kit.decals.warning(event.x, event.z, FURNITURE.mark[event.kind], event.seconds, GOLD);
-      } else {
-        const piece = this.pieces.find(candidate => candidate.id === event.id);
-        if (piece) piece.landed = 0;
-        this.kit.dust(event.x, event.z, 8);
+      // Where it will land is outlined from the moment it is called (in `frame`, with the piece). Here it is down.
+      const piece = event.phase === 'land' ? this.pieces.find(candidate => candidate.id === event.id) : undefined;
+      if (piece) {
+        piece.landed = 0;
+        // Dust from under it, at the height it stands, out to every side.
+        for (let index = 0; index < 8; index++) {
+          const angle = random(0, Math.PI * 2);
+          particles.puff({ x: piece.x + Math.sin(angle) * 0.6, y: piece.base + 0.1, z: piece.z + Math.cos(angle) * 0.6, vx: Math.sin(angle) * random(1.5, 3), vy: random(0.3, 1), vz: Math.cos(angle) * random(1.5, 3), life: random(0.3, 0.5), size: 0.3, sizeEnd: 0.7, drag: 3, color: WHITE });
+        }
         rig.shake(0.12);
       }
     }
@@ -226,72 +249,69 @@ export class LavaMap implements MapView {
       // Burnt: a burst of sparks where it stood, and the skull has its laugh.
       for (let index = 0; index < 18; index++) {
         const angle = random(0, Math.PI * 2);
-        particles.spark({ x: event.x, y: 0.4, z: event.z, vx: Math.sin(angle) * random(1, 4), vy: random(4, 9), vz: Math.cos(angle) * random(1, 4), life: random(0.4, 0.8), size: random(0.12, 0.24), gravity: 12, spin: 10, color: HOT });
+        particles.spark({ x: event.x, y: this.level + 0.4, z: event.z, vx: Math.sin(angle) * random(1, 4), vy: random(4, 9), vz: Math.cos(angle) * random(1, 4), life: random(0.4, 0.8), size: random(0.12, 0.24), gravity: 12, spin: 10, color: HOT });
       }
       this.clatter = CLATTER.seconds;
     }
   }
 
-  /** The furniture is what a player has to find, so every piece of the wave is kept in the picture, landed or still on its way. */
+  /**
+   * The furniture is what a player has to find, so the layer being climbed to and the one below it are kept in the
+   * picture, landed or still on their way. The pile is tall and the camera looks down at a slant, so what is high
+   * is drawn farther up the screen: each piece, and each pet up on the pile, is asked for where it will be seen.
+   */
   focus(round: AnyRound, points: { x: number; z: number }[]): void {
     if (round.gameMode !== 'lava') return;
-    for (const piece of round.rules.pieces) points.push({ x: piece.x, z: piece.z });
+    const { rules } = round;
+    for (const piece of rules.pieces) if (piece.layer >= rules.wave - 1) points.push({ x: piece.x, z: piece.z - piece.top * LEAN });
+    for (const pet of round.pets) points.push({ x: pet.x, z: pet.z - Math.max(0, round.feetOf(pet)) * LEAN });
   }
 
   frame(round: AnyRound | null, dt: number, time: number): void {
     const field = round?.gameMode === 'lava' ? round : null;
     const rules = field?.rules;
 
-    // A new wave: what is left of the old furniture sinks, and the new pieces wait in the sky for their turn.
-    if (rules && rules.wave !== this.wave) {
-      this.wave = rules.wave;
-      for (const piece of this.pieces) piece.leaving ??= 0;
-      for (const piece of rules.pieces) {
-        const view = this.model.part(piece.kind);
-        // A quarter turn where the game says so; a round piece any way it likes.
-        view.rotation.y = tuning.lava.pieces[piece.kind].radius > 0 ? random(0, Math.PI * 2) : piece.turned ? Math.PI / 2 : 0;
-        view.visible = false;
-        this.group.add(view);
-        this.pieces.push({ id: piece.id, view, x: piece.x, z: piece.z, at: piece.at, landed: null, leaving: null });
-      }
+    // The pile: a piece for everything the game has on it or on its way, and gone when the game lets go of it,
+    // which is when it is well under the lava.
+    const kept = new Set<number>();
+    for (const piece of rules?.pieces ?? []) {
+      kept.add(piece.id);
+      if (!this.pieces.some(view => view.id === piece.id)) this.pieces.push(this.raise(piece));
     }
     const now = field?.time ?? 0;
     this.pieces = this.pieces.filter(piece => {
-      const { view } = piece;
-      if (piece.leaving !== null) {
-        // Its wave is over: it tips and goes under, all of it, the tall back of a sofa too, squeezing shut as the last of it goes.
-        piece.leaving += dt;
-        const gone = Math.min(1, piece.leaving / FURNITURE.sink);
-        view.position.set(piece.x, -gone * FURNITURE.under, piece.z);
-        view.rotation.z = gone * 0.25;
-        view.scale.setScalar(Math.max(0.001, 1 - Math.max(0, gone - 0.6) / 0.4));
-        if (gone < 1) return true;
+      const { view, leg, mark } = piece;
+      if (!kept.has(piece.id)) {
         view.removeFromParent();
+        leg.removeFromParent();
+        mark.removeFromParent();
         return false;
       }
       if (piece.landed === null) {
-        // Out of sight until the last moment, then down faster and faster onto its mark.
+        // Out of sight until the last moment, then down faster and faster into its outline, which swells slowly while it waits.
         const left = piece.at - now;
         view.visible = left < FURNITURE.fall;
-        view.position.set(piece.x, FURNITURE.height * Math.max(0, left / FURNITURE.fall) ** 2, piece.z);
+        view.position.set(piece.x, piece.base + FURNITURE.height * Math.max(0, left / FURNITURE.fall) ** 2, piece.z);
+        mark.scale.setScalar(1 + Math.sin(time * FURNITURE.pace) * FURNITURE.swell);
         return true;
       }
-      // Landed: it squashes flat and springs back.
+      // Landed: it squashes flat and springs back, on its leg, and its outline squeezes shut.
       piece.landed += dt;
       const spring = Math.sin(clamp01(piece.landed / FURNITURE.settle) * Math.PI) * FURNITURE.squash;
-      view.visible = true;
-      view.position.set(piece.x, 0, piece.z);
+      view.visible = leg.visible = true;
+      view.position.set(piece.x, piece.base, piece.z);
       view.scale.set(1 + spring * 0.4, 1 - spring, 1 + spring * 0.4);
+      const open = 1 - clamp01(piece.landed / FURNITURE.shut);
+      mark.visible = open > 0;
+      mark.scale.setScalar(Math.max(0.001, open));
       return true;
     });
 
-    // The lava climbs steadily through the alarm, so the floor shows how long is left; it jumps over the lip only when the alarm ends.
+    // The lava comes up all the time, and the crater with it: see the top of this file.
     this.phaseLeft = Math.max(0, this.phaseLeft - dt);
     const progress = 1 - this.phaseLeft / this.phaseTotal;
-    const goal = this.phase === 'flood' ? LEVEL.flood : this.phase === 'alarm' ? LEVEL.calm + (LEVEL.alarm - LEVEL.calm) * progress : LEVEL.calm;
-    this.level += (goal - this.level) * (1 - Math.exp(-(this.phase === 'alarm' ? 30 : 9) * dt));
-    this.sea.position.y = this.level - 0.2;
-    if (this.afloat) this.afloat.position.y = this.level;
+    if (rules) this.level += (rules.level - this.level) * (1 - Math.exp(-12 * dt));
+    this.rising.position.y = this.level - SEA;
 
     // The crater shakes harder as the alarm runs out, and settles slowly once the lava is up.
     const wanted = this.phase === 'alarm' ? 0.25 + 0.75 * progress : this.phase === 'flood' ? 0.55 : 0;
@@ -322,7 +342,37 @@ export class LavaMap implements MapView {
     this.model.update(dt);
   }
 
+  /** A piece on its way: itself, out of sight in the sky; its leg, for when it is down; and the gold outline of where it will land. */
+  private raise(piece: Furniture): PieceView {
+    const base = piece.top - tuning.lava.height;
+    const turn = piece.turned ? Math.PI / 2 : 0;
+    const view = this.model.part(piece.kind);
+    const leg = this.model.part(`${piece.kind}_leg`);
+    view.rotation.y = leg.rotation.y = turn;
+    view.visible = leg.visible = false;
+    leg.position.set(piece.x, base, piece.z);
+    // Four bars round its top's rectangle, lying where its foot will be.
+    const half = furnitureReach(piece);
+    const mark = new Group();
+    for (const [x, z, width, depth] of [
+      [0, -half.z, half.x * 2 + FURNITURE.line, FURNITURE.line],
+      [0, half.z, half.x * 2 + FURNITURE.line, FURNITURE.line],
+      [-half.x, 0, FURNITURE.line, half.z * 2 + FURNITURE.line],
+      [half.x, 0, FURNITURE.line, half.z * 2 + FURNITURE.line],
+    ] as const) {
+      const bar = new Mesh(this.bar, this.gold);
+      bar.position.set(x, 0, z);
+      bar.scale.set(width, 1, depth);
+      mark.add(bar);
+    }
+    mark.position.set(piece.x, base + 0.04, piece.z);
+    this.group.add(leg, view, mark);
+    return { id: piece.id, view, leg, mark, x: piece.x, z: piece.z, base, at: piece.at, landed: piece.landed ? FURNITURE.settle : null };
+  }
+
   dispose(): void {
+    this.bar.dispose();
+    this.gold.dispose();
     this.sea.geometry.dispose();
     (this.sea.material as MeshBasicMaterial).dispose();
     this.tiles.dispose();
@@ -375,7 +425,7 @@ export class LavaMap implements MapView {
       if (raft.x > CURRENT.to) raft.x = CURRENT.from;
       const shown = backOut(clamp01((raft.x - CURRENT.from) / 0.7)) * clamp01((CURRENT.to - raft.x) / 0.5);
       // It rides the lava, rocking a little, long side on to the current: the strip is too narrow for it to turn in.
-      raft.view.position.set(raft.x, this.level + Math.sin(time * 1.9 + raft.phase) * 0.04, CURRENT.z + Math.sin(index * 4.3) * 0.12);
+      raft.view.position.set(raft.x, SEA + Math.sin(time * 1.9 + raft.phase) * 0.04, CURRENT.z + Math.sin(index * 4.3) * 0.12);
       raft.view.rotation.y = Math.sin(time * 0.7 + raft.phase) * 0.14;
       raft.view.scale.setScalar(Math.max(0.001, shown));
     });
@@ -393,6 +443,16 @@ export class LavaMap implements MapView {
 
   /** An open spot in the lava between `least` and `most` metres from the slab with nothing else up near it, or null. */
   private vent(least: number, most = Infinity): Vent | null {
+    // Once the slab is under, the lava over it is open too: half the time, somewhere there that is clear of the pile.
+    // (Not far from it: with the slab gone the pile is all there is in the picture, and a sea that does nothing round it is a flat colour.)
+    if (this.level > 0.15 && most === Infinity && Math.random() < 0.5) {
+      for (let tries = 0; tries < 6; tries++) {
+        const x = this.eye.x + random(-7, 7);
+        const z = this.eye.z + random(-6, 5);
+        const clear = this.pieces.every(piece => Math.hypot(piece.x - x, piece.z - z) > 2.6 + least * 0.5);
+        if (clear && Math.abs(x) < COLUMNS / 2 && Math.abs(z) < ROWS / 2) return { x: x / FIT.x, z: z / FIT.z, off: 3 };
+      }
+    }
     for (let tries = 0; tries < 10; tries++) {
       const vent = this.vents[Math.floor(Math.random() * this.vents.length)];
       if (!vent || vent.off < least || vent.off > most) continue;
@@ -413,7 +473,7 @@ export class LavaMap implements MapView {
         const vent = this.vent(SPOUT.clear);
         if (!vent) continue;
         const { x, z } = vent;
-        view.position.set(x, this.level, z);
+        view.position.set(x, SEA, z);
         view.rotation.y = random(0, Math.PI * 2);
         view.visible = true;
         spout.age = 0;
@@ -424,7 +484,7 @@ export class LavaMap implements MapView {
         }
       }
       spout.age += dt;
-      view.position.y = this.level;
+      view.position.y = SEA;
       // Up with a pop, a moment standing, then it drops back and thins as it goes.
       const up = backOut(Math.min(1, spout.age / SPOUT.up));
       const down = clamp01((spout.age - SPOUT.up - SPOUT.hold) / SPOUT.down);
@@ -441,14 +501,14 @@ export class LavaMap implements MapView {
         if (bubble.wait > 0) continue;
         const vent = this.vent(0);
         if (!vent) continue;
-        view.position.set(vent.x + random(-0.25, 0.25), this.level, vent.z + random(-0.25, 0.25));
+        view.position.set(vent.x + random(-0.25, 0.25), SEA, vent.z + random(-0.25, 0.25));
         view.visible = true;
         bubble.age = 0;
         bubble.life = random(0.7, 1.6) / hurry;
         bubble.size = random(0.5, 1.1);
         bubble.burst = null;
       }
-      view.position.y = this.level;
+      view.position.y = SEA;
       if (bubble.burst === null) {
         bubble.age += dt;
         // Out with a pop, then it goes on swelling until it gives.
@@ -491,7 +551,7 @@ export class LavaMap implements MapView {
       if (this.phase !== 'calm') critter.leaves = Math.min(critter.leaves, critter.age);
       const shown = backOut(clamp01(critter.age / CRITTER.up)) * (1 - clamp01((critter.age - critter.leaves) / CRITTER.down));
       // It bobs in the lava, and turns to keep the pets in sight, by the short way round.
-      view.position.set(critter.x, this.level - 0.12 + Math.sin(time * 2.3 + index * 1.7) * 0.04 - (1 - Math.min(1, shown)) * 0.4, critter.z);
+      view.position.set(critter.x, SEA - 0.12 + Math.sin(time * 2.3 + index * 1.7) * 0.04 - (1 - Math.min(1, shown)) * 0.4, critter.z);
       const wanted = Math.atan2(this.eye.x - critter.x * FIT.x, this.eye.z - critter.z * FIT.z);
       view.rotation.y += Math.atan2(Math.sin(wanted - view.rotation.y), Math.cos(wanted - view.rotation.y)) * (1 - Math.exp(-3 * dt));
       view.scale.set(1, Math.max(0.001, shown), 1);
