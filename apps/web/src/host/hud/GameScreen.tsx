@@ -255,6 +255,13 @@ export function GameScreen() {
   };
 
   const lobbyUp = !title && inLobby;
+  // For a moment after the lobby arrives its free seats open their places in the strip; one that is freed later,
+  // by a player leaving, simply takes the place that player's card had.
+  const wasLobby = useRef(false);
+  const lobbySince = useRef(0);
+  if (lobbyUp && !wasLobby.current) lobbySince.current = performance.now();
+  wasLobby.current = lobbyUp;
+  const stripOpening = lobbyUp && performance.now() - lobbySince.current < motion.move.ms;
   // What the round paid flies from the list to the cards; a card's score waits for it before it counts up.
   const { flights, since: resultSince } = usePointFlights(phase === 'roundEnd' ? roundResult : null, screen);
   const paidAt = (seat: number) => {
@@ -526,10 +533,17 @@ export function GameScreen() {
 
       <Presence show={!title}>
         {() => (
-          <div ref={strip} className="seat-strip">
-            {(inLobby ? seatTokens.map((_, index) => index) : players.map(player => player.seat)).map(seat => (
-              <SeatCard key={`${seat}-${cards.has(seat) ? 'taken' : 'free'}`} seat={seat} player={cards.get(seat)} lobby={inLobby || phase === 'matchEnd'} brawl={gameMode === 'brawl'} paidAt={paidAt(seat)} />
-            ))}
+          <div ref={strip} className={stripOpening ? 'seat-strip is-opening' : 'seat-strip'}>
+            {seatTokens.map((_, seat) =>
+              cards.has(seat) ? (
+                <SeatCard key={`${seat}-taken`} seat={seat} player={cards.get(seat)} lobby={inLobby || phase === 'matchEnd'} brawl={gameMode === 'brawl'} paidAt={paidAt(seat)} />
+              ) : (
+                // A seat nobody took is shown in the lobby only. As a match starts its place closes, and the cards of those playing slide together.
+                <Presence key={`${seat}-free`} show={inLobby} ms={motion.move.ms}>
+                  {() => <SeatCard seat={seat} player={undefined} lobby brawl={false} paidAt={null} />}
+                </Presence>
+              ),
+            )}
           </div>
         )}
       </Presence>
@@ -603,9 +617,10 @@ function Score({ value, at }: { value: number; at: number | null }) {
 }
 
 /** One player in the strip along the bottom: who they are, their score, luck and current power. `paidAt` is when what the round paid them reaches the card, as a round ends. */
-function SeatCard({ seat, player, lobby, brawl, paidAt }: { seat: number; player: PlayerCard | undefined; lobby: boolean; brawl: boolean; paidAt: number | null }) {
+function SeatCard({ seat, player, lobby, brawl, paidAt, className = '' }: { seat: number; player: PlayerCard | undefined; lobby: boolean; brawl: boolean; paidAt: number | null; className?: string }) {
   const token = seatTokens[seat % seatTokens.length]!;
-  const classes = ['seat-card', 'sticker'];
+  // `className` is how `Presence` marks a free seat as leaving.
+  const classes = ['seat-card', 'sticker', className];
   if (!player) classes.push('is-free');
   if (player && !player.connected) classes.push('is-away');
   if (player?.ghost) classes.push('is-ghost');

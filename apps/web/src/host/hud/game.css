@@ -38,7 +38,14 @@
   justify-content: flex-start;
   gap: calc(22 * var(--u));
   padding-top: calc(64 * var(--u));
-  background: radial-gradient(circle, transparent 40%, color-mix(in srgb, var(--ink) 58%, transparent));
+  background: radial-gradient(circle, transparent var(--title-hole), color-mix(in srgb, var(--ink) 58%, transparent));
+}
+
+/* How far out from the middle the title's dark edge begins. A number the browser can animate, so the edge can open out. */
+@property --title-hole {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 40%;
 }
 
 .title-logo {
@@ -270,10 +277,15 @@
   font: 800 calc(28 * var(--u)) / 1 var(--font-text);
 }
 
-/* On the way out the letters fly apart, each in its own direction. */
+/* On the way out the letters fly apart, each in its own direction, and the dark edge opens out past the corners of the screen: it does not cut. */
 .title-screen.is-leaving {
-  animation: none !important;
-  background: none;
+  animation: title-open var(--title-fly) ease-in both !important;
+}
+
+@keyframes title-open {
+  to {
+    --title-hole: 160%;
+  }
 }
 
 .title-screen.is-leaving .title-letter {
@@ -1253,6 +1265,11 @@
   display: none;
 }
 
+/* The lobby's prompt stands where the main menu was: it waits for the menu to have squished out, so one is not read through the other. */
+.title-screen.is-leaving ~ .start-prompt {
+  animation-delay: var(--between-swap), calc(var(--between-swap) + var(--pop-in-ms));
+}
+
 .lobby-tip {
   top: calc(36 * var(--u));
   right: calc(40 * var(--u));
@@ -1504,7 +1521,40 @@
   background: color-mix(in srgb, var(--cream) 70%, transparent);
   box-shadow: none;
   color: color-mix(in srgb, var(--ink) 55%, transparent);
-  animation: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* As the lobby arrives the free seats open their places in the strip, so the cards already there slide apart. */
+.seat-strip.is-opening .seat-card.is-free {
+  animation:
+    pop-in var(--pop-in) both,
+    seat-open var(--move) both;
+}
+
+/* As a match starts they close them again: the seat squishes out and the cards of those playing slide together. */
+.seat-card.is-free.is-leaving {
+  animation:
+    squish-out var(--squish-out) both,
+    seat-close var(--move) both !important;
+}
+
+@keyframes seat-open {
+  from {
+    width: 0;
+    margin-right: calc(-14 * var(--u));
+    padding: 0;
+    border-width: 0;
+  }
+}
+
+@keyframes seat-close {
+  to {
+    width: 0;
+    margin-right: calc(-14 * var(--u));
+    padding: 0;
+    border-width: 0;
+  }
 }
 
 .seat-card.is-away {
@@ -1937,5 +1987,10 @@
   /* The reel does not run: it stands on the game to come. */
   .intro-reel-strip {
     translate: calc((1 - var(--count)) * var(--cell)) 0;
+  }
+
+  /* Nothing flies from the list to the cards: the scores just count up. */
+  .points-chip {
+    display: none;
   }
 }
