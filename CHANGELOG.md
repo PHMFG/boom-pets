@@ -4,6 +4,10 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.3.0] - 2026-10-12
+
 Asked how the session with five people on 1.2.0 went, the owner said: fun, on the right track. Asked what to change, they chose one rule (O Chão é Lava should be a climb) and better animation everywhere: more impact, livelier pets, smoother transitions.
 
 ### Changed
@@ -15,10 +19,12 @@ Asked how the session with five people on 1.2.0 went, the owner said: fun, on th
 - **Pets react to the round.** A pet turns its head toward what matters: a rival at its elbow, whoever holds the bomb, a cube or a sofa coming down, the cat while it looks. It jumps when something goes off beside it, at the lava's alarm and when the floor drops next to it. Thrown, swept, bitten or blown off its feet, it gets up swaying with stars circling its head. It hops twice when it scores, crosses the line or kicks a bucket over, and hangs its head, red in the face, when the cat sends it back.
 - **Hits have more weight.** A hit that lands throws the picture the way the blow went, and its stars with it. The hardest ones (a full charge, a pet thrown onto another) hold the pose a moment longer. A hard landing stamps a ring into the floor. A pet going over the edge kicks dust off it, and its pieces fountain back up over the edge, leaving a ring in its colour so the room sees where it went. Being swept by a bar or bitten is now a blow like any other: a flash, a spin, a held pose.
 
+- **What happens between rounds is told with more care.** The roulette slows like a wheel, drifts past its pointers and drops back with a clunk; the picture it stopped on is carried onto the game's card instead of popping in twice. As a round ends, the list of places builds a row at a time, each row's points fly to that player's card and the score counts up when they land (before, the scores had already jumped). The count before a round is pinned to the middle of the screen in gold, where it can be seen in every game (in the race, 2, 1 and JÁ! used to be off the screen), and the pets bounce on their toes with it. FIM! stays under the winner's banner instead of sliding off the side. On the podium each place lands with weight, and the winner's landing throws the others into the air. The camera starts its moves gently and no longer jumps when a panel arrives. On the last round, VALE DOBRADO! is stamped onto the card.
 - **The phone's screen moves like the game does.** Nothing on the pad is cut away any more: the card between games, the word in the middle of a round, the power button, the results, all squish out, and what changes pops. When the roulette stops, the card lands again with the game's name, a button that game does not use shrinks away and A gets its new face. A power lands on its button with confetti in its colour; being knocked out jolts the whole pad in red; winning turns its border gold. The background drifts slowly, so the pad never sits dead still. No button moved or changed size.
 
 ### Fixed
 
+- The game's card and the list of a round's places sat still and then vanished; they squish out now, like everything else. Free seats in the lobby open and close, so the players' cards slide together when a match starts.
 - On the phone, A sometimes drew its "resting" ring when it was not resting, after a pet was let go of or came back.
 - When a shove or a bite reached two pets at once, it always hit the one who had joined the game first. It hits the nearest now. (Found while measuring the new lava game: seat 1 was being pushed off more than anyone.)
 
