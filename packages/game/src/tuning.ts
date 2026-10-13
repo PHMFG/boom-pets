@@ -395,9 +395,9 @@ export const lava = {
   dropFirst: 1.3,
   dropEvery: 0.55,
   /** Seconds between the last piece of a layer landing and the alarm, for the first layer; how much shorter for each layer after it; and the shortest it gets. */
-  calm: 3,
+  calm: 3.8,
   calmStep: 0.4,
-  calmMin: 1.2,
+  calmMin: 2,
   /**
    * For this many layers at the start there is a seat for every pet: the first is the one to learn on, and the
    * next two are for learning to climb, which is the game. Nobody has to be left out of them; whoever goes, fell or
@@ -406,8 +406,12 @@ export const lava = {
   spareWaves: 3,
   /** From this layer on there are two seats too few (never fewer than one seat): a room that has learnt to squeeze up is thinned all the same. */
   scarceFrom: 6,
-  /** Seconds the alarm sounds before the lava takes the layer below the newest, and seconds the screen says so after it has. */
-  alarm: 3,
+  /**
+   * Seconds the alarm sounds before the lava takes the layer below the newest, and seconds the screen says so after
+   * it has. The alarm is short: the lava is seen coming all the time now, a layer lasts six to eight seconds, and
+   * a siren for three of them was a siren for half the round.
+   */
+  alarm: 2.2,
   flood: 1.2,
   /** A's shove: a short lunge that pushes whoever it touches, then a rest, longer after a miss. Off the edge of a piece it is a fall to the layer below, or into the lava. */
   shoveSpeed: 9,
