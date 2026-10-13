@@ -219,7 +219,7 @@ export class PetView {
   /** A fright: it jumps on the spot, drawn up tall, and rears back. `strength` is 0 to 1. */
   startle(strength = 1): void {
     if (!this.steady) return;
-    if (this.hop === 0) this.hopSpeed = 3.6 * strength;
+    if (this.hop === 0) this.hopSpeed = 4.6 * strength;
     this.squat.speed += 5 * strength;
     this.forward.speed -= 4 * strength;
   }
@@ -337,8 +337,8 @@ export class PetView {
     // Knocked through the air or falling: tumble end over end.
     if ((knocked && airborne) || pet.falling) this.tumble += dt * (pet.falling ? 9 : 6);
     else this.tumble *= Math.exp(-9 * dt);
-    // Dizzy: the whole pet sways round in a circle.
-    const sway = this.swaying * DAZE.sway;
+    // Dizzy: the whole pet sways round in a circle, half as far with "less shake" on.
+    const sway = this.swaying * DAZE.sway * (context.gentle ? 0.5 : 1);
     this.lean.rotation.set(leanForward + this.tumble + Math.sin(time * DAZE.turn) * sway, 0, this.leanSide + Math.cos(time * DAZE.turn) * sway);
 
     // Squash and stretch, keeping volume: shorter means wider.

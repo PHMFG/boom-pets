@@ -385,8 +385,8 @@ export class GameStage {
       }
       case 'eat': {
         const view = this.pets.get(event.pet);
-        // A gulp: a small one for a small thing, a hop for a slice of melon.
-        if (event.kind !== 'pepper') view?.bounce(event.kind === 'melon' ? 0.8 : 0.45);
+        // A slice of melon is worth a hop. A pepper is not: it sinks, red in the face.
+        if (event.kind === 'melon') view?.bounce(0.8);
         if (event.kind !== 'pepper') return;
         view?.slump();
         view?.emote(FACES.pepper, FEEL.fright);
