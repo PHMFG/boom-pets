@@ -51,6 +51,17 @@ body {
   animation-delay: calc(var(--stagger) * 2);
 }
 
+/* Joined: the form squishes out over the pad, which is already being built under it. */
+.join.is-leaving {
+  position: relative;
+  z-index: 9;
+  pointer-events: none;
+}
+
+.join.is-leaving > * {
+  animation: squish-out var(--squish-out) both;
+}
+
 .join-brand {
   margin: 0 0 6px;
   color: var(--gold);
@@ -140,7 +151,8 @@ body {
 /* ── Pad ────────────────────────────────────────────────────────────────── */
 
 .pad {
-  --seat: var(--tier-common);
+  /* Until the game has given this phone a seat the pad is ink, like the join page it came from: the seat's colour then comes up out of the dark. */
+  --seat: var(--ink);
   /* Where B sits. The lobby panel reads these to stay clear of it. */
   --b-right: min(47vmin, 222px);
   --b-size: min(26vmin, 124px);
@@ -153,7 +165,7 @@ body {
   width: 100vw;
   height: 100dvh;
   overflow: hidden;
-  background: var(--pattern, none) 0 0 / 64px 64px, var(--seat);
+  background: var(--seat);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -178,8 +190,67 @@ body {
   pointer-events: none;
 }
 
+/* The pulse is as big as what happened. A tap is a thin line; a hit is the full border and a small jolt;
+   a knockout is thicker, in the danger colour, and jolts the whole pad; a win is gold. */
 .pad.is-buzz::after {
   animation: buzz var(--buzz) ease-out;
+}
+
+.pad[data-buzz='tap']::after {
+  --buzz-size: 2.4vmin;
+}
+
+.pad[data-buzz='boom']::after {
+  --buzz-size: 8vmin;
+
+  border-color: var(--danger);
+}
+
+.pad[data-buzz='win']::after {
+  --buzz-size: 6.5vmin;
+
+  border-color: var(--gold);
+}
+
+.pad[data-buzz='hit'].is-buzz,
+.pad[data-buzz='boom'].is-buzz {
+  --jolt: 1.4vmin;
+
+  animation: jolt var(--buzz) ease-out;
+}
+
+.pad[data-buzz='boom'].is-buzz {
+  --jolt: 3.4vmin;
+}
+
+/* The seat's shape as a faint pattern, sliding by one tile and starting over, so the join is never seen.
+   It is a layer of its own and only ever moves, which costs a phone next to nothing. */
+.pad-pattern {
+  position: absolute;
+  inset: 0 -64px -64px 0;
+  background: var(--pattern, none) 0 0 / 64px 64px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--move);
+  animation: drift var(--pad-drift) linear infinite;
+}
+
+.pad.is-seated .pad-pattern {
+  opacity: 1;
+}
+
+/* As the pad is built its own pieces pop in, one after another. */
+.pad.is-fresh .pad-strip,
+.pad.is-fresh .pad-button {
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad.is-fresh .pad-b {
+  animation-delay: var(--stagger);
+}
+
+.pad.is-fresh .pad-a {
+  animation-delay: calc(var(--stagger) * 2);
 }
 
 .pad-strip {
@@ -198,10 +269,12 @@ body {
   pointer-events: none;
 }
 
+/* The seat's shape breathes: it is the one thing on the strip that is the player. */
 .pad-shape {
   display: flex;
   width: 6vmin;
   height: 6vmin;
+  animation: breathe var(--breathe) ease-in-out infinite alternate;
 }
 
 .pad-banner {
@@ -235,7 +308,9 @@ body {
   border-radius: 50%;
   pointer-events: none;
   transition: scale var(--squish-out);
-  animation: breathe var(--nudge) ease-in-out infinite alternate;
+  animation:
+    pop-in var(--pop-in) both,
+    breathe var(--nudge) ease-in-out infinite alternate;
 }
 
 .stick-ghost::before {
@@ -313,9 +388,12 @@ body {
   color: var(--ink);
   line-height: 1;
   pointer-events: none;
+  /* A button a game brings back pops in. */
   transition:
     transform var(--punch),
-    box-shadow var(--punch);
+    box-shadow var(--punch),
+    opacity var(--move),
+    scale var(--pop-in);
 }
 
 .pad-button.is-down {
@@ -391,6 +469,7 @@ body {
   line-height: 1.1;
   white-space: nowrap;
   translate: -50% 0;
+  animation: pop-in var(--pop-in) both;
 }
 
 .pad-does:empty {
@@ -402,10 +481,15 @@ body {
   display: none;
 }
 
-/* A button the game does not use is not drawn, but keeps its place, so the other one does not move. */
+/* A button the game does not use is not drawn, but keeps its place, so the other one does not move.
+   It squishes out when a game without it arrives and pops back in with the next game that has it. Nothing
+   is taken from under a finger: the pad itself takes every touch, and a button is only ever a picture.
+   (Shrunk to nothing, not hidden: with `visibility` waiting on the shrink, a button that came back kept
+   its letter hidden in Chromium, an A with nothing on it.) */
 .pad[data-a='off'] .pad-a,
 .pad[data-b='off'] .pad-b {
-  visibility: hidden;
+  scale: 0;
+  transition: scale var(--squish-out);
 }
 
 /* Between games: the next game, over the middle of the pad. Touches pass through it. */
@@ -431,9 +515,11 @@ body {
   animation: pop-in var(--pop-in) both;
 }
 
+/* The picture rocks while the card is up: the card is waiting for something, and should look it. */
 .pad-next-icon {
   font-size: 20vmin;
   line-height: 1.05;
+  animation: rock var(--swell) ease-in-out infinite alternate;
 }
 
 .pad-next-name {
@@ -489,9 +575,91 @@ body {
   }
 }
 
+@keyframes squish-out {
+  30% {
+    transform: scale(1.08);
+  }
+
+  to {
+    transform: scale(0);
+  }
+}
+
+/* Arrives too big, lands a little flat, and settles. */
+@keyframes slam {
+  from {
+    transform: scale(0);
+  }
+
+  45% {
+    transform: scale(1.22);
+  }
+
+  70% {
+    transform: scale(0.95);
+  }
+}
+
+@keyframes rock {
+  from {
+    rotate: -7deg;
+  }
+
+  to {
+    rotate: 7deg;
+  }
+}
+
+@keyframes drift {
+  to {
+    transform: translate(-64px, -64px);
+  }
+}
+
+/* A knock: down by `--jolt`, back up past where it was, and still. */
+@keyframes jolt {
+  20% {
+    translate: calc(var(--jolt) * -0.6) var(--jolt);
+  }
+
+  50% {
+    translate: calc(var(--jolt) * 0.4) calc(var(--jolt) * -0.5);
+  }
+
+  75% {
+    translate: 0 calc(var(--jolt) * 0.2);
+  }
+}
+
+/* One piece of confetti: out fast along its own way, turning, then slowing, sinking a little and shrinking
+   to nothing. It never fades. */
+@keyframes spark {
+  from {
+    transform: translate(0, 0) rotate(0deg) scale(0);
+  }
+
+  18% {
+    transform: translate(calc(var(--x) * var(--reach) * 0.62), calc(var(--y) * var(--reach) * 0.62)) rotate(calc(var(--spin) * 0.35)) scale(1.15);
+  }
+
+  60% {
+    transform: translate(calc(var(--x) * var(--reach) * 0.96), calc(var(--y) * var(--reach) * 0.96 + var(--reach) * 0.06)) rotate(calc(var(--spin) * 0.8)) scale(1);
+  }
+
+  to {
+    transform: translate(calc(var(--x) * var(--reach)), calc(var(--y) * var(--reach) + var(--reach) * 0.22)) rotate(var(--spin)) scale(0);
+  }
+}
+
+@keyframes pip {
+  50% {
+    scale: 1.7;
+  }
+}
+
 @keyframes buzz {
   from {
-    border-width: 5vmin;
+    border-width: var(--buzz-size, 5vmin);
   }
 
   to {
@@ -499,10 +667,13 @@ body {
   }
 }
 
+/* Less motion: nothing pops, drifts, jolts or flies. What says something stays: the border's pulse that
+   stands in for vibration, the overcharge warning, A's gauge and its resting ring. */
 @media (prefers-reduced-motion: reduce) {
   .join > *,
-  .pad-banner {
-    animation: none;
+  .pad,
+  .pad *:not(.pad-cooldown) {
+    animation: none !important;
   }
 }
 
@@ -526,8 +697,14 @@ body {
   background: var(--white);
 }
 
+/* A pip that fills swells as it does: another roll toward the SUPER. */
 .pad-pip.is-on {
   background: var(--gold);
+  animation: pip var(--pop-in);
+}
+
+.pad-crown {
+  animation: pop-in var(--pop-in) both;
 }
 
 /* Luck pips only matter during a match. */
@@ -548,31 +725,41 @@ body {
   line-height: 1;
 }
 
-.is-tapped {
-  animation: tap var(--punch) 2 alternate;
-}
-
 /* Lobby: the pet picker and the ready button sit top centre, clear of both thumbs. On a short pad
    (a browser with its bars showing) centre would put them under B, so they slide left of it. */
 .pad-lobby {
   position: absolute;
   top: 18vmin;
   left: min(50%, 100% - var(--b-right) - var(--b-size) - 41vmin);
-  display: none;
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4vmin;
   translate: -50% 0;
 }
 
-.pad[data-screen='lobby'] .pad-lobby {
-  display: flex;
-}
-
 .pad-picker {
   display: flex;
   align-items: center;
   gap: 3vmin;
+}
+
+/* The panel arrives a piece at a time: the pet between its arrows, then the button under them. */
+.pad-picker > *,
+.pad-ready {
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad-pet {
+  animation-delay: var(--stagger);
+}
+
+.pad-picker > :last-child {
+  animation-delay: calc(var(--stagger) * 2);
+}
+
+.pad-lobby > .pad-ready {
+  animation-delay: calc(var(--stagger) * 3);
 }
 
 .pad-arrow {
@@ -600,6 +787,11 @@ body {
   background: var(--gold);
   font-size: 7.4vmin;
   white-space: nowrap;
+  /* Said and unsaid, it goes down and comes up like any button, and changes colour on the way. */
+  transition:
+    transform var(--punch),
+    box-shadow var(--punch),
+    background-color var(--punch);
 }
 
 .pad-ready.is-on {
@@ -608,7 +800,7 @@ body {
   box-shadow: 0 2px 0 var(--ink);
 }
 
-/* Emotes: a corner button that fans out four. */
+/* Emotes: a corner button that fans out four, one after another, nearest first. */
 .pad-tray {
   position: absolute;
   top: 4vmin;
@@ -616,6 +808,7 @@ body {
   display: flex;
   flex-direction: row-reverse;
   gap: 2vmin;
+  animation: pop-in var(--pop-in) both;
 }
 
 .pad-emote {
@@ -626,17 +819,19 @@ body {
 }
 
 .pad-emote:not(.is-toggle) {
-  display: none;
-}
-
-.pad-tray.is-open .pad-emote:not(.is-toggle) {
-  display: grid;
   animation: pop-in var(--pop-in) both;
 }
 
-.pad[data-screen='results'] .pad-tray,
-.pad[data-screen='wait'] .pad-tray {
-  display: none;
+.pad-emote:nth-child(3) {
+  animation-delay: var(--stagger);
+}
+
+.pad-emote:nth-child(4) {
+  animation-delay: calc(var(--stagger) * 2);
+}
+
+.pad-emote:nth-child(5) {
+  animation-delay: calc(var(--stagger) * 3);
 }
 
 /* ── Modes ──────────────────────────────────────────────────────────────── */
@@ -695,10 +890,8 @@ body {
   transition:
     transform var(--punch),
     box-shadow var(--punch);
-}
-
-.pad-use.is-new {
-  animation: pop-in var(--pop-in) both;
+  /* It lands: bigger than a pop, because a power in the hand is the best news a round has. */
+  animation: slam var(--pad-slam) ease-out both;
 }
 
 .pad-use.is-down {
@@ -724,6 +917,8 @@ body {
   white-space: nowrap;
   translate: -50% 0;
   pointer-events: none;
+  /* The tag follows its button in. */
+  animation: pop-in var(--pop-in) var(--pop-in-ms) both;
 }
 
 /* What the power does: the one waiting on the button, or the one running now. It sits under the row
@@ -745,6 +940,7 @@ body {
   text-align: center;
   translate: -50% 0;
   pointer-events: none;
+  transition: background-color var(--move);
   animation: pop-in var(--pop-in) both;
 }
 
@@ -765,13 +961,9 @@ body {
   line-height: 1.15;
 }
 
-/* A banner (the connection, or "mash!" while carried) matters more and takes the middle. */
-.pad-banner:not([hidden]) ~ .pad-card {
-  display: none;
-}
-
-/* Carried: a loud instruction, and the buttons shake until the player mashes free. */
-.pad[data-mode='carried'] .pad-banner {
+/* Carried: a loud instruction, and the buttons shake until the player mashes free. It keeps this dress
+   while it squishes out, after the pet is free. */
+.pad-banner[data-kind='mash'] {
   top: 22vmin;
   background: var(--danger);
   color: var(--white);
@@ -798,16 +990,21 @@ body {
 .pad-results {
   position: absolute;
   inset: 0;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.pad[data-mode='lever'] .pad-lever,
-.pad[data-mode='jinx'] .pad-jinx,
-.pad[data-screen='results'] .pad-results {
-  display: flex;
+.pad-lever,
+.pad-jinx {
   animation: pop-in var(--pop-in) both;
+}
+
+/* On its way out a cover lets touches through to the pad under it: a thumb that lands then is already steering. */
+.pad-lever.is-leaving,
+.pad-jinx.is-leaving,
+.pad-results.is-leaving {
+  pointer-events: none;
 }
 
 .pad-lever {
@@ -854,17 +1051,42 @@ body {
   line-height: 1;
   -webkit-text-stroke: 3vmin var(--ink);
   paint-order: stroke fill;
-  animation: breathe var(--nudge) ease-in-out infinite alternate;
 }
 
-.pad-jinx.is-tapped {
-  animation: jinx var(--punch) ease-out;
-}
-
+/* The results: the sheet grows over the pad, and then what it says arrives a piece at a time, top first.
+   The place lands hardest; the button to play again comes last, when there is something to have read. */
 .pad-results {
   flex-direction: column;
   gap: 2.5vmin;
   background: var(--seat);
+  animation: pop-in var(--pop-in) both;
+}
+
+.pad-results > * {
+  animation: pop-in var(--pop-in) calc(var(--stagger) * 2) both;
+}
+
+.pad-results > .pad-won,
+.pad-results > .pad-place {
+  animation-name: slam;
+  animation-duration: var(--pad-slam);
+  animation-timing-function: ease-out;
+}
+
+.pad-results > .pad-place {
+  animation-delay: calc(var(--stagger) * 3);
+}
+
+.pad-results > .pad-award-icon {
+  animation-delay: calc(var(--stagger) * 6);
+}
+
+.pad-results > .pad-award {
+  animation-delay: calc(var(--stagger) * 8);
+}
+
+.pad-results > .pad-ready {
+  animation-delay: calc(var(--stagger) * 10);
 }
 
 /* The winner's phone is gold. */
@@ -900,22 +1122,76 @@ body {
   text-align: center;
 }
 
-@keyframes tap {
-  to {
-    scale: 0.88;
-  }
+/* Confetti. The burst is a point, and each piece knows its own way out of it (`--x`, `--y`, `--spin`, set as
+   the pad is built): the middle of the pad for a win, the power button for a new power, in that power's colour.
+   At rest a piece has no size, so nothing is drawn. */
+.pad-burst {
+  --reach: 48vmin;
+
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  /* Over the pad and its word, under the card between games: a champion's confetti comes out from behind the card. */
+  z-index: 2;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* A power's pieces come out from behind its button, so the button's picture is never covered. */
+.pad-burst[data-from='power'] {
+  --reach: 26vmin;
+
+  top: auto;
+  z-index: -1;
+  right: calc(7vmin + var(--a-size) / 2);
+  bottom: calc(9vmin + var(--a-size) + 5vmin + var(--use-size) / 2);
+  left: auto;
+}
+
+.pad-spark {
+  position: absolute;
+  width: 4.6vmin;
+  aspect-ratio: 1;
+  margin: -2.3vmin;
+  border: 3px solid var(--ink);
+  border-radius: 1vmin;
+  background: var(--gold);
+  transform: scale(0);
+}
+
+.pad-spark:nth-child(even) {
+  border-radius: 50%;
+  background: var(--white);
+}
+
+.pad-burst[data-from='power'] .pad-spark:nth-child(odd) {
+  background: var(--tier, var(--gold));
+}
+
+.pad-burst.is-on .pad-spark {
+  animation: spark var(--pad-burst) linear both;
+}
+
+.pad-burst.is-on .pad-spark:nth-child(3n) {
+  animation-delay: var(--stagger);
+}
+
+/* What takes the place of something still on its way out waits for it to be gone, so the two are never up
+   together: the word that follows a card, the first card of a match after the lobby's panel. */
+.pad .is-late {
+  animation-delay: var(--squish-out-ms);
+}
+
+/* Whatever leaves the pad swells a little and shrinks to nothing; `present` in pad.ts stops drawing it
+   afterwards. Last in the file, so it wins over any rule that popped the thing in. */
+.pad .is-leaving {
+  animation: squish-out var(--squish-out) both;
 }
 
 @keyframes breathe {
   to {
     scale: 1.07;
-  }
-}
-
-@keyframes jinx {
-  from {
-    scale: 1.25;
-    rotate: var(--tilt, 6deg);
   }
 }
 
