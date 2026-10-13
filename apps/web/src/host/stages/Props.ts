@@ -406,6 +406,11 @@ type Popup = { word: Word3D; left: number; rise: number; leaving: number; pinned
  * front of everything that stands on the floor, and never through it.
  */
 const PIN_DEPTH = 0.8;
+/**
+ * A pinned word leans back a little, so the ink of its underside shows below every letter: the hard shadow,
+ * straight down, that every sticker in the game has. Seen dead on it would be a flat shape with no edge.
+ */
+const PIN_LEAN = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.38);
 
 /** Big 3D words that slam in, hang for a moment, and squish out. They always face the camera. */
 export class Words {
@@ -462,7 +467,7 @@ export class Words {
       const depth = (camera.position.y / Math.max(0.2, -this.ahead.y)) * PIN_DEPTH;
       const high = 2 * depth * Math.tan(MathUtils.degToRad(camera.fov / 2));
       this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
-      popup.word.group.quaternion.copy(camera.quaternion);
+      popup.word.group.quaternion.copy(camera.quaternion).multiply(PIN_LEAN);
       popup.word.group.position.copy(camera.position).addScaledVector(this.ahead, depth).addScaledVector(this.up, popup.pinned.lift * high);
       popup.word.group.scale.setScalar(popup.pinned.size * high * this.leaving(popup));
     }

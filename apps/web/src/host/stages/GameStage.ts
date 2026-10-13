@@ -81,6 +81,12 @@ const PODIUM_SHOT = { x: 0, y: 2.4, z: 0.4 };
  * hops at the word, which is when they are steered.
  */
 const COUNT = { sizes: [0.27, 0.3, 0.26, 0.22], lift: -0.1, seconds: 0.55, nod: 0.1, hops: [0, 1.1, 0.9, 0.75] };
+/**
+ * The word that ends a round, pinned to the picture like the count that began it: how tall it is as a share of the
+ * picture's height, how far over the middle its foot is (under the banner that names the winner, over the winner's
+ * head), and how long it stays.
+ */
+const ROUND_OVER = { size: 0.19, lift: 0.05, seconds: 1.1 };
 /** While the drums roll: how far off the camera settles, and how much farther back it starts as the curtain opens. */
 const PODIUM_DRUMS = { distance: 17, back: 5 };
 /**
@@ -752,7 +758,12 @@ export class GameStage {
     }
     this.renderer.setSaturation(0);
     if (phase === 'roundEnd') {
-      this.popWord(strings.words3d.roundOver, 0, 4.4, 0, 2.6, colors.cream);
+      // Pinned to the picture: the camera is about to leave for the winner, and a word stood on the middle of the
+      // map slid off the side of the screen as it went. Like any big word, never straight after another.
+      if (this.time - this.lastWord >= 0.9) {
+        this.lastWord = this.time;
+        this.words.pinned(strings.words3d.roundOver, { size: ROUND_OVER.size, lift: ROUND_OVER.lift, color: colors.cream, seconds: ROUND_OVER.seconds });
+      }
       // The winner is found through the round, not among the pets drawn so far: one that came back into the round
       // this very moment (a ghost's swap) is the winner before it has been drawn once.
       const seat = [...this.winners][0];
