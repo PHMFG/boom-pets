@@ -2028,4 +2028,10 @@
   .points-chip {
     display: none;
   }
+
+  /* The title's dark edge does not open out: it is gone at once, as it was. */
+  .title-screen.is-leaving {
+    background: none;
+    animation: none !important;
+  }
 }

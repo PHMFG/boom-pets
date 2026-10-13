@@ -39,7 +39,7 @@ import { LavaMap } from './maps/LavaMap';
 import { PaintMap } from './maps/PaintMap';
 import { PotatoMap } from './maps/PotatoMap';
 import { RaceMap } from './maps/RaceMap';
-import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words, type Landing } from './Props';
+import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words, type Area, type Landing } from './Props';
 
 const HALF = tuning.arena.size / 2;
 /**
@@ -329,8 +329,11 @@ export class GameStage {
       case 'countdown': {
         // Pinned to the middle of the picture, not stood on the middle of the map: a race lines its pets up at one
         // end of its track, and the camera goes there with them, leaving the count behind. In gold, like the word
-        // that ends it: a cream number over a pale floor could hardly be seen.
-        this.words.pinned(event.n === 0 ? strings.words3d.go : String(event.n), { size: COUNT.sizes[event.n] ?? COUNT.sizes[0]!, lift: COUNT.lift, color: colors.gold, seconds: COUNT.seconds });
+        // that ends it: a cream number over a pale floor could hardly be seen. Once the camera has come to rest (the
+        // first number is up while it is still on its way) the count steps aside for a pet it would stand on:
+        // this is when everyone is finding their own.
+        const settled = event.n < tuning.match.countdown;
+        this.words.pinned(event.n === 0 ? strings.words3d.go : String(event.n), { size: COUNT.sizes[event.n] ?? COUNT.sizes[0]!, lift: COUNT.lift, color: colors.gold, seconds: COUNT.seconds, dodge: settled ? area => this.covered(area, game) : undefined });
         // The camera nods at each number and punches in at the word. With "less shake" on, only the word moves it.
         if (event.n === 0) this.rig.punchIn(0.5);
         else if (this.rig.shakeScale === 1) this.rig.punchIn(COUNT.nod);
@@ -1019,6 +1022,40 @@ export class GameStage {
     }
     // A seat with nothing on screen (between a fall and coming back) has its tag parked out of sight.
     for (const seat of game.seats) if (!placed.has(seat.seat)) this.nameplates.place(seat.seat, -9999, -9999);
+  }
+
+  /**
+   * How much of the pets and their name tags something standing in that part of the picture would hide: the share
+   * of each pet's body and of each tag that would be under it, added up. The count before a round asks.
+   */
+  private covered(area: Area, game: Game): number {
+    const { width, height } = this.size;
+    const unit = height / 1080;
+    const over: Box = { left: area.left * width, right: area.right * width, top: area.top * height, bottom: area.bottom * height };
+    const screen = (x: number, y: number, z: number) => {
+      this.point.set(x, y, z).project(this.rig.camera);
+      return { x: (this.point.x * 0.5 + 0.5) * width, y: (-this.point.y * 0.5 + 0.5) * height };
+    };
+    let total = 0;
+    for (const pet of game.round.pets) {
+      const view = this.pets.get(pet.id);
+      if (!view || pet.decoy) continue;
+      // The same boxes its name tag is placed by (`placeNames` and `standTags`).
+      const { x, y, z } = view.feet;
+      const feet = screen(x, y, z);
+      const top = screen(x, y + view.height, z);
+      const head = screen(x, y + view.height + 0.15 + (this.map.headroom?.(game.round, pet.seat) ?? 0), z);
+      const half = (feet.y - top.y) * 0.8;
+      total += hidden(over, { left: feet.x - half, right: feet.x + half, top: top.y, bottom: feet.y });
+      const tag = this.nameplates.size(pet.seat);
+      const side = this.tags.get(pet.seat)?.side ?? 'above';
+      const reach = half + TAGS.gap * unit;
+      const middle = (head.y + feet.y) / 2;
+      if (side === 'above') total += hidden(over, { left: head.x - tag.width / 2, right: head.x + tag.width / 2, top: head.y - TAGS.lift * unit - tag.height, bottom: head.y - TAGS.lift * unit });
+      else if (side === 'left') total += hidden(over, { left: head.x - reach - tag.width, right: head.x - reach, top: middle - tag.height / 2, bottom: middle + tag.height / 2 });
+      else total += hidden(over, { left: head.x + reach, right: head.x + reach + tag.width, top: middle - tag.height / 2, bottom: middle + tag.height / 2 });
+    }
+    return total;
   }
 
   /**

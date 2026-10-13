@@ -5,6 +5,7 @@ import type { Barrel, Cube, GachaView, Ghost, Meteor, PowerId, Tier } from '@boo
 import { tuning } from '@boom/game';
 import {
   BackSide,
+  Box3,
   BoxGeometry,
   Color,
   CylinderGeometry,
@@ -399,7 +400,19 @@ export class GachaMachine {
 
 // ── Pop-up words ─────────────────────────────────────────────────────────────
 
-type Popup = { word: Word3D; left: number; rise: number; leaving: number; pinned: { size: number; lift: number } | null };
+/** A part of the picture: 0 is its left edge and its top, 1 its right edge and its bottom. */
+export type Area = { left: number; right: number; top: number; bottom: number };
+type Pin = {
+  size: number;
+  lift: number;
+  /** How far to one side of the middle it stands, as a share of the picture's height. Not chosen until it is first placed. */
+  shift: number | null;
+  /** Asked, for each place it could stand, how much of what matters it would hide there. */
+  dodge: ((area: Area) => number) | null;
+  /** The word's own edges round its foot, for a word one unit high. */
+  extent: Area;
+};
+type Popup = { word: Word3D; left: number; rise: number; leaving: number; pinned: Pin | null };
 
 /**
  * A word pinned to the picture hangs this share of the way from the camera to the floor it is looking at: in
@@ -411,6 +424,13 @@ const PIN_DEPTH = 0.8;
  * straight down, that every sticker in the game has. Seen dead on it would be a flat shape with no edge.
  */
 const PIN_LEAN = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.38);
+/**
+ * A pinned word that must not hide anything steps sideways until it hides no more than `fuss`: `step` at a time
+ * (a share of the picture's height), to whichever side is clear sooner, never more than `most` from the middle
+ * and never nearer than `edge` (a share of the picture's width) to the side of the picture. It starts from
+ * where the word before it stood, so a count stays in one place and does not hop about.
+ */
+const PIN_DODGE = { step: 0.05, most: 0.75, fuss: 0.1, edge: 0.02 } as const;
 
 /** Big 3D words that slam in, hang for a moment, and squish out. They always face the camera. */
 export class Words {
@@ -418,6 +438,11 @@ export class Words {
   private readonly popups: Popup[] = [];
   private readonly ahead = new Vector3();
   private readonly up = new Vector3();
+  private readonly across = new Vector3();
+  private readonly spot = new Vector3();
+  private readonly edges = new Box3();
+  /** Where the last word that stepped aside stood: the next one starts looking from there. */
+  private stood = 0;
 
   pop(text: string, x: number, y: number, z: number, options: { size: number; color: string; seconds?: number; rise?: number }): void {
     const word = new Word3D(text, { size: options.size, color: options.color });
@@ -432,14 +457,20 @@ export class Words {
    * middle of what the camera is looking at, the same size on every map and however the camera is moving, so it
    * is never out of the picture or cut by its edge. `size` is its height as a share of the picture's, and
    * `lift` how far over the middle its foot is, as the same share. Call `pin` after the camera has moved, each frame.
+   * With `dodge` it steps to one side of the middle when it would hide too much there: `dodge` says how much
+   * of what matters a word standing in that part of the picture would hide.
    */
-  pinned(text: string, options: { size: number; lift: number; color: string; seconds: number }): void {
+  pinned(text: string, options: { size: number; lift: number; color: string; seconds: number; dodge?: (area: Area) => number }): void {
     const word = new Word3D(text, { size: 1, color: options.color });
+    const { min, max } = this.edges.setFromObject(word.group);
     word.slam();
     // Out of sight until `pin` has placed it.
     word.group.scale.setScalar(0);
     this.group.add(word.group);
-    this.popups.push({ word, left: options.seconds, rise: 0, leaving: 0, pinned: { size: options.size, lift: options.lift } });
+    const pinned: Pin = { size: options.size, lift: options.lift, shift: options.dodge ? null : 0, dodge: options.dodge ?? null, extent: { left: min.x, right: max.x, top: max.y, bottom: min.y } };
+    // A word that stands in the middle whatever is there begins a new run: the next to step aside starts from the middle.
+    if (!options.dodge) this.stood = 0;
+    this.popups.push({ word, left: options.seconds, rise: 0, leaving: 0, pinned });
   }
 
   update(dt: number, camera: Camera): void {
@@ -467,8 +498,32 @@ export class Words {
       const depth = (camera.position.y / Math.max(0.2, -this.ahead.y)) * PIN_DEPTH;
       const high = 2 * depth * Math.tan(MathUtils.degToRad(camera.fov / 2));
       this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+      this.across.set(1, 0, 0).applyQuaternion(camera.quaternion);
+      const pinned = popup.pinned;
+      const place = (shift: number) => this.spot.copy(camera.position).addScaledVector(this.ahead, depth).addScaledVector(this.up, pinned.lift * high).addScaledVector(this.across, shift * high);
+      if (pinned.shift === null && pinned.dodge) {
+        // Chosen once, as the word arrives: it does not slide about after.
+        const wide = pinned.size / camera.aspect;
+        /** How much a word standing that far aside would hide, or infinity where it would leave the picture. */
+        const hides = (shift: number) => {
+          const at = place(shift).project(camera);
+          const area = { left: at.x * 0.5 + 0.5 + pinned.extent.left * wide, right: at.x * 0.5 + 0.5 + pinned.extent.right * wide, top: -at.y * 0.5 + 0.5 - pinned.extent.top * pinned.size, bottom: -at.y * 0.5 + 0.5 - pinned.extent.bottom * pinned.size };
+          return Math.abs(shift) > PIN_DODGE.most || area.left < PIN_DODGE.edge || area.right > 1 - PIN_DODGE.edge ? Infinity : pinned.dodge!(area);
+        };
+        // Outward from where the last one stood, a step at a time, one side and then the other: the first clear place, or failing that the clearest.
+        let best = this.stood;
+        let least = hides(best);
+        for (let away = 1; least > PIN_DODGE.fuss && away * PIN_DODGE.step <= PIN_DODGE.most * 2; away++) {
+          for (const side of [-1, 1]) {
+            const shift = this.stood + side * away * PIN_DODGE.step;
+            const hidden = hides(shift);
+            if (hidden < least && least > PIN_DODGE.fuss) [best, least] = [shift, hidden];
+          }
+        }
+        pinned.shift = this.stood = best;
+      }
       popup.word.group.quaternion.copy(camera.quaternion).multiply(PIN_LEAN);
-      popup.word.group.position.copy(camera.position).addScaledVector(this.ahead, depth).addScaledVector(this.up, popup.pinned.lift * high);
+      popup.word.group.position.copy(place(pinned.shift ?? 0));
       popup.word.group.scale.setScalar(popup.pinned.size * high * this.leaving(popup));
     }
   }
