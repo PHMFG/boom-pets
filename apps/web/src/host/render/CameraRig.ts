@@ -19,7 +19,7 @@ const FOLLOW = 3.2;
 /** How fast it tips down to a hero's eye level and back up. */
 const TIP = 2.6;
 /** A hit's jolt: how hard the picture is thrown the way the hit went (metres a second for a jolt of 1), and the spring that brings it back. */
-const JOLT = { throw: 7, stiffness: 150, damping: 14, most: 0.6 };
+const JOLT = { throw: 14, stiffness: 150, damping: 14, most: 0.8 };
 const damp = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 
 /** A shot of one thing. `at` is asked every frame, so the thing may move. */
