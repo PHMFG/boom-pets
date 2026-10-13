@@ -48,9 +48,9 @@ export const motion = {
 
 /**
  * ── Between rounds ──────────────────────────────────────────────────────────
- * What is on the TV when no round is being played: the reel and the card, the lists of places, the podium.
- * One block, so the passage from one round to the next can be read in one place. The ones a stylesheet needs
- * are published as `--between-*` by `host/hud/GameScreen.tsx`.
+ * What the HUD shows when no round is being played: the reel and the card, the lists of places, the points
+ * that fly to the players' cards. One block, so the passage from one round to the next can be read in one
+ * place. The ones the stylesheet needs are published as `--between-*` by `host/hud/GameScreen.tsx`.
  */
 export const between = {
   /**

@@ -333,7 +333,14 @@ export class GameStage {
         // first number is up while it is still on its way) the count steps aside for a pet it would stand on:
         // this is when everyone is finding their own.
         const settled = event.n < tuning.match.countdown;
-        this.words.pinned(event.n === 0 ? strings.words3d.go : String(event.n), { size: COUNT.sizes[event.n] ?? COUNT.sizes[0]!, lift: COUNT.lift, color: colors.gold, seconds: COUNT.seconds, dodge: settled ? area => this.covered(area, game) : undefined });
+        // What must not be stood on is worked out once, when the word comes to choose its place.
+        let boxes: Box[] | null = null;
+        const dodge = (area: Area) => {
+          const { width, height } = this.size;
+          const over = { left: area.left * width, right: area.right * width, top: area.top * height, bottom: area.bottom * height };
+          return (boxes ??= this.petBoxes(game)).reduce((sum, box) => sum + hidden(over, box), 0);
+        };
+        this.words.pinned(event.n === 0 ? strings.words3d.go : String(event.n), { size: COUNT.sizes[event.n] ?? COUNT.sizes[0]!, lift: COUNT.lift, color: colors.gold, seconds: COUNT.seconds, dodge: settled ? dodge : undefined });
         // The camera nods at each number and punches in at the word. With "less shake" on, only the word moves it.
         if (event.n === 0) this.rig.punchIn(0.5);
         else if (this.rig.shakeScale === 1) this.rig.punchIn(COUNT.nod);
@@ -1025,18 +1032,17 @@ export class GameStage {
   }
 
   /**
-   * How much of the pets and their name tags something standing in that part of the picture would hide: the share
-   * of each pet's body and of each tag that would be under it, added up. The count before a round asks.
+   * Where on the screen every pet and every name tag is, in pixels: what a word put up over the round must not
+   * stand on. The count before a round asks.
    */
-  private covered(area: Area, game: Game): number {
+  private petBoxes(game: Game): Box[] {
     const { width, height } = this.size;
     const unit = height / 1080;
-    const over: Box = { left: area.left * width, right: area.right * width, top: area.top * height, bottom: area.bottom * height };
     const screen = (x: number, y: number, z: number) => {
       this.point.set(x, y, z).project(this.rig.camera);
       return { x: (this.point.x * 0.5 + 0.5) * width, y: (-this.point.y * 0.5 + 0.5) * height };
     };
-    let total = 0;
+    const boxes: Box[] = [];
     for (const pet of game.round.pets) {
       const view = this.pets.get(pet.id);
       if (!view || pet.decoy) continue;
@@ -1046,16 +1052,16 @@ export class GameStage {
       const top = screen(x, y + view.height, z);
       const head = screen(x, y + view.height + 0.15 + (this.map.headroom?.(game.round, pet.seat) ?? 0), z);
       const half = (feet.y - top.y) * 0.8;
-      total += hidden(over, { left: feet.x - half, right: feet.x + half, top: top.y, bottom: feet.y });
+      boxes.push({ left: feet.x - half, right: feet.x + half, top: top.y, bottom: feet.y });
       const tag = this.nameplates.size(pet.seat);
       const side = this.tags.get(pet.seat)?.side ?? 'above';
       const reach = half + TAGS.gap * unit;
       const middle = (head.y + feet.y) / 2;
-      if (side === 'above') total += hidden(over, { left: head.x - tag.width / 2, right: head.x + tag.width / 2, top: head.y - TAGS.lift * unit - tag.height, bottom: head.y - TAGS.lift * unit });
-      else if (side === 'left') total += hidden(over, { left: head.x - reach - tag.width, right: head.x - reach, top: middle - tag.height / 2, bottom: middle + tag.height / 2 });
-      else total += hidden(over, { left: head.x + reach, right: head.x + reach + tag.width, top: middle - tag.height / 2, bottom: middle + tag.height / 2 });
+      if (side === 'above') boxes.push({ left: head.x - tag.width / 2, right: head.x + tag.width / 2, top: head.y - TAGS.lift * unit - tag.height, bottom: head.y - TAGS.lift * unit });
+      else if (side === 'left') boxes.push({ left: head.x - reach - tag.width, right: head.x - reach, top: middle - tag.height / 2, bottom: middle + tag.height / 2 });
+      else boxes.push({ left: head.x + reach, right: head.x + reach + tag.width, top: middle - tag.height / 2, bottom: middle + tag.height / 2 });
     }
-    return total;
+    return boxes;
   }
 
   /**
