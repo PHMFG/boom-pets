@@ -862,7 +862,10 @@
 .points-chip {
   position: absolute;
   z-index: 3;
-  padding: calc(4 * var(--u)) calc(16 * var(--u)) calc(6 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: calc(4 * var(--u)) calc(16 * var(--u)) calc(6 * var(--u)) calc(12 * var(--u));
   border-width: calc(4 * var(--u));
   border-bottom: calc(10 * var(--u)) solid var(--seat);
   border-radius: calc(18 * var(--u));
@@ -873,6 +876,13 @@
   animation:
     chip-fly var(--between-points-fly) both,
     chip-size var(--between-points-ms) linear both;
+}
+
+.points-shape {
+  display: flex;
+  flex: none;
+  width: calc(34 * var(--u));
+  height: calc(34 * var(--u));
 }
 
 @keyframes chip-fly {

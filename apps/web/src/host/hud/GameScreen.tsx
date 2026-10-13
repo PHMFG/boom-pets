@@ -550,11 +550,15 @@ export function GameScreen() {
         )}
       </Presence>
 
-      {flights.map(flight => (
-        <span key={flight.id} className="points-chip sticker" style={seatStyle(flight.seat, { left: `${flight.x}px`, top: `${flight.y}px`, '--dx': `${flight.dx}px`, '--dy': `${flight.dy}px` })}>
-          +{flight.points}
-        </span>
-      ))}
+      {flights.map(flight => {
+        const token = seatTokens[flight.seat % seatTokens.length]!;
+        return (
+          // Whose points they are is said twice, like everywhere: the seat's colour under them and its shape beside them.
+          <span key={flight.id} className="points-chip sticker" style={seatStyle(flight.seat, { left: `${flight.x}px`, top: `${flight.y}px`, '--dx': `${flight.dx}px`, '--dy': `${flight.dy}px` })}>
+            <span className="points-shape" dangerouslySetInnerHTML={{ __html: seatShapeSvg(token.shape, token.color) }} />+{flight.points}
+          </span>
+        );
+      })}
 
       {debug && (
         <dl className="debug-overlay">
