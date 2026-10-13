@@ -20,6 +20,8 @@ const FOLLOW = 3.2;
 const TIP = 2.6;
 /** A hit's jolt: how hard the picture is thrown the way the hit went (metres a second for a jolt of 1), and the spring that brings it back. */
 const JOLT = { throw: 14, stiffness: 150, damping: 14, most: 0.8 };
+/** Seconds the camera takes to gather speed as a shot of one thing begins, and as it leaves one for the fight: it does not start at full tilt. */
+const GATHER = 0.45;
 const damp = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 
 /** A shot of one thing. `at` is asked every frame, so the thing may move. */
@@ -56,6 +58,8 @@ export class CameraRig {
   private hold: (Shot & { left: number }) | null = null;
   private pitch = PITCH;
   private time = 0;
+  /** How far the camera has gathered speed since a shot began or ended, 0 to 1. */
+  private gathered = 1;
 
   setViewport(width: number, height: number, insets: Insets): void {
     this.size = { width, height };
@@ -91,27 +95,33 @@ export class CameraRig {
     this.hold = { at: () => ({ x, z }), distance, seconds, left: seconds, spin };
   }
 
-  /** Looks at one thing for a while, following it if it moves. */
+  /** Looks at one thing for a while, following it if it moves. The move there starts gently and gathers speed. */
   look(shot: Shot): void {
     this.hold = { ...shot, left: shot.seconds };
+    this.gathered = 0;
   }
 
   /**
    * Starts a shot already in place, with no move from wherever the camera was: for when the picture is
    * hidden (behind the curtain between worlds) and a move would only be seen as its tail end.
-   * `yaw` is the side it starts from, in radians round its subject.
+   * `yaw` is the side it starts from, in radians round its subject. `back` starts it that many metres
+   * farther off than the shot asks, so the one move left to see is a slow push in toward the subject;
+   * with "less shake" on it starts where it will stay.
    */
-  cut(shot: Shot, yaw = 0): void {
+  cut(shot: Shot, yaw = 0, back = 0): void {
     this.look(shot);
     const at = shot.at();
     this.center.set(at.x, at.y ?? 0.6, at.z);
-    this.distance = shot.distance;
+    this.distance = shot.distance + (this.shakeScale < 1 ? 0 : back);
     this.pitch = MathUtils.degToRad(shot.pitch ?? MathUtils.radToDeg(PITCH));
     this.yaw = yaw;
+    this.gathered = 1;
   }
 
-  release(): void {
+  /** Back to framing the fight. `gently` is for leaving a shot of one thing between rounds: the way back up starts slowly, like the way down did. */
+  release(gently = false): void {
     this.hold = null;
+    if (gently) this.gathered = 0;
   }
 
   /** Frames the given points on the floor. Call once per frame. */
@@ -129,6 +139,9 @@ export class CameraRig {
     }
     if (points.length === 0) minX = maxX = minZ = maxZ = 0;
 
+    this.gathered = Math.min(1, this.gathered + dt / GATHER);
+    // Slow away, then up to its usual pace.
+    const pace = this.gathered * this.gathered * (3 - 2 * this.gathered);
     let pitch = PITCH;
     if (this.hold) {
       const hold = this.hold;
@@ -138,8 +151,8 @@ export class CameraRig {
       this.goalDistance = hold.distance;
       if (hold.pitch !== undefined) pitch = MathUtils.degToRad(hold.pitch);
       // Swinging keeps to the front of the thing; circling goes all the way round it. With "less shake" on, it does neither.
-      if (this.shakeScale < 1) this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3, dt);
-      else if (hold.sway) this.yaw += (Math.sin(this.time * 0.6) * hold.sway - this.yaw) * damp(2, dt);
+      if (this.shakeScale < 1) this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3 * pace, dt);
+      else if (hold.sway) this.yaw += (Math.sin(this.time * 0.6) * hold.sway - this.yaw) * damp(2 * pace, dt);
       else this.yaw += (hold.spin ?? 0) * dt;
       if (hold.left <= 0) this.hold = null;
     } else {
@@ -163,11 +176,11 @@ export class CameraRig {
       this.goal.set((minX + maxX) / 2, 0, lookZ);
       this.goalDistance = Math.max(MIN_DISTANCE, forHeight, forWidth);
       // Unwind any circling by the shortest way round.
-      this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3, dt);
+      this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3 * pace, dt);
     }
 
-    this.center.lerp(this.goal, damp(FOLLOW, dt));
-    this.distance += (this.goalDistance - this.distance) * damp(this.goalDistance > this.distance ? ZOOM_OUT : ZOOM_IN, dt);
+    this.center.lerp(this.goal, damp(FOLLOW * pace, dt));
+    this.distance += (this.goalDistance - this.distance) * damp((this.goalDistance > this.distance ? ZOOM_OUT : ZOOM_IN) * pace, dt);
     this.punchSpeed += (-this.punch * 90 - this.punchSpeed * 11) * dt;
     this.punch += this.punchSpeed * dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.7);
@@ -182,7 +195,7 @@ export class CameraRig {
     const thrown = Math.hypot(lurch.x, lurch.z);
     const held = (thrown > JOLT.most ? JOLT.most / thrown : 1) * this.shakeScale;
 
-    this.pitch += (pitch - this.pitch) * damp(TIP, dt);
+    this.pitch += (pitch - this.pitch) * damp(TIP * pace, dt);
 
     const distance = this.distance * (1 + this.punch);
     const flat = Math.cos(this.pitch) * distance;

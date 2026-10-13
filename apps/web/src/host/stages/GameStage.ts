@@ -39,7 +39,7 @@ import { LavaMap } from './maps/LavaMap';
 import { PaintMap } from './maps/PaintMap';
 import { PotatoMap } from './maps/PotatoMap';
 import { RaceMap } from './maps/RaceMap';
-import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
+import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words, type Area, type Landing } from './Props';
 
 const HALF = tuning.arena.size / 2;
 /**
@@ -73,6 +73,27 @@ const VICTORY_WORD = { y: 5.05, z: -1.2, size: 1.1, leave: 0.4 };
 const CANNON = { x: 5.0, y: 1.5, z: 0.7 };
 /** Where the camera looks at the podium: over the winner's head, which leaves the top of the picture to the banner that names them. */
 const PODIUM_SHOT = { x: 0, y: 2.4, z: 0.4 };
+/**
+ * The count before a round, pinned to the middle of the picture: how tall the word for "go" and then 1, 2 and 3
+ * are, as a share of the picture's height (each bigger than the one before it in the count, so it builds), how
+ * far over the middle their foot is, how long each stays, and how hard the camera nods at a number (the word has
+ * its own, bigger punch). `hops` is how hard every pet bounces on its toes at 1, 2 and 3: ready, set. Nobody
+ * hops at the word, which is when they are steered.
+ */
+const COUNT = { sizes: [0.27, 0.3, 0.26, 0.22], lift: -0.1, seconds: 0.55, nod: 0.1, hops: [0, 1.1, 0.9, 0.75] };
+/**
+ * The word that ends a round, pinned to the picture like the count that began it: how tall it is as a share of the
+ * picture's height, how far over the middle its foot is (under the banner that names the winner, over the winner's
+ * head), and how long it stays.
+ */
+const ROUND_OVER = { size: 0.19, lift: 0.05, seconds: 1.1 };
+/** While the drums roll: how far off the camera settles, and how much farther back it starts as the curtain opens. */
+const PODIUM_DRUMS = { distance: 17, back: 5 };
+/**
+ * How quickly the picture slides into the room the HUD leaves it, when a panel comes or goes between rounds (the
+ * join card, the results table). It is a spring that neither jumps nor overshoots; higher is quicker.
+ */
+const INSET_PACE = 9;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 /** Seconds ahead the camera looks along a pet's path, so a pet sent flying is still in the picture where it lands. */
 const LOOK_AHEAD = 0.2;
@@ -150,9 +171,14 @@ export class GameStage {
   private starTick = 0;
   private starTicked = false;
   private asleep = new Set<number>();
+  /** The room the HUD takes: what the camera is using this frame, what it is sliding to, and how fast each side is moving. */
   private insets = { left: 0, bottom: 0, top: 0 };
+  private insetGoal = { left: 0, bottom: 0, top: 0 };
+  private insetSpeed = { left: 0, bottom: 0, top: 0 };
   /** Where each seat's name tag stands by its pet, and for how long that has been covering somebody. */
   private readonly tags = new Map<number, TagState>();
+  /** Little jumps about to be made, each after its own wait: a row of pets never moves as one. */
+  private hops: { view: PetView; wait: number; strength: number }[] = [];
   private size = { width: 1, height: 1 };
   private time = 0;
   private lastWord = -10;
@@ -223,10 +249,12 @@ export class GameStage {
     this.scene.add(this.roomWord.group);
   }
 
-  /** Pixels covered by HUD on the left, bottom and top. The action is framed in what remains. */
+  /**
+   * Pixels covered by HUD on the left, bottom and top. The action is framed in what remains. The picture slides
+   * there (`slideInsets`): a panel arriving must not make the whole world jump sideways.
+   */
   setInsets(left: number, bottom: number, top: number): void {
-    this.insets = { left, bottom, top };
-    this.fit();
+    this.insetGoal = { left, bottom, top };
   }
 
   /** The title screen: the camera circles the platform slowly while the bots brawl. */
@@ -332,10 +360,31 @@ export class GameStage {
     switch (event.t) {
       case 'phase':
         return this.onPhase(event.phase, game);
-      case 'countdown':
-        this.words.pop(event.n === 0 ? strings.words3d.go : String(event.n), 0, 3.2, 0, { size: event.n === 0 ? 3.4 : 2.8, color: event.n === 0 ? colors.gold : colors.cream, seconds: 0.55 });
+      case 'countdown': {
+        // Pinned to the middle of the picture, not stood on the middle of the map: a race lines its pets up at one
+        // end of its track, and the camera goes there with them, leaving the count behind. In gold, like the word
+        // that ends it: a cream number over a pale floor could hardly be seen. Once the camera has come to rest (the
+        // first number is up while it is still on its way) the count steps aside for a pet it would stand on:
+        // this is when everyone is finding their own.
+        const settled = event.n < tuning.match.countdown;
+        // What must not be stood on is worked out once, when the word comes to choose its place.
+        let boxes: Box[] | null = null;
+        const dodge = (area: Area) => {
+          const { width, height } = this.size;
+          const over = { left: area.left * width, right: area.right * width, top: area.top * height, bottom: area.bottom * height };
+          return (boxes ??= this.petBoxes(game)).reduce((sum, box) => sum + hidden(over, box), 0);
+        };
+        this.words.pinned(event.n === 0 ? strings.words3d.go : String(event.n), { size: COUNT.sizes[event.n] ?? COUNT.sizes[0]!, lift: COUNT.lift, color: colors.gold, seconds: COUNT.seconds, dodge: settled ? dodge : undefined });
+        // The camera nods at each number and punches in at the word. With "less shake" on, only the word moves it.
         if (event.n === 0) this.rig.punchIn(0.5);
+        else if (this.rig.shakeScale === 1) this.rig.punchIn(COUNT.nod);
+        // Every pet that is awake bounces on its toes with the number, each a moment after the one before.
+        let order = 0;
+        for (const view of this.pets.values()) {
+          if (event.n > 0 && !this.asleep.has(view.seat)) this.hops.push({ view, wait: (order++ * motion.staggerMs) / 1000, strength: COUNT.hops[event.n] ?? 0 });
+        }
         return;
+      }
       case 'roundWinner':
         this.winners = new Set(event.seats);
         return;
@@ -426,25 +475,16 @@ export class GameStage {
         this.establish();
         return;
       case 'finale': {
-        const spots = this.podium?.reveal(event.place) ?? [];
-        for (const spot of spots) {
-          this.dust(spot.x, spot.z + 1, 10);
-          this.decals.shock(spot.x, spot.z, 1.8, new Color(seatColor(spot.seat)), 0.35);
-        }
-        this.rig.shake(event.place === 1 ? 0.55 : 0.2);
+        // Whoever it is is shown now and lands on their step a moment later: the dust, the shake and the cannons wait for that (`onLanded`).
+        this.podium?.reveal(event.place);
         if (event.place !== 1) return;
-        // The winner: colour comes back, the camera closes in and circles, and both sides fire confetti.
+        // The winner: colour comes back and the camera starts to close in, as they fall into the picture.
         this.celebrating = true;
         this.renderer.setSaturation(0);
-        this.renderer.kick(0.6);
         // Far enough that two crowns, for a tie, clear the banner that names them both, and the audience stays in the picture.
         this.rig.look({ at: () => PODIUM_SHOT, distance: 13.5, seconds: 3600, pitch: 20, sway: 0.5 });
-        this.rig.punchIn(0.5);
         // The word has the top of the picture for one beat; then the banner that names the winner takes its place.
         this.words.pop(strings.words3d.victory, 0, VICTORY_WORD.y, VICTORY_WORD.z, { size: VICTORY_WORD.size, color: colors.gold, seconds: motion.victory.ms / 1000 - VICTORY_WORD.leave });
-        const palette = [...spots.map(spot => new Color(seatColor(spot.seat))), new Color(colors.gold), WHITE];
-        // Out of the two cannons' mouths.
-        for (const side of [-1, 1]) this.confetti(side * CANNON.x, CANNON.y, CANNON.z, palette, 70);
         return;
       }
       case 'dash': {
@@ -726,6 +766,11 @@ export class GameStage {
       view.update(pet, context);
       this.petExtras(pet, view, worldDt, context.winner);
     }
+    this.hops = this.hops.filter(hop => {
+      hop.wait -= dt;
+      if (hop.wait <= 0) hop.view.bounce(hop.strength);
+      return hop.wait > 0;
+    });
     // A pet that left without being knocked out (a seat freed, a round swapped) goes in a puff of smoke.
     for (const [id, view] of this.pets) {
       if (alive.has(id)) continue;
@@ -775,7 +820,9 @@ export class GameStage {
       }
       this.rig.focus(x * 0.8, z * 0.8, 21, Infinity, 0.16);
     }
+    this.slideInsets(dt);
     this.rig.frame(this.focusPoints(game), dt);
+    this.words.pin(this.rig.camera);
     this.mapFrames++;
     this.placeNames(game, dt);
     this.nameplates.tick(now);
@@ -934,11 +981,17 @@ export class GameStage {
       this.podium = null;
       this.celebrating = false;
       // The winner keeps the camera through the roulette: it is not sent off to frame a round that is over.
-      if (phase !== 'intro') this.rig.release();
+      // From the first look at a new world it goes back up to where the game is played from, gathering speed.
+      if (phase !== 'intro') this.rig.release(phase === 'countdown');
     }
     this.renderer.setSaturation(0);
     if (phase === 'roundEnd') {
-      this.popWord(strings.words3d.roundOver, 0, 4.4, 0, 2.6, colors.cream);
+      // Pinned to the picture: the camera is about to leave for the winner, and a word stood on the middle of the
+      // map slid off the side of the screen as it went. Like any big word, never straight after another.
+      if (this.time - this.lastWord >= 0.9) {
+        this.lastWord = this.time;
+        this.words.pinned(strings.words3d.roundOver, { size: ROUND_OVER.size, lift: ROUND_OVER.lift, color: colors.cream, seconds: ROUND_OVER.seconds });
+      }
       // The winner is found through the round, not among the pets drawn so far: one that came back into the round
       // this very moment (a ghost's swap) is the winner before it has been drawn once.
       const seat = [...this.winners][0];
@@ -961,11 +1014,14 @@ export class GameStage {
       this.words.clear();
       this.showMap(new BrawlMap(this.kit, { night: true, ripple: false }));
       this.podium = new Podium(game.standings.map(entry => ({ seat: entry.seat, model: this.modelOf(game, entry.seat), place: entry.place })));
+      this.podium.onLand = landing => this.onLanded(landing);
       this.scene.add(this.podium.group);
       if (phase === 'finale') {
         this.renderer.setSaturation(-0.6);
-        // From the front and low, like an audience: faces, not the tops of heads.
-        this.rig.look({ at: () => PODIUM_SHOT, distance: 17, seconds: 3600, pitch: 26, sway: 0.25 });
+        // From the front and low, like an audience: faces, not the tops of heads. The curtain opens on the shot
+        // already in place (the camera was with the last round's winner, somewhere else on another map), and
+        // all that moves while the drums roll is a slow push in toward the empty steps.
+        this.rig.cut({ at: () => PODIUM_SHOT, distance: PODIUM_DRUMS.distance, seconds: 3600, pitch: 26, sway: 0.25 }, 0, PODIUM_DRUMS.back);
       } else {
         this.podium.revealAll();
         this.celebrating = true;
@@ -976,6 +1032,21 @@ export class GameStage {
       this.winners.clear();
       this.showMap(this.makeMap('brawl', false, null));
     }
+  }
+
+  /** A place has landed on its step: what the landing does to the floor, the camera and, for the winner, the cannons. */
+  private onLanded({ place, spots }: Landing): void {
+    for (const spot of spots) {
+      this.dust(spot.x, spot.z + 1, place === 1 ? 18 : 10);
+      this.decals.shock(spot.x, spot.z, place === 1 ? 2.6 : 1.8, new Color(seatColor(spot.seat)), 0.35);
+    }
+    this.rig.shake(place === 1 ? 0.55 : 0.2);
+    if (place !== 1) return;
+    this.renderer.kick(0.6);
+    this.rig.punchIn(0.5);
+    // Out of the two cannons' mouths.
+    const palette = [...spots.map(spot => new Color(seatColor(spot.seat))), new Color(colors.gold), WHITE];
+    for (const side of [-1, 1]) this.confetti(side * CANNON.x, CANNON.y, CANNON.z, palette, 70);
   }
 
   /**
@@ -1204,6 +1275,39 @@ export class GameStage {
   }
 
   /**
+   * Where on the screen every pet and every name tag is, in pixels: what a word put up over the round must not
+   * stand on. The count before a round asks.
+   */
+  private petBoxes(game: Game): Box[] {
+    const { width, height } = this.size;
+    const unit = height / 1080;
+    const screen = (x: number, y: number, z: number) => {
+      this.point.set(x, y, z).project(this.rig.camera);
+      return { x: (this.point.x * 0.5 + 0.5) * width, y: (-this.point.y * 0.5 + 0.5) * height };
+    };
+    const boxes: Box[] = [];
+    for (const pet of game.round.pets) {
+      const view = this.pets.get(pet.id);
+      if (!view || pet.decoy) continue;
+      // The same boxes its name tag is placed by (`placeNames` and `standTags`).
+      const { x, y, z } = view.feet;
+      const feet = screen(x, y, z);
+      const top = screen(x, y + view.height, z);
+      const head = screen(x, y + view.height + 0.15 + (this.map.headroom?.(game.round, pet.seat) ?? 0), z);
+      const half = (feet.y - top.y) * 0.8;
+      boxes.push({ left: feet.x - half, right: feet.x + half, top: top.y, bottom: feet.y });
+      const tag = this.nameplates.size(pet.seat);
+      const side = this.tags.get(pet.seat)?.side ?? 'above';
+      const reach = half + TAGS.gap * unit;
+      const middle = (head.y + feet.y) / 2;
+      if (side === 'above') boxes.push({ left: head.x - tag.width / 2, right: head.x + tag.width / 2, top: head.y - TAGS.lift * unit - tag.height, bottom: head.y - TAGS.lift * unit });
+      else if (side === 'left') boxes.push({ left: head.x - reach - tag.width, right: head.x - reach, top: middle - tag.height / 2, bottom: middle + tag.height / 2 });
+      else boxes.push({ left: head.x + reach, right: head.x + reach + tag.width, top: middle - tag.height / 2, bottom: middle + tag.height / 2 });
+    }
+    return boxes;
+  }
+
+  /**
    * Chooses where each pet's name tag stands: over its head, or beside it when over would cover another pet (see
    * `TAGS`). A tag that would cover somebody wherever it stood keeps the best place there is and lets go of its
    * name, down to the seat's colour and shape.
@@ -1252,6 +1356,26 @@ export class GameStage {
     this.size = { width, height };
     this.renderer.setSize(width, height);
     this.rig.setViewport(width, height, this.insets);
+  }
+
+  /** Moves the room the camera frames in toward what the HUD now leaves free, each side on a spring that starts and stops softly. */
+  private slideInsets(dt: number): void {
+    let moved = false;
+    for (const side of ['left', 'bottom', 'top'] as const) {
+      const away = this.insets[side] - this.insetGoal[side];
+      if (away === 0 && this.insetSpeed[side] === 0) continue;
+      moved = true;
+      // Critically damped, and solved exactly for the frame's length, so a slow frame cannot throw it past its goal.
+      const push = (this.insetSpeed[side] + INSET_PACE * away) * dt;
+      const decay = Math.exp(-INSET_PACE * dt);
+      this.insetSpeed[side] = (this.insetSpeed[side] - INSET_PACE * push) * decay;
+      this.insets[side] = this.insetGoal[side] + (away + push) * decay;
+      if (Math.abs(this.insets[side] - this.insetGoal[side]) < 0.5 && Math.abs(this.insetSpeed[side]) < 1) {
+        this.insets[side] = this.insetGoal[side];
+        this.insetSpeed[side] = 0;
+      }
+    }
+    if (moved) this.rig.setViewport(this.size.width, this.size.height, this.insets);
   }
 
   /**
