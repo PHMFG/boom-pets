@@ -729,7 +729,8 @@ export class GameStage {
       this.podium = null;
       this.celebrating = false;
       // The winner keeps the camera through the roulette: it is not sent off to frame a round that is over.
-      if (phase !== 'intro') this.rig.release();
+      // From the first look at a new world it goes back up to where the game is played from, gathering speed.
+      if (phase !== 'intro') this.rig.release(phase === 'countdown');
     }
     this.renderer.setSaturation(0);
     if (phase === 'roundEnd') {
