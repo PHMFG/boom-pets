@@ -60,6 +60,21 @@ export const between = {
    * with what it holds.
    */
   list: { leadMs: 140, openMs: 280, openCss: 'cubic-bezier(0.16, 1, 0.3, 1)' },
-  /** The final table: its rows this far apart, and how long a row's score takes to count up. */
-  table: { staggerMs: 150, countMs: 600 },
+  /** The final table: its rows arrive this far apart. */
+  table: { staggerMs: 150 },
+  /**
+   * The roulette's reel. It runs for the simulation's `introRoulette`, and slows the way a wheel does (`css`): a
+   * blur, then pictures going by one at a time, each slower than the last. `landMs` before the card is due it is
+   * on the game to come; for `settleMs` it drifts a little past the pointers and drops back into place with a
+   * clunk; what is left of `landMs` is the reel jolting and the picture it stopped on swelling to `swell`.
+   */
+  reel: { landMs: 520, settleMs: 330, swell: 1.25, css: 'cubic-bezier(0.2, 0.75, 0.5, 0.96)' },
+  /**
+   * What a round paid, flying from a row of the list of places to that player's card: how long the flight is
+   * (slow out of the row and slow onto the card, like the curtain), and how long the card's score then takes to
+   * count up to its new number.
+   */
+  points: { flyMs: 560, countMs: 520 },
+  /** The game's card: the confetti thrown from behind it as it lands is gone after this long. */
+  card: { burstMs: 760 },
 } as const;
