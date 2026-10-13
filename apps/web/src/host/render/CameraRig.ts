@@ -43,6 +43,7 @@ export class CameraRig {
   readonly camera = new PerspectiveCamera(32, 1, 0.5, 400);
   /** 1 is full shake; "Menos tremor e brilho" lowers it. */
   shakeScale = 1;
+  private settling = false;
   private readonly center = new Vector3();
   private readonly goal = new Vector3();
   private distance = 34;
@@ -124,6 +125,14 @@ export class CameraRig {
     if (gently) this.gathered = 0;
   }
 
+  /**
+   * Puts the camera where it is going, at once, the next time it frames. For when the world has changed behind
+   * the curtain: what the curtain opens on is the new picture, not the end of the way there from the old one.
+   */
+  settle(): void {
+    this.settling = true;
+  }
+
   /** Frames the given points on the floor. Call once per frame. */
   frame(points: readonly { x: number; z: number }[], dt: number): void {
     this.time += dt;
@@ -179,6 +188,14 @@ export class CameraRig {
       this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3 * pace, dt);
     }
 
+    if (this.settling) {
+      this.settling = false;
+      this.center.copy(this.goal);
+      this.distance = this.goalDistance;
+      this.pitch = pitch;
+      if (!this.hold) this.yaw = 0;
+      this.gathered = 1;
+    }
     this.center.lerp(this.goal, damp(FOLLOW * pace, dt));
     this.distance += (this.goalDistance - this.distance) * damp((this.goalDistance > this.distance ? ZOOM_OUT : ZOOM_IN) * pace, dt);
     this.punchSpeed += (-this.punch * 90 - this.punchSpeed * 11) * dt;

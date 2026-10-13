@@ -978,12 +978,19 @@ export class GameStage {
     // The podium built for the finale stays up while the results are shown.
     const keepPodium = phase === 'matchEnd' && this.podium !== null;
     if (!keepPodium) {
+      const leavingPodium = this.podium !== null;
       this.podium?.dispose();
       this.podium = null;
       this.celebrating = false;
       // The winner keeps the camera through the roulette: it is not sent off to frame a round that is over.
       // From the first look at a new world it goes back up to where the game is played from, gathering speed.
       if (phase !== 'intro') this.rig.release(phase === 'countdown');
+      // Leaving the podium, for another match or for the lobby, happens behind the curtain: when it opens the
+      // camera is already where the next thing is watched from, not on its way up from the steps.
+      if (leavingPodium) {
+        this.rig.release();
+        this.rig.settle();
+      }
     }
     this.renderer.setSaturation(0);
     if (phase === 'roundEnd') {

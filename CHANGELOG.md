@@ -6,6 +6,16 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 Nothing yet.
 
+## [1.3.2] - 2026-10-13
+
+### Fixed
+
+- Playing again after a match, or going back to the lobby, the curtain opened while the camera was still on its way up from the podium. It is already in place when the curtain opens.
+
+### For whoever is checking
+
+- `pnpm look finale --video --rematch` (or `--lobby`) presses Enter (or Esc) on the results and films the five seconds after it: the one moment between matches that no tool could show.
+
 ## [1.3.1] - 2026-10-13
 
 Two things from the list of rough edges that went out with 1.3.0. Nothing here was reported by a player.
