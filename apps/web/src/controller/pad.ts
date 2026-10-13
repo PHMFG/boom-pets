@@ -319,6 +319,9 @@ export class Pad {
     if (status.screen !== previous?.screen || covered(status.mode) !== covered(previous?.mode)) this.releaseAll();
     else if (status.mode !== previous?.mode) this.showCharge(status.mode === 'alive' && (status.a?.charge ?? false) && this.buttons.a.classList.contains('is-down'));
     if (status.mode === 'jinx' && previous?.mode !== 'jinx') this.jinxTaps = 0;
+    // A's ring is hidden while the pet is carried or a ghost. Drawn again, a ring left from an earlier rest
+    // would run a second time, and say A is resting when it is not.
+    if (status.mode !== previous?.mode && status.cooldownMs === 0) this.buttons.a.classList.remove('is-cooling');
     // A longer wait than last time means a dash just ended or a meteor was just dropped: restart the ring.
     if (status.cooldownMs > this.cooldownMs) {
       this.buttons.a.style.setProperty('--cooldown', `${status.cooldownMs}ms`);
