@@ -614,7 +614,7 @@
 .intro-reel {
   --cell: calc(250 * var(--u));
   /* When the strip drops back into place, counted from when the reel was put up. */
-  --clunk: calc(var(--spin) - var(--between-reel-rest));
+  --clunk: calc(var(--spin) - var(--landing));
 
   position: relative;
   width: calc(var(--cell) * 3.1);
@@ -625,7 +625,7 @@
   rotate: -2deg;
   animation:
     pop-in var(--pop-in) both,
-    reel-clunk var(--between-reel-rest) var(--ease-pop) var(--clunk);
+    reel-clunk var(--between-reel-jolt) var(--ease-pop) var(--clunk);
 }
 
 /* The pointers: one hanging from the top edge, one standing on the bottom, both at the middle. */
@@ -638,7 +638,7 @@
   height: calc(38 * var(--u));
   background: var(--gold);
   translate: -50% 0;
-  animation: pointer-bite var(--between-reel-rest) var(--ease-pop) var(--clunk);
+  animation: pointer-bite var(--between-reel-jolt) var(--ease-pop) var(--clunk);
   content: '';
 }
 
@@ -661,8 +661,8 @@
   /* The first picture starts in the middle of the window. */
   padding-left: calc(var(--cell) * 1.05);
   animation:
-    reel-spin calc(var(--spin) - var(--between-reel-land)) var(--between-reel-ease) both,
-    reel-settle var(--between-reel-settle) both calc(var(--spin) - var(--between-reel-land));
+    reel-spin calc(var(--clunk) - var(--between-reel-settle)) var(--between-reel-ease) both,
+    reel-settle var(--between-reel-settle) both calc(var(--clunk) - var(--between-reel-settle));
 }
 
 .intro-reel-strip span {
@@ -675,7 +675,7 @@
 }
 
 .intro-reel-strip .is-landing {
-  animation: reel-land var(--between-reel-rest) var(--ease-pop) both var(--clunk);
+  animation: reel-land var(--landing) var(--ease-pop) both var(--clunk);
 }
 
 @keyframes reel-spin {

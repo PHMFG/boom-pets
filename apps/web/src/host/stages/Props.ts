@@ -569,8 +569,8 @@ const CROWN = 1.4;
  * turn to look at whoever has just been.
  */
 const LANDING = {
-  winner: { from: 6.5, seconds: 0.3, squash: 0.34, give: 0.14, jolt: 0.42 },
-  other: { from: 0.6, seconds: 0.2, squash: 0.2, give: 0.07, jolt: 0.12 },
+  winner: { from: 6.5, seconds: 0.26, squash: 0.34, give: 0.14, jolt: 0.42 },
+  other: { from: 0.6, seconds: 0.16, squash: 0.2, give: 0.07, jolt: 0.12 },
   turn: { most: 0.7, seconds: 1.8 },
 } as const;
 /** The footlights round the rug. Their cups are the model's; the bulbs are stood in them here. */

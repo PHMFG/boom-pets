@@ -64,11 +64,12 @@ export const between = {
   table: { staggerMs: 150 },
   /**
    * The roulette's reel. It runs for the simulation's `introRoulette`, and slows the way a wheel does (`css`): a
-   * blur, then pictures going by one at a time, each slower than the last. `landMs` before the card is due it is
-   * on the game to come; for `settleMs` it drifts a little past the pointers and drops back into place with a
-   * clunk; what is left of `landMs` is the reel jolting and the picture it stopped on swelling to `swell`.
+   * blur, then pictures going by one at a time, each slower than the last. It reaches the game to come, drifts
+   * a little past the pointers for `settleMs` and drops back into place with a clunk. The clunk falls where
+   * `motion.landing` begins, which is where the reel is heard to land (`AudioEngine.roulette`): for `joltMs`
+   * the reel jolts, and through `landing` the picture it stopped on swells to `swell`.
    */
-  reel: { landMs: 520, settleMs: 330, swell: 1.25, css: 'cubic-bezier(0.2, 0.75, 0.5, 0.96)' },
+  reel: { settleMs: 300, joltMs: 220, swell: 1.25, css: 'cubic-bezier(0.2, 0.75, 0.5, 0.96)' },
   /**
    * What a round paid, flying from a row of the list of places to that player's card: how long the flight is
    * (slow out of the row and slow onto the card, like the curtain), and how long the card's score then takes to
