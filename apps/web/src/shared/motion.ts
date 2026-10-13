@@ -65,7 +65,7 @@ export const motion = {
     lookHoldMs: 300,
     /** How long pets nearby turn to look at something that has just happened: a blast, a pet going over the edge, a knockout. */
     glanceMs: 800,
-    /** The bubble over a pet that had a fright, and over one that is relieved. */
+    /** The bubble over a pet that has just been caught out: sent back by the cat, or red in the face from a pepper. */
     frightMs: 800,
   },
 } as const;
