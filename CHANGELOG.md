@@ -10,6 +10,11 @@ Asked how the session with five people on 1.2.0 went, the owner said: fun, on th
 
 - **O Chão é Lava is a climb.** The lava no longer comes and goes: it rises and never stops. Furniture still falls from the sky, but now it piles up: each layer lands on the one before, a step higher, and the lava takes the layers from the bottom. Stand under a gold outline and the piece carries you up as it lands, or step up onto it after; a pet climbs one step and no more. Whoever is still on the layer below the newest when the alarm ends is out, and so is anyone who falls into the lava at any time, which makes a shove off the edge of a sofa the whole game. The first three layers have room for everyone; after that there is a place too few. On the furniture everyone walks a little slower, because a table is small. Every piece has a flat, pale top now, and a leg to stand on. A round with four bots lasts about 36 seconds; with two, 22.
 
+### Added
+
+- **Pets react to the round.** A pet turns its head toward what matters: a rival at its elbow, whoever holds the bomb, a cube or a sofa coming down, the cat while it looks. It jumps when something goes off beside it, at the lava's alarm and when the floor drops next to it. Thrown, swept, bitten or blown off its feet, it gets up swaying with stars circling its head. It hops twice when it scores, crosses the line or kicks a bucket over, and hangs its head, red in the face, when the cat sends it back.
+- **Hits have more weight.** A hit that lands throws the picture the way the blow went, and its stars with it. The hardest ones (a full charge, a pet thrown onto another) hold the pose a moment longer. A hard landing stamps a ring into the floor. A pet going over the edge kicks dust off it, and its pieces fountain back up over the edge, leaving a ring in its colour so the room sees where it went. Being swept by a bar or bitten is now a blow like any other: a flash, a spin, a held pose.
+
 ### Fixed
 
 - When a shove or a bite reached two pets at once, it always hit the one who had joined the game first. It hits the nearest now. (Found while measuring the new lava game: seat 1 was being pushed off more than anyone.)

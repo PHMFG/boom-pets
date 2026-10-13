@@ -64,6 +64,8 @@ And the stage is built so those read:
 - **Pets are drawn a little bigger than the body the simulation pushes around** (`MODEL_SCALE` in `pets/PetView.ts`), so they read from across a room.
 - **The camera stays as close as the fight allows** (see Camera below).
 
+What a pet does to show how it feels (turning its head, jumping, swaying with stars, hopping, hanging its head) is drawn above where it is: its place on the floor, its ring and where its name tag hangs do not move with any of it. Every one of those durations is in the `feel` block of `motion.ts`, and with "Menos tremor e brilho" on a dizzy pet sways half as far.
+
 A new pet, floor, effect or seat colour is checked against this: a pale pet, a charcoal pet and all six seat colours, in a six-player round with everyone spread out.
 
 ### Type
@@ -181,29 +183,31 @@ It is held without being looked at, so it must work by feel and explain itself i
 | What happened | Pet | World | Camera |
 | --- | --- | --- | --- |
 | A shove (a tap of A) | Small nudge | A puff of dust | Nothing |
-| A charged hit | Squash, spin, both hold the pose 80 ms | Stars and a ring sized by the charge | Shake scaled by the charge |
+| Nothing in particular | A pet turns its head (its body, on a neck between it and its legs) toward what matters to it just then: a rival at its elbow, the bomb's holder, a cube, a bucket or a sofa coming down, the cat while it looks. It goes on looking for a moment after, so no head snaps back. Coming out of a dash it digs its heels in; a dash that met nothing leaves it winded for a moment | Nothing | Nothing |
+| A charged hit | Squash, spin, both hold the pose 80 ms (120 at a full charge) and shudder while they hold it; the one hit gets up swaying, with stars circling its head for a second | Stars thrown the way the blow went, and a ring sized by the charge | Shake scaled by the charge, and a jolt the way the blow went that springs back: a shake goes every way at once and cannot say which |
 | A grab | Both hold the pose 100 ms, the caught pet looks scared | Stars, the word PEGOU! | Small shake |
-| A thrown pet landing on someone | Both squash | Ring, stars | Medium shake |
-| An explosion | Thrown, tumbling | Bright sphere, smoke, sparks, debris, scorch | Shake, colour fringe, extra glow |
+| A thrown pet landing on someone | Both squash and hold the pose 120 ms; the one landed on sees stars | Ring, stars | Medium shake and a jolt |
+| An explosion | Thrown, tumbling, and seeing stars once back on their feet; whoever was near jumps, and everyone near turns to look | Bright sphere, smoke, sparks, debris, scorch | Shake, colour fringe, extra glow |
 | A SUPER arriving | Its owner changes on the spot; everyone else looks scared | A wide warning on the floor, then a strike and its blast | Close on the owner for the gacha, then shake |
 | A jump, and coming back after a fall | Leaves the floor; arrives in a puff with a hop | Dust at the take-off | Nothing |
-| Swept by a bar | Thrown aside | Stars | A small shake |
-| First over the line | Nothing | Confetti in its colour, the word CHEGOU! | A shake |
-| Something eaten | Munches, and grows when it has eaten enough | A few crumbs in the eater's colour; a purple puff for a pepper | Nothing |
-| A bite that lands | Thrown back | Stars, a puff, the word NHAC! in the biter's colour | Small shake |
+| A hard landing, and a pet knocked through the air | Squash | A ring stamped into the floor where it lands; puffs trailing behind it in the air | Nothing |
+| Swept by a bar | Takes it like any other blow: a flash, a spin, a held pose, then thrown aside and seeing stars | Stars | A small shake and a jolt |
+| First over the line | Hops twice, pleased with itself | Confetti in its colour, the word CHEGOU! | A shake |
+| Something eaten | Munches, and grows when it has eaten enough; a hop for a slice of melon, red in the face for a pepper | A few crumbs in the eater's colour; a purple puff for a pepper | Nothing |
+| A bite that lands | A flash and a held pose, then thrown back, seeing stars | Stars, a puff, the word NHAC! in the biter's colour | Small shake and a jolt |
 | Furniture falling into the lava game | Nothing: a pet under a piece is carried up on it | A gold outline of the piece, at the height it will stand, from the moment it is called, swelling slowly; the piece itself only in its last 0.65 s; then dust from under it and the outline squeezing shut | Small shake at each landing |
-| The lava's alarm, and the lava | Nothing; whoever it reaches bursts into sparks | The sea rises all the time; the words SOBE! at the alarm and LAVA! when a layer is taken, over the pile wherever it has got to | Small shake, then a bigger one with a little glow |
-| A colour called, and the drop | Nothing; those on the wrong patch fall | The band round the floor takes the colour and its fruit goes up over the speakers; then every other patch tumbles away | Small shake, then a bigger one with a little glow |
-| The bomb changing hands | Nothing | Stars and a ring in the new holder's colour; a broken red ring turns under whoever holds it | Nothing; a small shake for a new bomb |
+| The lava's alarm, and the lava | Every pet standing still jumps at the alarm; whoever the lava reaches bursts into sparks | The sea rises all the time; the words SOBE! at the alarm and LAVA! when a layer is taken, over the pile wherever it has got to | Small shake, then a bigger one with a little glow |
+| A colour called, and the drop | Whoever stands beside a patch that drops jumps; those on the wrong patch fall | The band round the floor takes the colour and its fruit goes up over the speakers; then every other patch tumbles away | Small shake, then a bigger one with a little glow |
+| The bomb changing hands | Every pet turns its head to whoever holds it | Stars and a ring in the new holder's colour; a broken red ring turns under whoever holds it | Nothing; a small shake for a new bomb |
 | The bomb going off | Its holder shatters; those close are thrown back | The reach of the blast is drawn round the holder for the last 1.4 s, then an explosion and the word KABUM! | As an explosion |
-| The cat turning, and a pet caught | The cat hops round to face the lane; a caught pet goes back to the start in a puff | The count 1, 2, 3 and the word PAROU!; the strips beside the lane go red. For a pet caught: a red puff, stars, the word MEXEU! | Small shake |
+| The cat turning, and a pet caught | The cat hops round to face the lane, and the pets look at it while it looks; a caught pet goes back to the start in a puff, red in the face, and hangs its head | The count 1, 2, 3 and the word PAROU!; the strips beside the lane go red. For a pet caught: a red puff, stars, the word MEXEU! | Small shake |
 | The lava's alarm, in the crater | Nothing | The volcano trembles and swells, boulders tremble, cracks brighten: all of it building until the flood. With "less shake" on, nothing trembles | Nothing beyond the alarm's own shake |
 | Something the spectators care about | They turn to it; they clap, flinch or cheer, each a moment after its neighbour | Nothing: they are the effect | Nothing |
-| A bucket of paint kicked over | Nothing | A ring and a burst of cubes in the kicker's colour, as wide as the patch painted | Small shake |
+| A bucket of paint kicked over | The kicker hops twice | A ring and a burst of cubes in the kicker's colour, as wide as the patch painted | Small shake |
 | A round won | The winner dances; the others shake their heads; every bubble says how its pet feels | Confetti in the winner's colour, the word FIM!, and the round's places listed at the right | Comes down to the winner's eye level, close, and stays with it |
 | A place revealed in the finale | Pops onto its step, which takes its colour | Dust and a ring in its colour | Small shake |
 | The winner | Drops in, bigger than the rest, crowned, dancing; those who missed the podium watch from beside it | Spotlight, the stage's lamps chasing round the podium, confetti from the two cannons, fireworks, the word VITÓRIA! and then the name | Colour returns; it closes in from the front and swings a little from side to side |
-| A knockout | Shatters into cubes in its colours | Confetti, points fly to the scorer | Slow motion for the deciding ones |
+| A knockout | Shatters into cubes in its colours; whoever is near turns to look | Confetti, points fly to the scorer. A pet that went over the edge kicks dust off it and trails puffs on the way down; its pieces come back up over the edge as a fountain, and a ring in its colour is left on the nearest floor, so the room sees where it went | Slow motion for the deciding ones |
 
 A new effect goes on this ladder next to something of the same weight, and is no louder than it.
 
