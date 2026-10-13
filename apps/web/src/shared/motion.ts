@@ -45,3 +45,13 @@ export const motion = {
   /** The results: rows arrive one after another once the podium is up. */
   results: { delayMs: 600, staggerMs: 120 },
 } as const;
+
+// ── The phone's pad ──────────────────────────────────────────────────────────
+// Timings only the controller uses. `controller/main.ts` publishes them as CSS variables (`--pad-*`),
+// beside the shared ones above.
+export const padMotion = {
+  /** A moment that lands with weight (a power on its button, the place on the results, the champion's card): it arrives too big and settles. */
+  slam: { ms: 460 },
+  /** Confetti thrown from the pad when its player wins something or gets a power: out fast, shrinking to nothing as it goes. */
+  burst: { ms: 850 },
+} as const;

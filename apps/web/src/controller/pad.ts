@@ -4,6 +4,7 @@
 // A third button appears only while a power is waiting, with a card that says what the power does.
 import type { ButtonName, HapticPattern, PhoneMode, PhoneStatus } from '@boom/protocol';
 import { seatShapeSvg } from '../shared/glyphs';
+import { motion } from '../shared/motion';
 import { EMOTES } from '../shared/powers';
 import { strings } from '../shared/strings.pt-BR';
 import { seats as seatTokens } from '../shared/tokens';
@@ -22,6 +23,8 @@ const VIBRATION: Record<HapticPattern, number | number[]> = { tap: 15, hit: 60, 
 const CHARGE_MS = 1200;
 const WARN_AFTER_MS = 1400;
 const PITY_PIPS = 6;
+/** Pieces of confetti the pad throws when its player wins something, or a power lands on its button. */
+const SPARKS = 14;
 type ThumbButton = Exclude<ButtonName, 'c'>;
 const text = strings.controller;
 
@@ -39,15 +42,47 @@ function element(className: string, parent: HTMLElement, content = ''): HTMLElem
   return created;
 }
 
+const leaving = new WeakMap<HTMLElement, number>();
+
+/**
+ * Shows or hides a piece of the pad. Arriving, it pops in by its own rule in the stylesheet; leaving, it
+ * squishes out first and only then stops being drawn. Nothing on the pad is cut away.
+ */
+function present(node: HTMLElement, on: boolean): void {
+  if (on === !(node.hidden || node.classList.contains('is-leaving'))) return;
+  window.clearTimeout(leaving.get(node));
+  node.classList.toggle('is-leaving', !on);
+  if (on) node.hidden = false;
+  else
+    leaving.set(
+      node,
+      window.setTimeout(() => {
+        node.classList.remove('is-leaving');
+        node.hidden = true;
+      }, motion.squishOut.ms),
+    );
+}
+
+const lessMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+
+/**
+ * Pops a piece of the pad that changed while it was up, so the change is caught in the corner of an eye.
+ * `swell` above 1 is a landing: it swells and settles, where a pop grows from small.
+ */
+function pop(node: HTMLElement, from = 0.5, swell = 0): void {
+  if (lessMotion?.matches || !node.animate) return;
+  if (swell) node.animate([{ transform: 'scale(1)' }, { transform: `scale(${swell})`, offset: 0.4 }, { transform: 'scale(1)' }], { duration: motion.landing.ms, easing: 'ease-out' });
+  else node.animate([{ transform: `scale(${from})` }, { transform: 'scale(1)' }], { duration: motion.popIn.ms, easing: motion.popIn.css });
+}
+
 /** A tappable control drawn over the pad. Marked so the pad itself ignores touches on it. */
 function control(className: string, parent: HTMLElement, content: string, onTap: () => void): HTMLElement {
   const created = element(className, parent, content);
   created.dataset.ui = '';
   created.addEventListener('pointerdown', event => {
     event.stopPropagation();
-    created.classList.remove('is-tapped');
-    void created.offsetWidth;
-    created.classList.add('is-tapped');
+    // It dips under the finger.
+    if (!lessMotion?.matches) created.animate?.([{ scale: 1 }, { scale: 0.88 }, { scale: 1 }], { duration: motion.punch.ms * 2 });
     onTap();
   });
   return created;
@@ -62,7 +97,10 @@ export class Pad {
   private readonly banner: HTMLElement;
   private readonly petName: HTMLElement;
   private readonly readyButton: HTMLElement;
+  private readonly lobby: HTMLElement;
   private readonly tray: HTMLElement;
+  private readonly emotes: HTMLElement[];
+  private readonly sparks: HTMLElement;
   private readonly base: HTMLElement;
   private readonly knob: HTMLElement;
   /** The two buttons under the right thumb. The power button is a control of its own. */
@@ -84,6 +122,11 @@ export class Pad {
   private readonly leverKnob: HTMLElement;
   private readonly jinx: HTMLElement;
   private readonly results: HTMLElement;
+  /** The button on the results, and what the results were built from: they are built once, so they arrive once. */
+  private again: HTMLElement | null = null;
+  private resultsOf = '';
+  /** One-shot animations waiting to be started over, all after a single reading of the layout. */
+  private readonly replays: [HTMLElement, string][] = [];
   private status: PhoneStatus | null = null;
   private linkBanner: string | null = null;
   private rotated = false;
@@ -99,6 +142,7 @@ export class Pad {
   private leverStart = 0;
   private warnTimer = 0;
   private faceTimer = 0;
+  private freshTimer = 0;
   private cooldownMs = 0;
   /** What A shows when it is not being held, and whether holding it charges. Both come from the game. */
   private aIcon = 'A';
@@ -114,6 +158,7 @@ export class Pad {
     this.shape = element('pad-shape', strip);
     element('pad-name', strip, name);
     this.crown = element('pad-crown', strip, '👑');
+    this.crown.hidden = true;
     const pips = element('pad-pity', strip);
     this.pity = Array.from({ length: PITY_PIPS }, () => element('pad-pip', pips));
 
@@ -121,24 +166,27 @@ export class Pad {
     this.banner.hidden = true;
 
     // Lobby: choose a pet with the arrows (it changes on the TV) and say when ready.
-    const lobby = element('pad-lobby', this.root);
-    const picker = element('pad-picker', lobby);
+    // It arrives with the game's first word, so it is never up with no pet in it.
+    this.lobby = element('pad-lobby', this.root);
+    this.lobby.hidden = true;
+    const picker = element('pad-picker', this.lobby);
     control('pad-arrow', picker, '◀', () => events.onPet(-1));
     this.petName = element('pad-pet', picker);
     control('pad-arrow', picker, '▶', () => events.onPet(1));
-    this.readyButton = control('pad-ready', lobby, text.notReady, () => events.onReady(!(this.status?.ready ?? false)));
+    this.readyButton = control('pad-ready', this.lobby, text.notReady, () => events.onReady(!(this.status?.ready ?? false)));
 
     // Emotes: one button that opens four.
     this.tray = element('pad-tray', this.root);
     // A tap that lands between emotes, or on one still popping in, must not fall through and press A.
     this.tray.dataset.ui = '';
-    control('pad-emote is-toggle', this.tray, '💬', () => this.tray.classList.toggle('is-open'));
-    EMOTES.forEach((emoji, index) =>
+    control('pad-emote is-toggle', this.tray, '💬', () => this.openTray(!this.tray.classList.contains('is-open')));
+    this.emotes = EMOTES.map((emoji, index) =>
       control('pad-emote', this.tray, emoji, () => {
         events.onEmote(index);
-        this.tray.classList.remove('is-open');
+        this.openTray(false);
       }),
     );
+    for (const emote of this.emotes) emote.hidden = true;
 
     // Where a thumb goes, drawn until the joystick has been used once: the left half is otherwise empty, and says nothing.
     element('stick-ghost', this.root);
@@ -206,10 +254,9 @@ export class Pad {
     this.jinx.addEventListener('pointerdown', event => {
       event.stopPropagation();
       this.jinxTaps++;
-      this.jinx.style.setProperty('--tilt', `${(this.jinxTaps % 2 ? 1 : -1) * (4 + (this.jinxTaps % 5))}deg`);
-      this.jinx.classList.remove('is-tapped');
-      void this.jinx.offsetWidth;
-      this.jinx.classList.add('is-tapped');
+      // Every tap kicks the word a different way.
+      const tilt = `${(this.jinxTaps % 2 ? 1 : -1) * (4 + (this.jinxTaps % 5))}deg`;
+      if (!lessMotion?.matches) this.jinx.animate?.([{ scale: 1.25, rotate: tilt }, { scale: 1, rotate: '0deg' }], { duration: motion.punch.ms, easing: 'ease-out' });
       vibrate(10);
       events.onButton('a', true);
       events.onButton('a', false);
@@ -217,6 +264,18 @@ export class Pad {
 
     this.results = element('pad-results', this.root);
     this.results.dataset.ui = '';
+    for (const cover of [this.lever, this.jinx, this.results]) cover.hidden = true;
+
+    // Confetti, thrown from the middle of the pad or from the power button. Each piece flies its own way.
+    this.sparks = element('pad-burst', this.root);
+    for (let index = 0; index < SPARKS; index++) {
+      const spark = element('pad-spark', this.sparks);
+      const angle = ((index + Math.random() * 0.7) / SPARKS) * Math.PI * 2;
+      const reach = 0.55 + Math.random() * 0.45;
+      spark.style.setProperty('--x', (Math.cos(angle) * reach).toFixed(2));
+      spark.style.setProperty('--y', (Math.sin(angle) * reach).toFixed(2));
+      spark.style.setProperty('--spin', `${Math.round((Math.random() - 0.5) * 540)}deg`);
+    }
 
     this.root.addEventListener('pointerdown', this.onDown);
     this.root.addEventListener('pointermove', this.onMove);
@@ -228,6 +287,9 @@ export class Pad {
     this.root.addEventListener('contextmenu', this.block);
     this.root.addEventListener('dblclick', this.block);
     this.root.addEventListener('animationend', event => event.target === this.root && this.root.classList.remove('is-buzz'));
+    // The pad's own pieces pop in once, as it is built. Afterwards that rule is gone, so it cannot play again by accident.
+    this.root.classList.add('is-fresh');
+    this.freshTimer = window.setTimeout(() => this.root.classList.remove('is-fresh'), motion.popIn.ms + motion.staggerMs * 6);
     window.addEventListener('resize', this.layout);
     window.addEventListener('blur', this.releaseAll);
     this.layout();
@@ -264,13 +326,13 @@ export class Pad {
     }
     this.cooldownMs = status.cooldownMs;
     // A new power on the button: the button and its card pop in again.
+    // (They land by themselves when they arrive; this is for a power taking the place of one already waiting.)
     if (status.held && status.held.name !== previous?.held?.name) {
-      for (const node of [this.use, this.card]) {
-        node.classList.remove('is-new');
-        void node.offsetWidth;
-        node.classList.add('is-new');
-      }
+      for (const node of [this.use, this.card]) if (this.shows(node)) pop(node, 1, 1.25);
+      this.throwSparks('power', status.held.color);
     }
+    // The winner's own results arrive with confetti.
+    if (status.screen === 'results' && status.won && previous?.screen !== 'results') this.throwSparks('win');
     this.render();
   }
 
@@ -283,9 +345,11 @@ export class Pad {
   /** Vibrates where the phone allows it. The border always pulses too, because iPhones cannot vibrate from a web page. */
   buzz(pattern: HapticPattern): void {
     vibrate(VIBRATION[pattern]);
-    this.root.classList.remove('is-buzz');
-    void this.root.offsetWidth;
-    this.root.classList.add('is-buzz');
+    // The pulse is as big as what happened: a tap is a thin line, a knockout a thick one that jolts the pad.
+    this.root.dataset.buzz = pattern;
+    this.replay(this.root, 'is-buzz');
+    if (pattern === 'win') this.throwSparks('win');
+    this.flush();
   }
 
   readonly releaseAll = (): void => {
@@ -307,12 +371,50 @@ export class Pad {
     window.clearTimeout(this.warnTimer);
     window.clearTimeout(this.faceTimer);
     window.clearTimeout(this.restTimer);
+    window.clearTimeout(this.freshTimer);
     window.removeEventListener('resize', this.layout);
     window.removeEventListener('blur', this.releaseAll);
     this.root.remove();
   }
 
   // ── What is on screen ──────────────────────────────────────────────────────
+
+  /** Starts a one-shot animation over, even while it is playing. It starts with the next `flush`. */
+  private replay(node: HTMLElement, name: string): void {
+    node.classList.remove(name);
+    this.replays.push([node, name]);
+  }
+
+  private flush(): void {
+    if (this.replays.length === 0) return;
+    void this.root.offsetWidth;
+    for (const [node, name] of this.replays.splice(0)) node.classList.add(name);
+  }
+
+  /** Writes a label and, when it changed, pops it. */
+  private swap(node: HTMLElement, content: string): void {
+    if (node.textContent === content) return;
+    const first = node.textContent === '';
+    node.textContent = content;
+    if (!first) pop(node);
+  }
+
+  /** Whether a piece of the pad is up, and not on its way out. */
+  private shows(node: HTMLElement): boolean {
+    return !node.hidden && !node.classList.contains('is-leaving');
+  }
+
+  /** Confetti from the middle of the pad for a win, or from the power button in a new power's colour. */
+  private throwSparks(from: 'win' | 'power', color = ''): void {
+    this.sparks.dataset.from = from;
+    this.sparks.style.setProperty('--tier', color);
+    this.replay(this.sparks, 'is-on');
+  }
+
+  private openTray(open: boolean): void {
+    this.tray.classList.toggle('is-open', open);
+    for (const emote of this.emotes) present(emote, open);
+  }
 
   private render(): void {
     const status = this.status;
@@ -321,78 +423,111 @@ export class Pad {
     this.root.dataset.screen = screen;
     this.root.dataset.mode = mode;
 
-    this.crown.hidden = !status?.bounty;
+    present(this.crown, status?.bounty ?? false);
+    const lobbyWasUp = this.shows(this.lobby);
+    present(this.lobby, screen === 'lobby' && status !== null);
+    present(this.tray, screen === 'lobby' || screen === 'play');
+    present(this.lever, mode === 'lever');
+    present(this.jinx, mode === 'jinx');
     this.pity.forEach((pip, index) => pip.classList.toggle('is-on', index < (status?.pity ?? 0)));
     // A is whatever the game says it is: its picture, a word for what it does, or not there at all.
     // In the lobby and with no word from the game yet, it is the brawl's dash.
     const a = status ? status.a : { icon: 'A', label: '', charge: true };
     const playing = screen === 'play' || screen === 'lobby';
-    this.aIcon = a?.icon ?? 'A';
     this.charges = a?.charge ?? false;
     this.root.dataset.a = a || !playing ? 'on' : 'off';
     this.root.dataset.b = (status?.bOn ?? true) || !playing ? 'on' : 'off';
-    this.does.textContent = a?.label ?? '';
-    // While A is held it shows the charging face; that is left alone until release.
-    if (!this.buttons.a.classList.contains('is-charging')) this.letter.textContent = this.aIcon;
+    // A button on its way out keeps its face and its word until it is gone.
+    if (a) {
+      this.aIcon = a.icon;
+      this.swap(this.does, a.label);
+      // While A is held it shows the charging face; that is left alone until release.
+      if (!this.buttons.a.classList.contains('is-charging')) this.swap(this.letter, this.aIcon);
+    }
 
     // B says what it would do: nothing in reach, a hand when something is, a throw when carrying.
     // The lobby is where B is tried for the first time, so it explains itself there too.
     const b = (screen === 'play' || screen === 'lobby') && mode === 'alive' ? (status?.b ?? 'idle') : 'idle';
     this.buttons.b.dataset.does = b;
-    this.bFace.textContent = b === 'grab' ? '✋' : b === 'throw' ? '🤾' : 'B';
+    this.swap(this.bFace, b === 'grab' ? '✋' : b === 'throw' ? '🤾' : 'B');
 
     // The power button is only there while a power waits. The card explains that power, or the one running now.
     const held = screen === 'play' && mode === 'alive' ? (status?.held ?? null) : null;
     const shown = held ?? (screen === 'play' && (mode === 'alive' || mode === 'carried') ? (status?.power ?? null) : null);
-    this.use.hidden = held === null;
+    // A banner (the connection, or "mash!" while carried) matters more than a power's card, and takes the middle.
+    const message = this.linkBanner ?? (screen === 'wait' ? text.waitNext : mode === 'carried' ? text.mash : null);
+    if (message !== null) {
+      this.banner.textContent = message;
+      // It stays dressed as it was while it leaves, whatever the pad has turned into by then.
+      this.banner.dataset.kind = this.linkBanner === null && mode === 'carried' ? 'mash' : 'note';
+    }
+    present(this.banner, message !== null);
+
+    present(this.use, held !== null);
     if (held) {
       this.useIcon.textContent = held.icon;
       this.use.style.setProperty('--tier', held.color);
     }
-    this.card.hidden = shown === null;
-    this.card.classList.toggle('is-held', held !== null);
+    present(this.card, shown !== null && message === null);
     if (shown) {
+      this.card.classList.toggle('is-held', held !== null);
       this.cardName.textContent = `${shown.icon} ${shown.name}`;
       this.cardHint.textContent = shown.hint;
       this.card.style.setProperty('--tier', shown.color);
     }
 
-    this.petName.textContent = status?.pet ?? '';
-    this.readyButton.textContent = status?.ready ? text.ready : text.notReady;
+    this.swap(this.petName, status?.pet ?? '');
+    this.swap(this.readyButton, status?.ready ? text.ready : text.notReady);
     this.readyButton.classList.toggle('is-on', status?.ready ?? false);
 
-    // The next game's card, and a word for a moment of the game.
+    // The next game's card, and a word for a moment of the game. Either one pops in, lands again when what it
+    // says changes while it is up (the roulette stopping on a game, "run" turning into "stop"), and squishes out.
     const card = screen === 'play' ? (status?.card ?? null) : null;
-    this.next.hidden = card === null;
     if (card) {
+      const landed = this.shows(this.next) && this.nextName.textContent !== card.name;
       this.nextIcon.textContent = card.icon;
       this.nextName.textContent = card.name;
       this.nextLine.textContent = card.line;
+      if (landed) {
+        pop(this.next, 1, 1.14);
+        pop(this.nextIcon, 0);
+      }
+      // What takes the place of something still leaving waits for it to be gone.
+      if (!this.shows(this.next)) this.next.classList.toggle('is-late', lobbyWasUp);
     }
+    const cardWasUp = this.shows(this.next);
+    present(this.next, card !== null);
     const alert = screen === 'play' && !card ? (status?.alert ?? null) : null;
-    this.alert.hidden = alert === null;
     if (alert) {
+      if (!this.shows(this.alert)) this.alert.classList.toggle('is-late', cardWasUp);
+      const changed = this.shows(this.alert) && this.alert.textContent !== alert.text;
       this.alert.textContent = alert.text;
       this.alert.dataset.tone = alert.tone;
       this.alert.style.setProperty('--alert', alert.color ?? '');
+      if (changed) pop(this.alert, 0.6);
     }
-
-    const message = this.linkBanner ?? (screen === 'wait' ? text.waitNext : mode === 'carried' ? text.mash : null);
-    this.banner.hidden = message === null;
-    this.banner.textContent = message ?? '';
+    present(this.alert, alert !== null);
 
     if (screen === 'results' && status) {
-      this.results.replaceChildren();
-      this.results.classList.toggle('is-won', status.won);
-      if (status.won) element('pad-won', this.results, text.won);
-      if (status.place !== null) element('pad-place', this.results, text.place(status.place));
-      if (status.award) {
-        element('pad-award-icon', this.results, status.award.icon);
-        element('pad-award', this.results, status.award.name);
+      // Built once for a result, not again for every word from the game, so its pieces arrive one after another, once.
+      const built = `${status.won} ${status.place} ${status.award?.name}`;
+      if (built !== this.resultsOf) {
+        this.resultsOf = built;
+        this.results.replaceChildren();
+        this.results.classList.toggle('is-won', status.won);
+        if (status.won) element('pad-won', this.results, text.won);
+        if (status.place !== null) element('pad-place', this.results, text.place(status.place));
+        if (status.award) {
+          element('pad-award-icon', this.results, status.award.icon);
+          element('pad-award', this.results, status.award.name);
+        }
+        this.again = control('pad-ready', this.results, '', () => this.events.onReady(!(this.status?.ready ?? false)));
       }
-      const again = control('pad-ready', this.results, status.ready ? text.ready : text.again, () => this.events.onReady(!status.ready));
-      again.classList.toggle('is-on', status.ready);
-    }
+      this.swap(this.again!, status.ready ? text.ready : text.again);
+      this.again!.classList.toggle('is-on', status.ready);
+    } else this.resultsOf = '';
+    present(this.results, screen === 'results');
+    this.flush();
   }
 
   // ── Touch ──────────────────────────────────────────────────────────────────
@@ -434,7 +569,7 @@ export class Pad {
 
   private readonly onDown = (event: PointerEvent): void => {
     if ((event.target as HTMLElement).closest('[data-ui]')) return;
-    this.tray.classList.remove('is-open');
+    if (this.tray.classList.contains('is-open')) this.openTray(false);
     this.capture(this.root, event);
     const { u, v } = this.local(event);
     if (u < this.width / 2) {

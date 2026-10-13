@@ -1,6 +1,7 @@
 // The phone controller. Vanilla TypeScript and DOM: it must load fast and stay tiny.
 import '@fontsource/lilita-one/latin-400.css';
 import { NAME_MAX_LENGTH, ROOM_CODE_LENGTH } from '@boom/protocol';
+import { motion, padMotion } from '../shared/motion';
 import { strings } from '../shared/strings.pt-BR';
 import { reloadIfStale, VERSION } from '../shared/version';
 import { applyTokens } from '../shared/tokens';
@@ -13,6 +14,14 @@ const RELOADED_KEY = 'boom.reloaded';
 const text = strings.controller;
 
 applyTokens(document.documentElement);
+// The pad's own timings, and two shared ones it needs in another form: a leaving time with no curve, and the curve of a move.
+for (const [name, value] of Object.entries({
+  'pad-slam': `${padMotion.slam.ms}ms`,
+  'pad-burst': `${padMotion.burst.ms}ms`,
+  'squish-out-ms': `${motion.squishOut.ms}ms`,
+  'ease-move': motion.move.css,
+}))
+  document.documentElement.style.setProperty(`--${name}`, value);
 // A phone that kept an old copy of this page reloads itself once, before the player types anything.
 void reloadIfStale();
 const app = document.getElementById('app')!;
@@ -85,7 +94,11 @@ function showJoin(problem = ''): void {
 }
 
 function play(room: string, name: string): void {
-  app.replaceChildren();
+  // The join form squishes out over the pad that is already being built under it: nothing waits for it.
+  for (const old of [...app.children] as HTMLElement[]) {
+    old.classList.add('is-leaving');
+    window.setTimeout(() => old.remove(), motion.squishOut.ms);
+  }
   // The pad reports a released stick while it is being built, before the link exists.
   let link: PhoneLink | null = null;
   const pad = new Pad(app, name, {
