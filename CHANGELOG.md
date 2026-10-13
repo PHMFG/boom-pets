@@ -15,8 +15,11 @@ Asked how the session with five people on 1.2.0 went, the owner said: fun, on th
 - **Pets react to the round.** A pet turns its head toward what matters: a rival at its elbow, whoever holds the bomb, a cube or a sofa coming down, the cat while it looks. It jumps when something goes off beside it, at the lava's alarm and when the floor drops next to it. Thrown, swept, bitten or blown off its feet, it gets up swaying with stars circling its head. It hops twice when it scores, crosses the line or kicks a bucket over, and hangs its head, red in the face, when the cat sends it back.
 - **Hits have more weight.** A hit that lands throws the picture the way the blow went, and its stars with it. The hardest ones (a full charge, a pet thrown onto another) hold the pose a moment longer. A hard landing stamps a ring into the floor. A pet going over the edge kicks dust off it, and its pieces fountain back up over the edge, leaving a ring in its colour so the room sees where it went. Being swept by a bar or bitten is now a blow like any other: a flash, a spin, a held pose.
 
+- **The phone's screen moves like the game does.** Nothing on the pad is cut away any more: the card between games, the word in the middle of a round, the power button, the results, all squish out, and what changes pops. When the roulette stops, the card lands again with the game's name, a button that game does not use shrinks away and A gets its new face. A power lands on its button with confetti in its colour; being knocked out jolts the whole pad in red; winning turns its border gold. The background drifts slowly, so the pad never sits dead still. No button moved or changed size.
+
 ### Fixed
 
+- On the phone, A sometimes drew its "resting" ring when it was not resting, after a pet was let go of or came back.
 - When a shove or a bite reached two pets at once, it always hit the one who had joined the game first. It hits the nearest now. (Found while measuring the new lava game: seat 1 was being pushed off more than anyone.)
 
 ## [1.2.2] - 2026-10-11

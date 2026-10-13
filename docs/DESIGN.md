@@ -96,13 +96,15 @@ The `.sticker` class is the base of every panel: cream fill, `--outline` ink bor
 | `wobble` (180 ms) | "Do something!": the buttons of a carried player |
 | `buzz` (320 ms) | The border pulse on a phone that stands in for vibration |
 | `victory` (1.3 s) | The beat the word VITÓRIA! has before the winner's name takes its place |
+| `feel` (a block) | How long a pet's reactions last on the TV: the pose held by a hit (80, 100 or 120 ms), seeing stars, a cheer, a slump, a glance at what just happened |
+| `padMotion.drift`, `slam`, `burst` | On the phone: the background's slow drift, a moment landing with weight (a power, the place, the champion's card), and confetti thrown from the pad |
 | `landing` (380 ms) | The roulette's reel stopped, and the picture it stopped on swelling, before the card takes its place |
 | `iris` (420 ms) | The curtain between worlds closing to a point, and opening |
 | `title`, `results`, `roundResults`, `feed` | The few timed sequences: the title's letters, the rows of the results, the places of a round, how long a feed line stays |
 
 Rules:
 
-- On the TV, wrap anything that can leave in `Presence` (`host/hud/Presence.tsx`) so it squishes out instead of vanishing.
+- On the TV, wrap anything that can leave in `Presence` (`host/hud/Presence.tsx`) so it squishes out instead of vanishing. On the phone, `present` in `controller/pad.ts` does the same.
 - Something that appears only when it matters (the power button, a hand over a pet in reach) is itself the message. Do not also leave a greyed-out copy on screen the rest of the time.
 - **One world is never seen snapping into another.** A curtain of ink closes to a point just before the map changes (as the roulette stops, before the podium, on a rematch and on the way back to the lobby) and opens once the new world has been drawn. It closes on the simulation's clock and opens on the stage's word, so a slow frame cannot show the join. It is slow and dark, which is why it is not a flash; the players' cards stay above it.
 - **The roulette keeps its promise.** The reel slows and stops on the game that will be played, a moment before that game's card. The game is drawn when the reel starts; phones are not told until it stops.
@@ -143,7 +145,10 @@ It is held without being looked at, so it must work by feel and explain itself i
 - **A thumb that is down stays down.** When the pet is grabbed, let go or knocked out, the joystick stays where it is. It goes dim while nothing listens to it.
 - **A control is on screen only while it does something, and says what it will do.** B turns gold with a hand when something is in reach and shows a throw while carrying. The power button exists only while a power waits, with a card naming the power and what it does. A shows a ring while it rests after a dash.
 - Each mode owns the whole screen: alive in the seat colour, ghost pale, carried shaking with one instruction, lever gold, ZICA purple and lime.
-- iPhones cannot vibrate from a web page, so every vibration also pulses the pad's border.
+- iPhones cannot vibrate from a web page, so every vibration also pulses the pad's border, as big as what happened: a thin line for a tap, the whole border and a small jolt for a hit, thick, in the danger colour and jolting the whole pad for a knockout, gold with confetti for a win. A power lands on its button bigger than a pop, with confetti in its colour from behind the button.
+- Nothing on the pad is cut away, any more than on the TV. A piece that leaves squishes out first (the card between games, the word mid-round, the power button and its card, the lobby's panel, the lever, the results); a label that changes pops; when the roulette stops, the card lands again with the game's name, a button that game does not use squishes out and A's new face pops; the results arrive a piece at a time, the place landing hardest. One thing at a time has the middle of the pad: the round's place is gone before the next game's card comes.
+- The pad is never perfectly still, or it reads as a form: the seat's shapes drift slowly across its background, the shape on the name strip breathes, and the picture on the card between games rocks while it waits. Each is a layer that only moves (a transform, nothing repainted), so an old phone pays next to nothing for it.
+- None of this moves a control, changes its size or how a thumb is read, and a held thumb is never under something that is being replaced.
 - No two controls may overlap on any phone shape. The browser tests check this on the phone shapes they emulate; add new controls to those checks.
 - The phone bundle stays small and has no framework: plain TypeScript and DOM.
 
