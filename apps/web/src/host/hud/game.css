@@ -1033,6 +1033,41 @@
   background: var(--gold);
   font: 400 calc(40 * var(--u)) / 1 var(--font-display);
   rotate: 7deg;
+  /* Stamped on the card once its name has been spelled out: it comes down from big, and the card feels it. */
+  animation: stamp var(--between-card-stamp) linear both var(--between-card-stamp-delay);
+}
+
+.intro-card.is-final {
+  animation:
+    pop-in var(--pop-in) both,
+    stamped var(--count) var(--ease-pop) var(--between-card-stamped);
+}
+
+@keyframes stamp {
+  from {
+    transform: scale(0);
+  }
+
+  20% {
+    transform: scale(2.3) rotate(-10deg);
+    animation-timing-function: ease-in;
+  }
+
+  55% {
+    transform: scale(0.9);
+    animation-timing-function: ease-out;
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@keyframes stamped {
+  40% {
+    scale: 0.97;
+    rotate: 2deg;
+  }
 }
 
 .finale {

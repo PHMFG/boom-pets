@@ -99,7 +99,7 @@ export function ModeIntro({ mode, upcoming, final, round, rounds, className = ''
           {() => {
             const game = mode ?? shown.current;
             return (
-              <div className="intro-card sticker">
+              <div className={final ? 'intro-card is-final sticker' : 'intro-card sticker'}>
                 {final && <p className="intro-double sticker">{strings.intro.double}</p>}
                 <h2 className="intro-name">{letters(strings.games[game].name)}</h2>
                 <p className="intro-line">{strings.games[game].line}</p>

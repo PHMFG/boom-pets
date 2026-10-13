@@ -75,6 +75,10 @@ export const between = {
    * count up to its new number.
    */
   points: { flyMs: 560, countMs: 520 },
-  /** The game's card: the confetti thrown from behind it as it lands is gone after this long. */
-  card: { burstMs: 760 },
+  /**
+   * The game's card: the confetti thrown from behind it as it lands is gone after this long. On the last round
+   * the tag that says it counts double is stamped on the card `stampDelayMs` after the card arrives, once its
+   * name has been spelled out, and takes `stampMs` to come down.
+   */
+  card: { burstMs: 760, stampDelayMs: 900, stampMs: 340 },
 } as const;

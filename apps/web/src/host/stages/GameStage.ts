@@ -77,9 +77,10 @@ const PODIUM_SHOT = { x: 0, y: 2.4, z: 0.4 };
  * The count before a round, pinned to the middle of the picture: how tall the word for "go" and then 1, 2 and 3
  * are, as a share of the picture's height (each bigger than the one before it in the count, so it builds), how
  * far over the middle their foot is, how long each stays, and how hard the camera nods at a number (the word has
- * its own, bigger punch).
+ * its own, bigger punch). `hops` is how hard every pet bounces on its toes at 1, 2 and 3: ready, set. Nobody
+ * hops at the word, which is when they are steered.
  */
-const COUNT = { sizes: [0.27, 0.3, 0.26, 0.22], lift: -0.1, seconds: 0.55, nod: 0.1 };
+const COUNT = { sizes: [0.27, 0.3, 0.26, 0.22], lift: -0.1, seconds: 0.55, nod: 0.1, hops: [0, 1.1, 0.9, 0.75] };
 /** While the drums roll: how far off the camera settles, and how much farther back it starts as the curtain opens. */
 const PODIUM_DRUMS = { distance: 17, back: 5 };
 /**
@@ -136,6 +137,8 @@ export class GameStage {
   private insetSpeed = { left: 0, bottom: 0, top: 0 };
   /** Where each seat's name tag stands by its pet, and for how long that has been covering somebody. */
   private readonly tags = new Map<number, TagState>();
+  /** Little jumps about to be made, each after its own wait: a row of pets never moves as one. */
+  private hops: { view: PetView; wait: number; strength: number }[] = [];
   private size = { width: 1, height: 1 };
   private time = 0;
   private lastWord = -10;
@@ -325,6 +328,11 @@ export class GameStage {
         // The camera nods at each number and punches in at the word. With "less shake" on, only the word moves it.
         if (event.n === 0) this.rig.punchIn(0.5);
         else if (this.rig.shakeScale === 1) this.rig.punchIn(COUNT.nod);
+        // Every pet that is awake bounces on its toes with the number, each a moment after the one before.
+        let order = 0;
+        for (const view of this.pets.values()) {
+          if (event.n > 0 && !this.asleep.has(view.seat)) this.hops.push({ view, wait: (order++ * motion.staggerMs) / 1000, strength: COUNT.hops[event.n] ?? 0 });
+        }
         return;
       }
       case 'roundWinner':
@@ -602,6 +610,11 @@ export class GameStage {
       view.update(pet, context);
       this.petExtras(pet, view, worldDt, context.winner);
     }
+    this.hops = this.hops.filter(hop => {
+      hop.wait -= dt;
+      if (hop.wait <= 0) hop.view.bounce(hop.strength);
+      return hop.wait > 0;
+    });
     // A pet that left without being knocked out (a seat freed, a round swapped) goes in a puff of smoke.
     for (const [id, view] of this.pets) {
       if (alive.has(id)) continue;
