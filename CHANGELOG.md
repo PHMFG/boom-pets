@@ -6,6 +6,15 @@ What changed in Boom Pets, newest first, and why. A version is a build handed ov
 
 Nothing yet.
 
+## [1.3.1] - 2026-10-13
+
+Two things from the list of rough edges that went out with 1.3.0. Nothing here was reported by a player.
+
+### Changed
+
+- **In O Chão é Lava the furniture that is about to go under says so.** From above you cannot tell which layer of the pile is the low one. While the alarm sounds, every piece of the layer the lava is about to take is outlined in red, beating with the alarm, and trembles: get off this one.
+- **FIM! no longer lies across the winner.** The word that ends a round is smaller and sits between the winner's banner and the winner's own name tag.
+
 ## [1.3.0] - 2026-10-12
 
 Asked how the session with five people on 1.2.0 went, the owner said: fun, on the right track. Asked what to change, they chose one rule (O Chão é Lava should be a climb) and better animation everywhere: more impact, livelier pets, smoother transitions.

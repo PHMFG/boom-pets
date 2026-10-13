@@ -16,6 +16,7 @@
 import type { AnyRound, Furniture, GameEvent } from '@boom/game';
 import { furnitureReach, tuning } from '@boom/game';
 import { BoxGeometry, Color, CylinderGeometry, Group, Mesh, MeshBasicMaterial, type MeshToonMaterial, type Object3D } from 'three';
+import { motion } from '../../../shared/motion';
 import { strings } from '../../../shared/strings.pt-BR';
 import { colors, maps } from '../../../shared/tokens';
 import { Model } from '../../render/models';
@@ -50,6 +51,13 @@ const DRAWN = Math.cbrt(FIT.x * FIT.z);
  * thick that line is, how far it swells and how often (slowly), and how fast it squeezes shut at the landing.
  */
 const FURNITURE = { fall: 0.65, height: 22, squash: 0.28, settle: 0.3, line: 0.14, swell: 0.05, pace: 4.2, shut: 0.15 };
+/**
+ * From above, a pile does not show which of its layers is the low one. So while the alarm sounds, every piece of
+ * the layer the lava is about to take says so: its outline comes back, on its top and in the danger colour, beating
+ * with the alarm, and the piece trembles. Seconds for the outline to open and shut, how far it swells on a beat,
+ * and how far the piece trembles (nothing, with "less shake" on).
+ */
+const GOING = { open: 0.15, swell: 0.06, tremble: 0.03 };
 /** Bubbles swelling out of the lava at any moment. */
 const BUBBLES = 9;
 /** Where the volcano stands and how high its mouth is, for what it throws. */
@@ -81,8 +89,9 @@ const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 /**
  * A piece of furniture: the piece, the leg it stands on once it is down, and the gold outline of where it will land.
  * `base` is how high its foot stands over the slab, and `landed` the seconds since it came down (null while it is still in the sky).
+ * `going` is how much of the warning it wears, 0 to 1, while the alarm sounds for its layer: the lava is about to have it.
  */
-type PieceView = { id: number; view: Object3D; leg: Object3D; mark: Group; x: number; z: number; base: number; at: number; landed: number | null };
+type PieceView = { id: number; view: Object3D; leg: Object3D; mark: Group; x: number; z: number; base: number; at: number; landed: number | null; layer: number; going: number };
 /** A bubble waits under the lava, swells for `life` seconds and bursts. */
 type Bubble = { view: Object3D; wait: number; age: number; life: number; size: number; burst: number | null };
 /** A spout waits under the lava, then shoots up, stands a moment and drops. */
@@ -109,6 +118,7 @@ export class LavaMap implements MapView {
   /** One bar of the gold outline that marks a landing, stretched to each side of each piece; and what it is painted with. */
   private readonly bar = new BoxGeometry(1, 0.05, 1);
   private readonly gold = new MeshBasicMaterial({ color: GOLD });
+  private readonly red = new MeshBasicMaterial({ color: colors.danger });
   private readonly sea: Mesh;
   private readonly crowd: Crowd;
   /** Where the crowd and the creatures look: the middle of the pets still in. */
@@ -302,8 +312,26 @@ export class LavaMap implements MapView {
       piece.landed += dt;
       const spring = Math.sin(clamp01(piece.landed / FURNITURE.settle) * Math.PI) * FURNITURE.squash;
       view.visible = leg.visible = true;
-      view.position.set(piece.x, piece.base, piece.z);
       view.scale.set(1 + spring * 0.4, 1 - spring, 1 + spring * 0.4);
+      // The layer the lava is about to take wears a warning for as long as the alarm sounds: see GOING.
+      const doomed = this.phase === 'alarm' && rules !== undefined && piece.layer === rules.wave - 1;
+      piece.going = clamp01(piece.going + (doomed ? dt : -dt) / GOING.open);
+      const tremble = piece.going * GOING.tremble * (this.kit.rig.shakeScale < 1 ? 0 : 1);
+      view.position.set(piece.x + Math.sin(time * 43 + piece.id) * tremble, piece.base, piece.z + Math.cos(time * 37 + piece.id * 1.7) * tremble);
+      if (piece.going > 0) {
+        if (mark.userData.red !== true) {
+          mark.userData.red = true;
+          for (const bar of mark.children) (bar as Mesh).material = this.red;
+          mark.position.y = piece.base + tuning.lava.height + 0.05;
+        }
+        mark.visible = true;
+        mark.scale.setScalar(Math.max(0.001, piece.going * (1 + Math.max(0, Math.sin((time * Math.PI * 2 * 1000) / motion.alarm.ms)) * GOING.swell)));
+        return true;
+      }
+      if (mark.userData.red === true) {
+        mark.visible = false;
+        return true;
+      }
       const open = 1 - clamp01(piece.landed / FURNITURE.shut);
       mark.visible = open > 0;
       mark.scale.setScalar(Math.max(0.001, open));
@@ -370,12 +398,13 @@ export class LavaMap implements MapView {
     }
     mark.position.set(piece.x, base + 0.04, piece.z);
     this.group.add(leg, view, mark);
-    return { id: piece.id, view, leg, mark, x: piece.x, z: piece.z, base, at: piece.at, landed: piece.landed ? FURNITURE.settle : null };
+    return { id: piece.id, view, leg, mark, x: piece.x, z: piece.z, base, at: piece.at, landed: piece.landed ? FURNITURE.settle : null, layer: piece.layer, going: 0 };
   }
 
   dispose(): void {
     this.bar.dispose();
     this.gold.dispose();
+    this.red.dispose();
     this.sea.geometry.dispose();
     (this.sea.material as MeshBasicMaterial).dispose();
     this.tiles.dispose();

@@ -83,10 +83,11 @@ const PODIUM_SHOT = { x: 0, y: 2.4, z: 0.4 };
 const COUNT = { sizes: [0.27, 0.3, 0.26, 0.22], lift: -0.1, seconds: 0.55, nod: 0.1, hops: [0, 1.1, 0.9, 0.75] };
 /**
  * The word that ends a round, pinned to the picture like the count that began it: how tall it is as a share of the
- * picture's height, how far over the middle its foot is (under the banner that names the winner, over the winner's
- * head), and how long it stays.
+ * picture's height, how far over the middle its foot is, and how long it stays. It has the strip between the banner
+ * that names the winner and the winner's own name tag, and no more: bigger, it lay across the winner's face at the
+ * very moment the room is shown who won.
  */
-const ROUND_OVER = { size: 0.19, lift: 0.05, seconds: 1.1 };
+const ROUND_OVER = { size: 0.12, lift: 0.1, seconds: 1.1 };
 /** While the drums roll: how far off the camera settles, and how much farther back it starts as the curtain opens. */
 const PODIUM_DRUMS = { distance: 17, back: 5 };
 /**
