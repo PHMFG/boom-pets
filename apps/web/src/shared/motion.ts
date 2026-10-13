@@ -50,6 +50,8 @@ export const motion = {
 // Timings only the controller uses. `controller/main.ts` publishes them as CSS variables (`--pad-*`),
 // beside the shared ones above.
 export const padMotion = {
+  /** The seat's shapes sliding across the pad's background: one tile of the pattern in this long. Felt, not watched. */
+  drift: { ms: 6000 },
   /** A moment that lands with weight (a power on its button, the place on the results, the champion's card): it arrives too big and settles. */
   slam: { ms: 460 },
   /** Confetti thrown from the pad when its player wins something or gets a power: out fast, shrinking to nothing as it goes. */

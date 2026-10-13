@@ -154,6 +154,8 @@ export class Pad {
     this.root = element('pad', parent);
     this.root.style.setProperty('--charge', `${CHARGE_MS}ms`);
 
+    // The seat's shapes, drifting behind everything: the pad is never quite still.
+    element('pad-pattern', this.root);
     const strip = element('pad-strip', this.root);
     this.shape = element('pad-shape', strip);
     element('pad-name', strip, name);
@@ -299,6 +301,7 @@ export class Pad {
   setSeat(seat: number): void {
     const token = seatTokens[seat % seatTokens.length]!;
     this.root.style.setProperty('--seat', token.color);
+    this.root.classList.add('is-seated');
     this.shape.innerHTML = seatShapeSvg(token.shape, token.color);
     // A faint pattern of the seat's shape, so the screen identifies the player by more than colour.
     const tile = seatShapeSvg(token.shape, 'rgba(255,255,255,0.14)', 'none').replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" ');

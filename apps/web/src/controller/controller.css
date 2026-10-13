@@ -151,7 +151,8 @@ body {
 /* ── Pad ────────────────────────────────────────────────────────────────── */
 
 .pad {
-  --seat: var(--tier-common);
+  /* Until the game has given this phone a seat the pad is ink, like the join page it came from: the seat's colour then comes up out of the dark. */
+  --seat: var(--ink);
   /* Where B sits. The lobby panel reads these to stay clear of it. */
   --b-right: min(47vmin, 222px);
   --b-size: min(26vmin, 124px);
@@ -164,7 +165,7 @@ body {
   width: 100vw;
   height: 100dvh;
   overflow: hidden;
-  background: var(--pattern, none) 0 0 / 64px 64px, var(--seat);
+  background: var(--seat);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -222,6 +223,22 @@ body {
   --jolt: 3.4vmin;
 }
 
+/* The seat's shape as a faint pattern, sliding by one tile and starting over, so the join is never seen.
+   It is a layer of its own and only ever moves, which costs a phone next to nothing. */
+.pad-pattern {
+  position: absolute;
+  inset: 0 -64px -64px 0;
+  background: var(--pattern, none) 0 0 / 64px 64px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--move);
+  animation: drift var(--pad-drift) linear infinite;
+}
+
+.pad.is-seated .pad-pattern {
+  opacity: 1;
+}
+
 /* As the pad is built its own pieces pop in, one after another. */
 .pad.is-fresh .pad-strip,
 .pad.is-fresh .pad-button {
@@ -252,10 +269,12 @@ body {
   pointer-events: none;
 }
 
+/* The seat's shape breathes: it is the one thing on the strip that is the player. */
 .pad-shape {
   display: flex;
   width: 6vmin;
   height: 6vmin;
+  animation: breathe var(--breathe) ease-in-out infinite alternate;
 }
 
 .pad-banner {
@@ -496,9 +515,11 @@ body {
   animation: pop-in var(--pop-in) both;
 }
 
+/* The picture rocks while the card is up: the card is waiting for something, and should look it. */
 .pad-next-icon {
   font-size: 20vmin;
   line-height: 1.05;
+  animation: rock var(--swell) ease-in-out infinite alternate;
 }
 
 .pad-next-name {
@@ -576,6 +597,22 @@ body {
 
   70% {
     transform: scale(0.95);
+  }
+}
+
+@keyframes rock {
+  from {
+    rotate: -7deg;
+  }
+
+  to {
+    rotate: 7deg;
+  }
+}
+
+@keyframes drift {
+  to {
+    transform: translate(-64px, -64px);
   }
 }
 

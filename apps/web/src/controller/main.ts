@@ -16,6 +16,7 @@ const text = strings.controller;
 applyTokens(document.documentElement);
 // The pad's own timings, and two shared ones it needs in another form: a leaving time with no curve, and the curve of a move.
 for (const [name, value] of Object.entries({
+  'pad-drift': `${padMotion.drift.ms}ms`,
   'pad-slam': `${padMotion.slam.ms}ms`,
   'pad-burst': `${padMotion.burst.ms}ms`,
   'squish-out-ms': `${motion.squishOut.ms}ms`,
