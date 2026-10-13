@@ -11,12 +11,14 @@ import {
   DynamicDrawUsage,
   Group,
   InstancedMesh,
+  MathUtils,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
   RingGeometry,
   Vector3,
   type Camera,
+  type PerspectiveCamera,
   Quaternion,
   type MeshToonMaterial,
   type Object3D,
@@ -397,19 +399,42 @@ export class GachaMachine {
 
 // ── Pop-up words ─────────────────────────────────────────────────────────────
 
-type Popup = { word: Word3D; left: number; rise: number; leaving: number };
+type Popup = { word: Word3D; left: number; rise: number; leaving: number; pinned: { size: number; lift: number } | null };
+
+/**
+ * A word pinned to the picture hangs this share of the way from the camera to the floor it is looking at: in
+ * front of everything that stands on the floor, and never through it.
+ */
+const PIN_DEPTH = 0.8;
 
 /** Big 3D words that slam in, hang for a moment, and squish out. They always face the camera. */
 export class Words {
   readonly group = new Group();
   private readonly popups: Popup[] = [];
+  private readonly ahead = new Vector3();
+  private readonly up = new Vector3();
 
   pop(text: string, x: number, y: number, z: number, options: { size: number; color: string; seconds?: number; rise?: number }): void {
     const word = new Word3D(text, { size: options.size, color: options.color });
     word.group.position.set(x, y, z);
     word.slam();
     this.group.add(word.group);
-    this.popups.push({ word, left: options.seconds ?? 1.1, rise: options.rise ?? 0, leaving: 0 });
+    this.popups.push({ word, left: options.seconds ?? 1.1, rise: options.rise ?? 0, leaving: 0, pinned: null });
+  }
+
+  /**
+   * A word pinned to the picture and not to a place in the world: the count before a round. It stands in the
+   * middle of what the camera is looking at, the same size on every map and however the camera is moving, so it
+   * is never out of the picture or cut by its edge. `size` is its height as a share of the picture's, and
+   * `lift` how far over the middle its foot is, as the same share. Call `pin` after the camera has moved, each frame.
+   */
+  pinned(text: string, options: { size: number; lift: number; color: string; seconds: number }): void {
+    const word = new Word3D(text, { size: 1, color: options.color });
+    word.slam();
+    // Out of sight until `pin` has placed it.
+    word.group.scale.setScalar(0);
+    this.group.add(word.group);
+    this.popups.push({ word, left: options.seconds, rise: 0, leaving: 0, pinned: { size: options.size, lift: options.lift } });
   }
 
   update(dt: number, camera: Camera): void {
@@ -421,13 +446,32 @@ export class Words {
       popup.left -= dt;
       if (popup.left > 0) continue;
       popup.leaving += dt / 0.16;
-      const t = popup.leaving;
-      popup.word.group.scale.setScalar(t < 0.3 ? 1 + 0.08 * (t / 0.3) : Math.max(0, 1.08 * (1 - (t - 0.3) / 0.7)));
-      if (t >= 1) {
+      if (popup.leaving >= 1) {
         popup.word.group.removeFromParent();
         this.popups.splice(index, 1);
-      }
+      } else if (!popup.pinned) popup.word.group.scale.setScalar(this.leaving(popup));
     }
+  }
+
+  /** Stands the pinned words in front of the camera as it is now. */
+  pin(camera: PerspectiveCamera): void {
+    for (const popup of this.popups) {
+      if (!popup.pinned) continue;
+      camera.getWorldDirection(this.ahead);
+      // How far along the middle of the picture the floor is, and how tall the picture is where the word hangs.
+      const depth = (camera.position.y / Math.max(0.2, -this.ahead.y)) * PIN_DEPTH;
+      const high = 2 * depth * Math.tan(MathUtils.degToRad(camera.fov / 2));
+      this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+      popup.word.group.quaternion.copy(camera.quaternion);
+      popup.word.group.position.copy(camera.position).addScaledVector(this.ahead, depth).addScaledVector(this.up, popup.pinned.lift * high);
+      popup.word.group.scale.setScalar(popup.pinned.size * high * this.leaving(popup));
+    }
+  }
+
+  /** A word on its way out: a small swell, then nothing. 1 until it starts to leave. */
+  private leaving(popup: Popup): number {
+    const t = popup.leaving;
+    return t <= 0 ? 1 : t < 0.3 ? 1 + 0.08 * (t / 0.3) : Math.max(0, 1.08 * (1 - (t - 0.3) / 0.7));
   }
 
   clear(): void {
@@ -457,6 +501,18 @@ const LAMPS = [
 const CANNON = { x: 5.3, z: 0.9, turn: 0.4 };
 /** How far over the winner's feet the crown floats: just clear of the tallest ears. */
 const CROWN = 1.4;
+/**
+ * How a place arrives on its step. The winner falls from high over it, faster all the way down; the others pop in
+ * a hop above theirs. `from` is how high, `seconds` how long until it lands, `squash` how flat the landing makes
+ * it for an instant (it rings back to its shape), `give` how far the step sinks under it, and `jolt` how high
+ * everyone already on the stage is thrown by it. `turn` is how far (radians) and for how long those already shown
+ * turn to look at whoever has just been.
+ */
+const LANDING = {
+  winner: { from: 6.5, seconds: 0.3, squash: 0.34, give: 0.14, jolt: 0.42 },
+  other: { from: 0.6, seconds: 0.2, squash: 0.2, give: 0.07, jolt: 0.12 },
+  turn: { most: 0.7, seconds: 1.8 },
+} as const;
 /** The footlights round the rug. Their cups are the model's; the bulbs are stood in them here. */
 const BULBS = { count: 16, radius: 4.34 };
 /**
@@ -506,6 +562,8 @@ const lampLight = new MeshBasicMaterial({ color: new Color(maps.finale.lamp).mul
 export type PodiumEntry = { seat: number; model: PetId; place: number };
 
 type Spot = { pet: PetInstance; holder: Group; step: Object3D; paint: MeshToonMaterial | null; seat: number; place: number; height: number; x: number; shownAt: number | null; crown: Object3D | null };
+/** A place that has landed on its step: who, and where each of them stands. */
+export type Landing = { place: number; spots: { x: number; y: number; z: number; seat: number }[] };
 
 /** Where those who missed the podium stand, in the order they are placed: beside it and a little behind, in front of the backdrop. */
 const CROWD_SPOTS = [
@@ -529,9 +587,11 @@ const CROWD_SPOTS = [
  */
 export class Podium {
   readonly group = new Group();
+  /** Called as a place lands on its step, which is a moment after it is shown: the dust, the shake and the cannons belong here. */
+  onLand: ((landing: Landing) => void) | null = null;
   private readonly model = new Model('finale');
   private readonly spots: Spot[] = [];
-  private readonly crowd: { pet: PetInstance; holder: Group }[] = [];
+  private readonly crowd: { pet: PetInstance; holder: Group; turn: number }[] = [];
   private readonly beam: Mesh;
   private readonly lamps: { head: Object3D; beam: Mesh; aim: Vector3 }[] = [];
   private readonly cannons: { root: Object3D; barrel: Object3D | undefined; side: number }[] = [];
@@ -555,6 +615,10 @@ export class Podium {
   private releaseIn = 0;
   /** Who was shown last, where, and when: for a moment every lamp and every eye is on them. */
   private shown: { x: number; y: number; at: number; place: number } | null = null;
+  /** Those shown and still in the air, and when they come down. */
+  private falling: (Landing & { at: number }) | null = null;
+  /** The last landing: when, and how hard it threw everyone else. The stage answers this, not the showing. */
+  private struck: { at: number; jolt: number } | null = null;
   /** Seconds until the audience's next wave, and how many it has had. */
   private cheerIn = 0;
   private waves = 0;
@@ -588,7 +652,7 @@ export class Podium {
         holder.position.set(spot.x, 0, spot.z);
         holder.rotation.y = -Math.sign(spot.x) * 0.5;
         pet.actions.get('idle')?.play();
-        this.crowd.push({ pet, holder });
+        this.crowd.push({ pet, holder, turn: holder.rotation.y });
         return;
       }
       const height = STEP_HEIGHTS[entry.place - 1]!;
@@ -672,15 +736,23 @@ export class Podium {
     }
     if (place === 1) {
       this.celebrating = this.time;
-      // The cannons go off with the winner. Shown all at once, with no finale, nothing is fired.
-      if (this.time > 0) this.firedAt = this.time;
       for (const { pet } of this.crowd) {
         pet.mixer.stopAllAction();
         pet.actions.get('gesture-positive')?.play();
       }
     }
-    if (shown.length > 0) this.answer(place, shown);
-    return shown.map(spot => ({ x: spot.x, y: spot.height, z: 0, seat: spot.seat }));
+    const spots = shown.map(spot => ({ x: spot.x, y: spot.height, z: 0, seat: spot.seat }));
+    if (shown.length > 0) {
+      // Every lamp and every eye goes to the step at once; the rest waits for whoever it is to land on it.
+      this.shown = { x: shown.reduce((sum, spot) => sum + spot.x, 0) / shown.length, y: shown[0]!.height, at: this.time, place };
+      // Shown all at once, with no finale, everyone is simply there: nothing falls, and nothing is fired.
+      if (this.time > 0) this.falling = { place, spots, at: this.time + (place === 1 ? LANDING.winner : LANDING.other).seconds };
+      else {
+        for (const spot of shown) spot.shownAt = -10;
+        this.answer(place, false);
+      }
+    }
+    return spots;
   }
 
   /** Shows every place at once: for a match end that had no finale. */
@@ -692,25 +764,54 @@ export class Podium {
     this.time += dt;
     // The model sets its own scenery out from the middle; what is stood on it here pops up after, one piece after another.
     const arrive = (delay: number) => Math.max(0.001, backOut(clamp01((this.time - delay) / 0.3)));
-    for (const { pet, holder } of this.crowd) {
+    // Whoever was shown comes down on their step: this is the moment the stage answers.
+    if (this.falling && this.time >= this.falling.at) {
+      const landing = this.falling;
+      this.falling = null;
+      this.answer(landing.place, true);
+      this.onLand?.(landing);
+    }
+    // A landing throws everyone already on the stage into the air for a moment, those nearest first.
+    const thrown = (x: number) => {
+      if (!this.struck) return 0;
+      const t = (this.time - this.struck.at - Math.abs(x) * 0.03) / 0.3;
+      return t <= 0 || t >= 1 ? 0 : Math.sin(t * Math.PI) * this.struck.jolt;
+    };
+    // And they turn to look at whoever has just been shown, for a moment.
+    const looking = this.shown !== null && this.time - this.shown.at < LANDING.turn.seconds ? this.shown : null;
+    const ease = 1 - Math.exp(-6 * dt);
+    for (const member of this.crowd) {
+      const { pet, holder } = member;
       // The crowd walks on while the drums roll.
       holder.scale.setScalar(backOut(clamp01(this.time / 0.3)));
+      holder.position.y = thrown(holder.position.x);
+      const wanted = this.shown ? Math.atan2(this.shown.x - holder.position.x, -holder.position.z) : -Math.sign(holder.position.x) * 0.5;
+      member.turn += (wanted - member.turn) * ease;
+      holder.rotation.y = member.turn;
       pet.mixer.update(dt);
     }
     this.spots.forEach((spot, index) => {
       const since = spot.shownAt === null ? -1 : this.time - spot.shownAt;
       const winner = spot.place === 1;
-      const size = since < 0 ? 0.001 : backOut(clamp01(since / 0.3)) * (winner ? WINNER_SCALE : 1);
-      spot.holder.scale.setScalar(Math.max(0.001, size));
-      // The winner drops in from above; then keeps hopping.
-      const drop = winner && since >= 0 ? Math.max(0, 1 - since / 0.25) * 5 : 0;
-      spot.holder.position.y = spot.height + drop + (winner && since > 0.25 ? Math.abs(Math.sin((since - 0.25) * 6)) * 0.35 : 0);
-      // The step takes the weight: a short squash as its pet lands on it.
-      const squash = since < 0 ? 0 : Math.exp(-since * 9) * Math.sin(since * 26) * 0.07;
+      const how = winner ? LANDING.winner : LANDING.other;
+      // How far through its fall it is, and how long it has been down (negative while it is in the air).
+      const fall = since < 0 ? 0 : clamp01(since / how.seconds);
+      const down = since - how.seconds;
+      const size = since < 0 ? 0.001 : Math.max(0.001, backOut(clamp01(since / 0.15))) * (winner ? WINNER_SCALE : 1);
+      // Stretched by its speed on the way down, flattened as it lands, and ringing back to its shape.
+      const squash = since < 0 ? 0 : down < 0 ? -0.14 * fall : Math.exp(-down * 9) * Math.cos(down * 22) * how.squash;
+      spot.holder.scale.set(size * (1 + squash * 0.6), size * (1 - squash), size * (1 + squash * 0.6));
+      // The winner keeps hopping once it is down. Anyone already up is thrown by a later landing.
+      const dance = winner && down > 0.3 ? Math.abs(Math.sin((down - 0.3) * 6)) * 0.35 : 0;
+      spot.holder.position.y = spot.height + how.from * (1 - fall * fall) + dance + (down > 0.35 ? thrown(spot.x) : 0);
+      const wanted = looking && looking.place !== spot.place && since >= 0 ? Math.max(-LANDING.turn.most, Math.min(LANDING.turn.most, (looking.x - spot.x) * 0.4)) : 0;
+      spot.holder.rotation.y += (wanted - spot.holder.rotation.y) * ease;
+      // The step takes the weight: it sinks as its pet lands on it, and springs back.
+      const give = down < 0 ? 0 : Math.exp(-down * 9) * Math.cos(down * 22) * how.give;
       const set = arrive(0.1 + index * 0.07);
-      spot.step.scale.set((1 + squash * 0.5) * set, (1 - squash) * set, (1 + squash * 0.5) * set);
+      spot.step.scale.set((1 + give * 0.5) * set, (1 - give) * set, (1 + give * 0.5) * set);
       if (spot.crown) {
-        spot.crown.scale.setScalar(backOut(clamp01((since - 0.45) / 0.3)) || 0.001);
+        spot.crown.scale.setScalar(backOut(clamp01((down - 0.2) / 0.3)) || 0.001);
         spot.crown.rotation.y = this.time * 1.4;
       }
       spot.pet.mixer.update(dt);
@@ -722,9 +823,9 @@ export class Podium {
     // all swing to it for a moment. Once there is a winner they chase each other round the podium instead:
     // the winner has the spotlight.
     const since = this.shown ? this.time - this.shown.at : Infinity;
-    const struck = this.shown !== null && since < (this.shown.place === 1 ? 0.7 : 1.1);
+    const aimed = this.shown !== null && since < (this.shown.place === 1 ? 0.7 : 1.1);
     this.lamps.forEach(({ head, beam, aim }, index) => {
-      if (struck) this.target.set(this.shown!.x, this.shown!.y + 0.6, 0);
+      if (aimed) this.target.set(this.shown!.x, this.shown!.y + 0.6, 0);
       else if (this.celebrating === null) this.target.set(Math.sin(this.time * 0.8 + index * 1.7) * 3.6, 0.4, Math.cos(this.time * 0.63 + index * 2.3) * 2.8);
       else this.target.set(Math.cos(this.time * 1.1 + index * (Math.PI / 2)) * 3.4, 0.3, Math.sin(this.time * 1.1 + index * (Math.PI / 2)) * 2.9 + 0.3);
       aim.lerp(this.target, 1 - Math.exp(-7 * dt));
@@ -744,7 +845,8 @@ export class Podium {
 
     // The light runs round the arch, string after string: each swells and sinks, and none goes out. It runs
     // faster for a second as each place is shown.
-    const hurry = Math.exp(-since * 2.5);
+    const landed = this.struck ? this.time - this.struck.at : Infinity;
+    const hurry = Math.exp(-landed * 2.5);
     this.archTurn += dt * Math.PI * 2 * ((this.celebrating === null ? ARCH_PACE.drums : ARCH_PACE.winner) + ARCH_PACE.reveal * hurry);
     this.strings.forEach(({ light, lit }, index) => {
       const swell = Math.max(0, Math.sin(this.archTurn - (index / this.strings.length) * Math.PI * 2));
@@ -758,7 +860,7 @@ export class Podium {
       const angle = ((index + 0.5) / BULBS.count) * Math.PI * 2;
       const wave = this.celebrating === null ? Math.sin(this.time * Math.PI * 1.6 + index * Math.PI) : Math.sin(this.time * Math.PI * 2.4 - (index / BULBS.count) * Math.PI * 6);
       const round = Math.abs(Math.atan2(Math.sin(angle - from), Math.cos(angle - from)));
-      const ripple = Math.max(0, 1 - Math.abs(since * 5 - round * 1.3 - 0.5));
+      const ripple = Math.max(0, 1 - Math.abs(landed * 5 - round * 1.3 - 0.5));
       this.spot.set(Math.cos(angle) * BULBS.radius, 0.02, Math.sin(angle) * BULBS.radius);
       this.bulbs.setMatrixAt(index, this.matrix.compose(this.spot, this.upright, this.size.setScalar(arrive(0.3 + index * 0.03) * (1 + Math.max(0, wave) * 0.45 + ripple * 0.7))));
     }
@@ -768,7 +870,7 @@ export class Podium {
     this.cupSpin *= Math.exp(-1.6 * dt);
     this.cup.rotation.y += dt * (TROPHY.spin + this.cupSpin);
     const lifted = this.celebrating === null ? 0 : backOut(clamp01((this.time - this.celebrating - 0.3) / 0.5)) * TROPHY.lift + Math.sin(this.time * 2.2) * 0.06;
-    const hop = since < 0.4 ? Math.sin((since / 0.4) * Math.PI) * 0.22 : 0;
+    const hop = landed < 0.4 ? Math.sin((landed / 0.4) * Math.PI) * 0.22 : 0;
     this.cup.position.y = lifted + hop;
     this.cup.scale.setScalar(arrive(0.5) * TROPHY.size);
     this.stand.scale.setScalar(arrive(0.45) * TROPHY.size);
@@ -788,20 +890,19 @@ export class Podium {
     this.model.dispose();
   }
 
-  /** The stage's answer to a place being shown. `shown` are those who were. */
-  private answer(place: number, shown: Spot[]): void {
-    const x = shown.reduce((sum, spot) => sum + spot.x, 0) / shown.length;
-    this.shown = { x, y: shown[0]!.height, at: this.time, place };
+  /** The stage's answer to a place landing on its step. `live` is false when everyone is shown at once, with no finale: then nothing is thrown, fired or let go. */
+  private answer(place: number, live: boolean): void {
     this.cupSpin = place === 1 ? 14 : 6;
+    if (live) this.struck = { at: this.time, jolt: (place === 1 ? LANDING.winner : LANDING.other).jolt };
     if (place !== 1) return this.audience.clap();
     this.audience.cheer(CHEERS.every);
     this.cheerIn = CHEERS.every;
     this.waves = 1;
-    // Shown all at once, with no finale, the balloons stay tied: there was no moment to let them go at.
-    if (this.time > 0) {
-      this.toRelease = BALLOONS.flight;
-      this.releaseIn = 0.25;
-    }
+    if (!live) return;
+    // The cannons go off as the winner lands, and the balloons are let go.
+    this.firedAt = this.time;
+    this.toRelease = BALLOONS.flight;
+    this.releaseIn = 0.25;
   }
 
   /** The audience: where it looks, and when it cheers again. */

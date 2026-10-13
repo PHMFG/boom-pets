@@ -39,7 +39,7 @@ import { LavaMap } from './maps/LavaMap';
 import { PaintMap } from './maps/PaintMap';
 import { PotatoMap } from './maps/PotatoMap';
 import { RaceMap } from './maps/RaceMap';
-import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words } from './Props';
+import { GachaMachine, GhostView, Podium, seatColor, SlotReels, Words, type Landing } from './Props';
 
 const HALF = tuning.arena.size / 2;
 /**
@@ -73,6 +73,13 @@ const VICTORY_WORD = { y: 5.05, z: -1.2, size: 1.1, leave: 0.4 };
 const CANNON = { x: 5.0, y: 1.5, z: 0.7 };
 /** Where the camera looks at the podium: over the winner's head, which leaves the top of the picture to the banner that names them. */
 const PODIUM_SHOT = { x: 0, y: 2.4, z: 0.4 };
+/**
+ * The count before a round, pinned to the middle of the picture: how tall the word for "go" and then 1, 2 and 3
+ * are, as a share of the picture's height (each bigger than the one before it in the count, so it builds), how
+ * far over the middle their foot is, how long each stays, and how hard the camera nods at a number (the word has
+ * its own, bigger punch).
+ */
+const COUNT = { sizes: [0.27, 0.3, 0.26, 0.22], lift: -0.1, seconds: 0.55, nod: 0.1 };
 /** While the drums roll: how far off the camera settles, and how much farther back it starts as the curtain opens. */
 const PODIUM_DRUMS = { distance: 17, back: 5 };
 /**
@@ -310,10 +317,16 @@ export class GameStage {
     switch (event.t) {
       case 'phase':
         return this.onPhase(event.phase, game);
-      case 'countdown':
-        this.words.pop(event.n === 0 ? strings.words3d.go : String(event.n), 0, 3.2, 0, { size: event.n === 0 ? 3.4 : 2.8, color: event.n === 0 ? colors.gold : colors.cream, seconds: 0.55 });
+      case 'countdown': {
+        // Pinned to the middle of the picture, not stood on the middle of the map: a race lines its pets up at one
+        // end of its track, and the camera goes there with them, leaving the count behind. In gold, like the word
+        // that ends it: a cream number over a pale floor could hardly be seen.
+        this.words.pinned(event.n === 0 ? strings.words3d.go : String(event.n), { size: COUNT.sizes[event.n] ?? COUNT.sizes[0]!, lift: COUNT.lift, color: colors.gold, seconds: COUNT.seconds });
+        // The camera nods at each number and punches in at the word. With "less shake" on, only the word moves it.
         if (event.n === 0) this.rig.punchIn(0.5);
+        else if (this.rig.shakeScale === 1) this.rig.punchIn(COUNT.nod);
         return;
+      }
       case 'roundWinner':
         this.winners = new Set(event.seats);
         return;
@@ -335,25 +348,16 @@ export class GameStage {
         this.establish();
         return;
       case 'finale': {
-        const spots = this.podium?.reveal(event.place) ?? [];
-        for (const spot of spots) {
-          this.dust(spot.x, spot.z + 1, 10);
-          this.decals.shock(spot.x, spot.z, 1.8, new Color(seatColor(spot.seat)), 0.35);
-        }
-        this.rig.shake(event.place === 1 ? 0.55 : 0.2);
+        // Whoever it is is shown now and lands on their step a moment later: the dust, the shake and the cannons wait for that (`onLanded`).
+        this.podium?.reveal(event.place);
         if (event.place !== 1) return;
-        // The winner: colour comes back, the camera closes in and circles, and both sides fire confetti.
+        // The winner: colour comes back and the camera starts to close in, as they fall into the picture.
         this.celebrating = true;
         this.renderer.setSaturation(0);
-        this.renderer.kick(0.6);
         // Far enough that two crowns, for a tie, clear the banner that names them both, and the audience stays in the picture.
         this.rig.look({ at: () => PODIUM_SHOT, distance: 13.5, seconds: 3600, pitch: 20, sway: 0.5 });
-        this.rig.punchIn(0.5);
         // The word has the top of the picture for one beat; then the banner that names the winner takes its place.
         this.words.pop(strings.words3d.victory, 0, VICTORY_WORD.y, VICTORY_WORD.z, { size: VICTORY_WORD.size, color: colors.gold, seconds: motion.victory.ms / 1000 - VICTORY_WORD.leave });
-        const palette = [...spots.map(spot => new Color(seatColor(spot.seat))), new Color(colors.gold), WHITE];
-        // Out of the two cannons' mouths.
-        for (const side of [-1, 1]) this.confetti(side * CANNON.x, CANNON.y, CANNON.z, palette, 70);
         return;
       }
       case 'dash': {
@@ -649,6 +653,7 @@ export class GameStage {
     }
     this.slideInsets(dt);
     this.rig.frame(this.focusPoints(game), dt);
+    this.words.pin(this.rig.camera);
     this.mapFrames++;
     this.placeNames(game, dt);
     this.nameplates.tick(now);
@@ -757,6 +762,7 @@ export class GameStage {
       this.words.clear();
       this.showMap(new BrawlMap(this.kit, { night: true, ripple: false }));
       this.podium = new Podium(game.standings.map(entry => ({ seat: entry.seat, model: this.modelOf(game, entry.seat), place: entry.place })));
+      this.podium.onLand = landing => this.onLanded(landing);
       this.scene.add(this.podium.group);
       if (phase === 'finale') {
         this.renderer.setSaturation(-0.6);
@@ -774,6 +780,21 @@ export class GameStage {
       this.winners.clear();
       this.showMap(this.makeMap('brawl', false, null));
     }
+  }
+
+  /** A place has landed on its step: what the landing does to the floor, the camera and, for the winner, the cannons. */
+  private onLanded({ place, spots }: Landing): void {
+    for (const spot of spots) {
+      this.dust(spot.x, spot.z + 1, place === 1 ? 18 : 10);
+      this.decals.shock(spot.x, spot.z, place === 1 ? 2.6 : 1.8, new Color(seatColor(spot.seat)), 0.35);
+    }
+    this.rig.shake(place === 1 ? 0.55 : 0.2);
+    if (place !== 1) return;
+    this.renderer.kick(0.6);
+    this.rig.punchIn(0.5);
+    // Out of the two cannons' mouths.
+    const palette = [...spots.map(spot => new Color(seatColor(spot.seat))), new Color(colors.gold), WHITE];
+    for (const side of [-1, 1]) this.confetti(side * CANNON.x, CANNON.y, CANNON.z, palette, 70);
   }
 
   /**
