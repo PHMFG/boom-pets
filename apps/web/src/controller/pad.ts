@@ -498,8 +498,9 @@ export class Pad {
         pop(this.next, 1, 1.14);
         pop(this.nextIcon, 0);
       }
-      // What takes the place of something still leaving waits for it to be gone.
-      if (!this.shows(this.next)) this.next.classList.toggle('is-late', lobbyWasUp);
+      // What takes the place of something still leaving waits for it to be gone: the lobby's panel as a
+      // match starts, the player's place in the round as the roulette starts.
+      if (!this.shows(this.next)) this.next.classList.toggle('is-late', lobbyWasUp || this.shows(this.alert));
     }
     const cardWasUp = this.shows(this.next);
     present(this.next, card !== null);

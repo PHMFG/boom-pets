@@ -484,8 +484,8 @@ body {
 /* A button the game does not use is not drawn, but keeps its place, so the other one does not move.
    It squishes out when a game without it arrives and pops back in with the next game that has it. Nothing
    is taken from under a finger: the pad itself takes every touch, and a button is only ever a picture.
-   (Shrunk to nothing rather than hidden: a letter inside a button that was hidden and shown again while
-   it shrank stayed hidden in Chromium.) */
+   (Shrunk to nothing, not hidden: with `visibility` waiting on the shrink, a button that came back kept
+   its letter hidden in Chromium, an A with nothing on it.) */
 .pad[data-a='off'] .pad-a,
 .pad[data-b='off'] .pad-b {
   scale: 0;
@@ -787,6 +787,11 @@ body {
   background: var(--gold);
   font-size: 7.4vmin;
   white-space: nowrap;
+  /* Said and unsaid, it goes down and comes up like any button, and changes colour on the way. */
+  transition:
+    transform var(--punch),
+    box-shadow var(--punch),
+    background-color var(--punch);
 }
 
 .pad-ready.is-on {
