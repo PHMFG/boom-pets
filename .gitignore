@@ -16,3 +16,23 @@ playwright-report/
 
 # Python bytecode left by Blender
 __pycache__/
+*.pyc
+
+# Local Claude Code state (until now only excluded in .git/info/exclude)
+.claude/worktrees/
+.claude/settings.local.json
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Editors, OS, other build output
+.vscode/
+.idea/
+Thumbs.db
+coverage/
