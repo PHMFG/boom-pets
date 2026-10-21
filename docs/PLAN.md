@@ -434,3 +434,11 @@ After 1.2.0 was tagged, every screen was photographed and handed to an agent tha
 ### 1.2.2: what the logs of real sessions said (2026-10-11)
 
 The match logs in `playtests/` had not been read since 1.0.0. They held two things nobody had said aloud: the owner's "very short" had been two people playing without bots (the lava game over in 7 seconds, the potato in 8.5), and 1.2.0 had already been played by five people on five phones. Every round length in this plan had been tuned with four bots. `pnpm balance --players=` now plays any number, and the potato's fuses are longer when fewer than four play.
+
+### 1.3.0: the lava becomes a climb, and everything moves better (2026-10-12)
+
+The owner was asked, with options to tick, how the session with five people had gone and what to change. The answers: fun, on the right track; O Chão é Lava should be a continuous climb, not waves; animation should be better everywhere, with more impact, livelier pets and smoother transitions; the phone's controls are fine. Three earlier reports had ended with the same questions in prose and got no answer.
+
+- **O Chão é Lava is a climb.** Furniture piles up in layers and the lava's level only rises. A round's floor may now have several heights at one spot (`minis/field.ts`), and on the screen it is the crater that rises round the pile, so the camera stays with the pets.
+- **Three agents took the animation in parallel**, each in its own checkout with its own files: the pets and the weight of hits inside a round; everything between rounds and the podium; the phone's screen. Each filmed before and after and took out what did not read better. They met in one constant in the camera rig.
+- **Two things were found by measuring that nobody had asked about:** a lunge that reached two pets always hit the one who had joined first, and every round length so far had been tuned for four players only.

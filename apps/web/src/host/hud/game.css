@@ -38,7 +38,14 @@
   justify-content: flex-start;
   gap: calc(22 * var(--u));
   padding-top: calc(64 * var(--u));
-  background: radial-gradient(circle, transparent 40%, color-mix(in srgb, var(--ink) 58%, transparent));
+  background: radial-gradient(circle, transparent var(--title-hole), color-mix(in srgb, var(--ink) 58%, transparent));
+}
+
+/* How far out from the middle the title's dark edge begins. A number the browser can animate, so the edge can open out. */
+@property --title-hole {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 40%;
 }
 
 .title-logo {
@@ -270,10 +277,15 @@
   font: 800 calc(28 * var(--u)) / 1 var(--font-text);
 }
 
-/* On the way out the letters fly apart, each in its own direction. */
+/* On the way out the letters fly apart, each in its own direction, and the dark edge opens out past the corners of the screen: it does not cut. */
 .title-screen.is-leaving {
-  animation: none !important;
-  background: none;
+  animation: title-open var(--title-fly) ease-in both !important;
+}
+
+@keyframes title-open {
+  to {
+    --title-hole: 160%;
+  }
 }
 
 .title-screen.is-leaving .title-letter {
@@ -563,12 +575,23 @@
   pointer-events: none;
 }
 
-.intro-reel,
-.intro-card {
+/* The reel and then the card stand here, one in the other's place, with the same middle. */
+.intro-stage {
+  position: relative;
   grid-area: 2 / 1;
+  display: grid;
+  place-items: center;
 }
 
-.intro-next {
+.intro-reel,
+.intro-card,
+.intro-burst {
+  grid-area: 1 / 1;
+}
+
+/* The line over the reel and the line over the card take turns in the same place. */
+.intro-next,
+.intro-promise {
   grid-area: 1 / 1;
   color: var(--white);
   font: 400 calc(60 * var(--u)) / 1 var(--font-display);
@@ -577,13 +600,21 @@
   animation: pop-in var(--pop-in) both;
 }
 
+/* The round's line waits for the promise to have squished out: two lines are never read through each other. */
+.intro-next {
+  animation-delay: var(--between-swap);
+}
+
 /*
- * The reel: a window three pictures wide, and a strip of pictures that runs past it, slows and stops with
- * the game to come in the middle, under the two gold pointers. It stops a moment before the card takes
- * its place, and the picture it stopped on swells.
+ * The reel: a window three pictures wide, and a strip of pictures that runs past it and slows the way a wheel
+ * does, each picture going by slower than the last, to the game to come under the two gold pointers. It drifts
+ * a little past them and drops back into place: that is the clunk, which jolts the window, makes the pointers
+ * bite and swells the picture it stopped on. The card takes its place a moment later.
  */
 .intro-reel {
   --cell: calc(250 * var(--u));
+  /* When the strip drops back into place, counted from when the reel was put up. */
+  --clunk: calc(var(--spin) - var(--landing));
 
   position: relative;
   width: calc(var(--cell) * 3.1);
@@ -592,6 +623,9 @@
   overflow: hidden;
   border-radius: calc(48 * var(--u));
   rotate: -2deg;
+  animation:
+    pop-in var(--pop-in) both,
+    reel-clunk var(--between-reel-jolt) var(--ease-pop) var(--clunk);
 }
 
 /* The pointers: one hanging from the top edge, one standing on the bottom, both at the middle. */
@@ -604,16 +638,19 @@
   height: calc(38 * var(--u));
   background: var(--gold);
   translate: -50% 0;
+  animation: pointer-bite var(--between-reel-jolt) var(--ease-pop) var(--clunk);
   content: '';
 }
 
 .intro-reel::before {
   top: 0;
+  transform-origin: top;
   clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
 .intro-reel::after {
   bottom: 0;
+  transform-origin: bottom;
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
@@ -623,7 +660,9 @@
   height: 100%;
   /* The first picture starts in the middle of the window. */
   padding-left: calc(var(--cell) * 1.05);
-  animation: reel-spin calc(var(--spin) - var(--landing)) var(--ease-spin) both;
+  animation:
+    reel-spin calc(var(--clunk) - var(--between-reel-settle)) var(--between-reel-ease) both,
+    reel-settle var(--between-reel-settle) both calc(var(--clunk) - var(--between-reel-settle));
 }
 
 .intro-reel-strip span {
@@ -636,7 +675,7 @@
 }
 
 .intro-reel-strip .is-landing {
-  animation: reel-land var(--landing) var(--ease-pop) both calc(var(--spin) - var(--landing));
+  animation: reel-land var(--landing) var(--ease-pop) both var(--clunk);
 }
 
 @keyframes reel-spin {
@@ -649,9 +688,39 @@
   }
 }
 
+/* Past the pointers, slowing, and then back into place quicker than it left. */
+@keyframes reel-settle {
+  from {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+
+  72% {
+    transform: translateX(calc(-0.13 * var(--cell)));
+    animation-timing-function: ease-in;
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@keyframes reel-clunk {
+  40% {
+    rotate: 1.5deg;
+    scale: 1.06;
+  }
+}
+
+@keyframes pointer-bite {
+  40% {
+    scale: 1.5;
+  }
+}
+
 @keyframes reel-land {
-  50% {
-    scale: 1.3;
+  to {
+    scale: var(--between-reel-swell);
   }
 }
 
@@ -678,12 +747,13 @@
 /* ── The end of a round: who came where ─────────────────────────────────── */
 
 .round-results {
+  --row: calc(70 * var(--u));
+  --row-gap: calc(10 * var(--u));
+
   position: absolute;
   top: calc(250 * var(--u));
   right: calc(44 * var(--u));
   z-index: 2;
-  display: grid;
-  gap: calc(12 * var(--u));
   width: calc(520 * var(--u));
   padding: calc(18 * var(--u)) calc(22 * var(--u)) calc(22 * var(--u));
   rotate: 1.5deg;
@@ -718,11 +788,21 @@
 }
 
 .round-results ol {
-  display: grid;
-  gap: calc(10 * var(--u));
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/*
+ * The list builds itself. A row's place in it opens as the row pops in, so the box grows a row at a time and is
+ * never up with nothing in it: the first row starts with the box, the rest follow one by one.
+ */
+.round-slot {
+  --at: calc(var(--round-results-delay) + var(--between-list-lead) + var(--i) * var(--round-results-stagger));
+
+  height: calc(var(--row) + var(--row-gap));
+  padding-top: var(--row-gap);
+  animation: slot-open var(--between-list-open) both var(--at);
 }
 
 /* A row wears its player's colour as a band on the left, and their shape: never colour alone. */
@@ -730,13 +810,14 @@
   display: flex;
   align-items: center;
   gap: calc(14 * var(--u));
-  padding: calc(8 * var(--u)) calc(18 * var(--u)) calc(8 * var(--u)) calc(14 * var(--u));
+  height: var(--row);
+  padding: 0 calc(18 * var(--u)) 0 calc(14 * var(--u));
   border: calc(4 * var(--u)) solid var(--ink);
   border-left: calc(18 * var(--u)) solid var(--seat);
   border-radius: calc(18 * var(--u));
   background: var(--white);
   font: 400 calc(40 * var(--u)) / 1 var(--font-display);
-  animation: pop-in var(--pop-in) both calc(var(--round-results-delay) + var(--pop-in-ms) + var(--i) * var(--round-results-stagger));
+  animation: pop-in var(--pop-in) both var(--at);
 }
 
 .round-row.is-first {
@@ -766,6 +847,69 @@
   font-size: calc(46 * var(--u));
 }
 
+/* What the round paid punches as its row lands, which is when it leaves for that player's card. */
+.round-points {
+  animation: points-pay var(--count) var(--ease-pop) both calc(var(--at) + var(--pop-in-ms));
+}
+
+@keyframes points-pay {
+  40% {
+    scale: 1.5;
+  }
+}
+
+/* The same number on its way to the card: out of the row, across the screen, and into the score, which then counts up. */
+.points-chip {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: calc(4 * var(--u)) calc(16 * var(--u)) calc(6 * var(--u)) calc(12 * var(--u));
+  border-width: calc(4 * var(--u));
+  border-bottom: calc(10 * var(--u)) solid var(--seat);
+  border-radius: calc(18 * var(--u));
+  box-shadow: 0 calc(6 * var(--u)) 0 var(--ink);
+  font: 400 calc(46 * var(--u)) / 1 var(--font-display);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation:
+    chip-fly var(--between-points-fly) both,
+    chip-size var(--between-points-ms) linear both;
+}
+
+.points-shape {
+  display: flex;
+  flex: none;
+  width: calc(34 * var(--u));
+  height: calc(34 * var(--u));
+}
+
+@keyframes chip-fly {
+  to {
+    translate: var(--dx) var(--dy);
+  }
+}
+
+@keyframes chip-size {
+  from {
+    scale: 0;
+  }
+
+  14% {
+    scale: 1.25;
+  }
+
+  26%,
+  84% {
+    scale: 1;
+  }
+
+  to {
+    scale: 0;
+  }
+}
+
 /* A game that counts something gets a wider list, with what it counted between the name and the points. */
 .round-results.is-counted {
   width: calc(640 * var(--u));
@@ -779,21 +923,85 @@
   white-space: nowrap;
 }
 
+.intro-stage {
+  /* Where the game's picture stands on the card, and how tall it is: the card leaves it that room at its top. */
+  --icon-top: calc(26 * var(--u));
+  --icon-high: calc(158 * var(--u));
+}
+
 .intro-card {
   position: relative;
   display: grid;
   justify-items: center;
   gap: calc(12 * var(--u));
   max-width: calc(1500 * var(--u));
-  padding: calc(26 * var(--u)) calc(64 * var(--u)) calc(34 * var(--u));
+  padding: calc(var(--icon-top) + var(--icon-high) + 12 * var(--u)) calc(64 * var(--u)) calc(34 * var(--u));
   rotate: 1deg;
   text-align: center;
 }
 
+/*
+ * The game's picture is the one the reel stopped on. It starts where the reel left it, in the middle and swollen,
+ * and hops up to its place at the top of the card as the card pops in round it.
+ */
 .intro-icon {
+  position: absolute;
+  top: var(--icon-top);
+  left: 50%;
+  z-index: 1;
+  height: var(--icon-high);
   font-size: calc(150 * var(--u));
-  line-height: 1.05;
-  animation: pop-in var(--pop-in) both;
+  line-height: var(--icon-high);
+  translate: -50% 0;
+  animation: icon-carry var(--move) both;
+}
+
+@keyframes icon-carry {
+  from {
+    top: calc(50% - var(--icon-high) / 2);
+    scale: var(--between-reel-swell);
+  }
+}
+
+/* Confetti thrown from behind the card as it lands: squares, like the confetti of the 3D world, that fly out and shrink to nothing. */
+.intro-burst {
+  width: 0;
+  height: 0;
+}
+
+.intro-burst i {
+  position: absolute;
+  top: calc(-16 * var(--u) * var(--size));
+  left: calc(-16 * var(--u) * var(--size));
+  width: calc(32 * var(--u) * var(--size));
+  aspect-ratio: 1;
+  border: calc(5 * var(--u)) solid var(--ink);
+  border-radius: calc(7 * var(--u));
+  background: var(--gold);
+  transform: scale(0);
+  animation: burst-fly var(--between-card-burst) var(--between-list-open-ease) both;
+}
+
+.intro-burst i:nth-child(odd) {
+  background: var(--white);
+}
+
+@keyframes burst-fly {
+  from {
+    transform: rotate(var(--turn)) translateY(0) rotate(0turn) scale(0.5);
+  }
+
+  25% {
+    transform: rotate(var(--turn)) translateY(calc(-0.7 * var(--reach) * var(--u))) rotate(0.3turn) scale(1);
+  }
+
+  60% {
+    transform: rotate(var(--turn)) translateY(calc(-0.94 * var(--reach) * var(--u))) rotate(0.55turn) scale(1);
+  }
+
+  to {
+    transform: rotate(var(--turn)) translateY(calc(-1 * var(--reach) * var(--u))) rotate(0.7turn) scale(0);
+  }
 }
 
 .intro-name {
@@ -835,6 +1043,41 @@
   background: var(--gold);
   font: 400 calc(40 * var(--u)) / 1 var(--font-display);
   rotate: 7deg;
+  /* Stamped on the card once its name has been spelled out: it comes down from big, and the card feels it. */
+  animation: stamp var(--between-card-stamp) linear both var(--between-card-stamp-delay);
+}
+
+.intro-card.is-final {
+  animation:
+    pop-in var(--pop-in) both,
+    stamped var(--count) var(--ease-pop) var(--between-card-stamped);
+}
+
+@keyframes stamp {
+  from {
+    transform: scale(0);
+  }
+
+  20% {
+    transform: scale(2.3) rotate(-10deg);
+    animation-timing-function: ease-in;
+  }
+
+  55% {
+    transform: scale(0.9);
+    animation-timing-function: ease-out;
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@keyframes stamped {
+  40% {
+    scale: 0.97;
+    rotate: 2deg;
+  }
 }
 
 .finale {
@@ -863,12 +1106,12 @@
 
 /* The name's letters arrive with the box, not after it: a box is never up with nothing in it. */
 .finale-winner .pop-letter {
-  animation-delay: calc(var(--victory) + var(--pop-in-ms) / 2 + var(--i) * var(--stagger));
+  animation-delay: calc(var(--victory) + var(--i) * var(--stagger));
 }
 
 .finale-winner .finale-won {
   animation: pop-in var(--pop-in) both;
-  animation-delay: calc(var(--victory) + var(--pop-in-ms) / 2 + var(--letters) * var(--stagger));
+  animation-delay: calc(var(--victory) + var(--letters) * var(--stagger));
 }
 
 .finale-winner .finale-trophy {
@@ -1065,6 +1308,11 @@
 
 .start-prompt:empty {
   display: none;
+}
+
+/* The lobby's prompt stands where the main menu was: it waits for the menu to have squished out, so one is not read through the other. */
+.title-screen.is-leaving ~ .start-prompt {
+  animation-delay: var(--between-swap), calc(var(--between-swap) + var(--pop-in-ms));
 }
 
 .lobby-tip {
@@ -1318,7 +1566,40 @@
   background: color-mix(in srgb, var(--cream) 70%, transparent);
   box-shadow: none;
   color: color-mix(in srgb, var(--ink) 55%, transparent);
-  animation: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* As the lobby arrives the free seats open their places in the strip, so the cards already there slide apart. */
+.seat-strip.is-opening .seat-card.is-free {
+  animation:
+    pop-in var(--pop-in) both,
+    seat-open var(--move) both;
+}
+
+/* As a match starts they close them again: the seat squishes out and the cards of those playing slide together. */
+.seat-card.is-free.is-leaving {
+  animation:
+    squish-out var(--squish-out) both,
+    seat-close var(--move) both !important;
+}
+
+@keyframes seat-open {
+  from {
+    width: 0;
+    margin-right: calc(-14 * var(--u));
+    padding: 0;
+    border-width: 0;
+  }
+}
+
+@keyframes seat-close {
+  to {
+    width: 0;
+    margin-right: calc(-14 * var(--u));
+    padding: 0;
+    border-width: 0;
+  }
 }
 
 .seat-card.is-away {
@@ -1458,37 +1739,45 @@
 /* ── Results ────────────────────────────────────────────────────────────── */
 
 .results {
+  --row: calc(84 * var(--u));
+  --row-gap: calc(10 * var(--u));
+
   position: absolute;
   top: calc(36 * var(--u));
   left: calc(36 * var(--u));
-  display: flex;
-  flex-direction: column;
-  gap: calc(14 * var(--u));
   width: calc(760 * var(--u));
   padding: calc(22 * var(--u)) calc(26 * var(--u));
   rotate: -1deg;
+  transform-origin: top left;
 }
 
 .results h1 {
+  margin-bottom: calc(4 * var(--u));
   font-size: calc(64 * var(--u));
   line-height: 1;
   text-align: center;
 }
 
 .results ol {
-  display: flex;
-  flex-direction: column;
-  gap: calc(10 * var(--u));
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* Like a round's list, the table builds itself: the box grows a row at a time, best first, and is never up empty. */
+.result-slot {
+  --at: calc(var(--between-list-lead) + var(--order) * var(--between-table-stagger));
+
+  height: calc(var(--row) + var(--row-gap));
+  padding-top: var(--row-gap);
+  animation: slot-open var(--between-list-open) both var(--at);
 }
 
 .result-row {
   display: flex;
   align-items: center;
   gap: calc(14 * var(--u));
-  height: calc(84 * var(--u));
+  height: var(--row);
   padding: 0 calc(16 * var(--u));
   border: calc(4 * var(--u)) solid var(--ink);
   border-left-width: calc(16 * var(--u));
@@ -1496,8 +1785,7 @@
   border-radius: calc(16 * var(--u));
   background: var(--white);
   font: 400 calc(32 * var(--u)) / 1.1 var(--font-display);
-  animation: pop-in var(--pop-in) both;
-  animation-delay: calc(var(--results-delay) + var(--order) * var(--results-stagger));
+  animation: pop-in var(--pop-in) both var(--at);
 }
 
 .result-place {
@@ -1530,9 +1818,17 @@
   font-size: calc(40 * var(--u));
 }
 
+/* What the keys do comes last, after the last row: until then the rows have the bottom of the box to arrive in. */
 .results-keys {
+  --at: calc(var(--between-list-lead) + var(--order) * var(--between-table-stagger));
+
+  height: calc(48 * var(--u));
+  padding-top: calc(14 * var(--u));
   font: 800 calc(28 * var(--u)) / 1.2 var(--font-text);
   text-align: center;
+  animation:
+    slot-open var(--between-list-open) both var(--at),
+    pop-in var(--pop-in) both var(--at);
 }
 
 /* ── Debug overlay (backtick) ───────────────────────────────────────────── */
@@ -1654,6 +1950,14 @@
   }
 }
 
+/* A row's place in a list opening for it. */
+@keyframes slot-open {
+  from {
+    height: 0;
+    padding-top: 0;
+  }
+}
+
 @keyframes letter-drop {
   from {
     transform: translateY(-140%) rotate(-25deg) scale(0.4);
@@ -1723,5 +2027,21 @@
   /* The curtain still hides the change of world; it just shuts and opens at once. */
   .iris {
     transition: none;
+  }
+
+  /* The reel does not run: it stands on the game to come. */
+  .intro-reel-strip {
+    translate: calc((1 - var(--count)) * var(--cell)) 0;
+  }
+
+  /* Nothing flies from the list to the cards: the scores just count up. */
+  .points-chip {
+    display: none;
+  }
+
+  /* The title's dark edge does not open out: it is gone at once, as it was. */
+  .title-screen.is-leaving {
+    background: none;
+    animation: none !important;
   }
 }

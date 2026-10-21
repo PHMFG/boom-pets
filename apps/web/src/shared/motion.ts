@@ -44,4 +44,78 @@ export const motion = {
   victory: { ms: 1300 },
   /** The results: rows arrive one after another once the podium is up. */
   results: { delayMs: 600, staggerMs: 120 },
+  /**
+   * How a pet reacts on the game screen while a round is played (`host/pets/PetView.ts`, and the events in
+   * `host/stages/GameStage.ts`). Milliseconds of the round's own clock, which slow motion stretches.
+   */
+  feel: {
+    /** A hit that lands holds both pets' poses this long; a catch (a grab, a bite) a little longer; the hardest hits (a full charge, a thrown pet landing on a rival) longer still. */
+    hitStopMs: 80,
+    catchStopMs: 100,
+    heavyStopMs: 120,
+    /** Sent flying, a pet sees stars for this long once it is back on its feet: after a hit, and after a blast or a throw. */
+    dazeMs: 1000,
+    dazeLongMs: 1400,
+    /** Pleased with itself (it scored; longer when it crossed the line) and fed up (sent back; shorter for a dash at thin air): how long the pose is held. */
+    cheerMs: 800,
+    finishMs: 1400,
+    slumpMs: 1100,
+    windedMs: 700,
+    /** How long a pet goes on looking at something after it stops mattering: no head snaps back in one frame. */
+    lookHoldMs: 300,
+    /** How long pets nearby turn to look at something that has just happened: a blast, a pet going over the edge, a knockout. */
+    glanceMs: 800,
+    /** The bubble over a pet that has just been caught out: sent back by the cat, or red in the face from a pepper. */
+    frightMs: 800,
+  },
+} as const;
+
+// ── The phone's pad ──────────────────────────────────────────────────────────
+// Timings only the controller uses. `controller/main.ts` publishes them as CSS variables (`--pad-*`),
+// beside the shared ones above.
+export const padMotion = {
+  /** The seat's shapes sliding across the pad's background: one tile of the pattern in this long. Felt, not watched. */
+  drift: { ms: 6000 },
+  /** A moment that lands with weight (a power on its button, the place on the results, the champion's card): it arrives too big and settles. */
+  slam: { ms: 460 },
+  /** Confetti thrown from the pad when its player wins something or gets a power: out fast, shrinking to nothing as it goes. */
+  burst: { ms: 850 },
+} as const;
+
+/**
+ * ── Between rounds ──────────────────────────────────────────────────────────
+ * What the HUD shows when no round is being played: the reel and the card, the lists of places, the points
+ * that fly to the players' cards. One block, so the passage from one round to the next can be read in one
+ * place. The ones the stylesheet needs are published as `--between-*` by `host/hud/GameScreen.tsx`.
+ */
+export const between = {
+  /**
+   * A list that builds itself (a round's places, the final table). A box is never up with nothing in it: its
+   * first row starts `leadMs` after the box does, and each row's place in the list opens as the row arrives
+   * (over `openMs`, quick at first, so the place is there before the row has grown into it), so the box grows
+   * with what it holds.
+   */
+  list: { leadMs: 140, openMs: 280, openCss: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+  /** The final table: its rows arrive this far apart. */
+  table: { staggerMs: 150 },
+  /**
+   * The roulette's reel. It runs for the simulation's `introRoulette`, and slows the way a wheel does (`css`): a
+   * blur, then pictures going by one at a time, each slower than the last. It reaches the game to come, drifts
+   * a little past the pointers for `settleMs` and drops back into place with a clunk. The clunk falls where
+   * `motion.landing` begins, which is where the reel is heard to land (`AudioEngine.roulette`): for `joltMs`
+   * the reel jolts, and through `landing` the picture it stopped on swells to `swell`.
+   */
+  reel: { settleMs: 300, joltMs: 220, swell: 1.25, css: 'cubic-bezier(0.2, 0.75, 0.5, 0.96)' },
+  /**
+   * What a round paid, flying from a row of the list of places to that player's card: how long the flight is
+   * (slow out of the row and slow onto the card, like the curtain), and how long the card's score then takes to
+   * count up to its new number.
+   */
+  points: { flyMs: 560, countMs: 520 },
+  /**
+   * The game's card: the confetti thrown from behind it as it lands is gone after this long. On the last round
+   * the tag that says it counts double is stamped on the card `stampDelayMs` after the card arrives, once its
+   * name has been spelled out, and takes `stampMs` to come down.
+   */
+  card: { burstMs: 760, stampDelayMs: 900, stampMs: 340 },
 } as const;

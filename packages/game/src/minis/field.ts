@@ -35,8 +35,17 @@ export interface MiniRules {
   pressA?(field: Field, pet: Pet, stickX: number, stickZ: number): void;
   /** A lunging pet reached another. Returns true if that ends the lunge as a hit. */
   touch?(field: Field, pet: Pet, other: Pet): boolean;
-  /** How high the floor stands at a spot, for a game whose floor is not flat tile by tile. */
-  floorY?(field: Field, x: number, z: number): number;
+  /**
+   * How high the floor stands at a spot, for a game whose floor is not flat tile by tile. Where one thing stands on
+   * another there is more than one floor at a spot: `feet` is how high the pet asking stands, and the answer is the
+   * highest floor it could be on (no more than a step above its feet). Without `feet`, the highest there is.
+   */
+  floorY?(field: Field, x: number, z: number, feet?: number): number;
+  /**
+   * What is too tall to step onto is a wall. If a pet whose feet are at that height may not be at that spot,
+   * this is the nearest spot where it may; otherwise null.
+   */
+  walls?(field: Field, x: number, z: number, feet: number): { x: number; z: number } | null;
   /** How high a pet steps up in one stride here, where that is more than the usual: onto furniture, in the lava game. */
   readonly stepUp?: number;
   /** How fast this pet walks, as a share of normal. */
@@ -163,10 +172,27 @@ export class Field<Rules extends MiniRules = MiniRules> implements RoundCore {
     return index >= 0 && this.tiles[index] !== TILE.gone;
   }
 
-  floorY(x: number, z: number): number {
+  /** How high the floor stands at a spot: the highest floor there, or with `feet` the one a pet standing that high is on. */
+  floorY(x: number, z: number, feet?: number): number {
     const index = this.index(x, z);
     if (index < 0) return 0;
-    return this.rules.floorY ? Math.max(0, this.rules.floorY(this, x, z)) : this.heights[index]!;
+    return this.rules.floorY ? Math.max(0, this.rules.floorY(this, x, z, feet)) : this.heights[index]!;
+  }
+
+  /** How high a pet's feet are over the floor's own level. */
+  feetOf(pet: Pet): number {
+    return pet.y - STAND * pet.scale;
+  }
+
+  /** Stands a pet on something that has just arrived under it, that high: it is carried up, not thrown. */
+  lift(pet: Pet, top: number): void {
+    const body = this.inner.get(pet.id)!.body;
+    const position = body.translation();
+    const velocity = body.linvel();
+    const y = top + STAND * pet.scale;
+    body.setTranslation({ x: position.x, y, z: position.z }, true);
+    body.setLinvel({ x: velocity.x, y: 0, z: velocity.z }, true);
+    pet.y = pet.py = y;
   }
 
   ranking(): number[][] {
@@ -328,9 +354,17 @@ export class Field<Rules extends MiniRules = MiniRules> implements RoundCore {
       pet.dashTime -= STEP;
       inner.body.setLinvel({ x: pet.dashX * inner.lungeSpeed, y: velocity.y, z: pet.dashZ * inner.lungeSpeed }, true);
       const reach = petTune.radius * pet.scale + 0.18;
-      const touched = this.pets.find(
-        other => other.alive && other !== pet && Math.abs(other.y - pet.y) <= 1.2 * Math.max(pet.scale, other.scale) && Math.hypot(other.x - pet.x, other.z - pet.z) <= reach + petTune.radius * other.scale,
-      );
+      // Whoever is nearest of those it reaches. (It used to be whoever came first in the list of pets, so with two in
+      // reach the one who had joined first was always the one shoved or bitten.)
+      let touched: Pet | undefined;
+      let nearest = Infinity;
+      for (const other of this.pets) {
+        if (!other.alive || other === pet || Math.abs(other.y - pet.y) > 1.2 * Math.max(pet.scale, other.scale)) continue;
+        const gap = Math.hypot(other.x - pet.x, other.z - pet.z) - petTune.radius * other.scale;
+        if (gap > reach || gap >= nearest) continue;
+        nearest = gap;
+        touched = other;
+      }
       const hit = touched ? (this.rules.touch?.(this, pet, touched) ?? false) : false;
       if (hit || pet.dashTime <= 0) {
         pet.dashTime = 0;
@@ -397,8 +431,24 @@ export class Field<Rules extends MiniRules = MiniRules> implements RoundCore {
     }
 
     const stand = STAND * pet.scale;
+    // What is too tall to step onto is a wall, in a game that has such things: the pet is put beside it.
+    const beside = this.rules.walls?.(this, position.x, position.z, position.y - stand);
+    if (beside) {
+      const nx = beside.x - position.x;
+      const nz = beside.z - position.z;
+      const length = Math.hypot(nx, nz) || 1;
+      // It keeps what speed it has along the wall, and loses what carried it in.
+      const inward = Math.min(0, (velocity.x * nx + velocity.z * nz) / length);
+      velocity.x -= (nx / length) * inward;
+      velocity.z -= (nz / length) * inward;
+      position.x = beside.x;
+      position.z = beside.z;
+      inner.body.setTranslation(position, true);
+      inner.body.setLinvel(velocity, true);
+    }
     const floor = this.isFloor(position.x, position.z);
-    const top = floor ? this.floorY(position.x, position.z) : 0;
+    // Where one thing stands on another, the floor is the one this pet was level with a step ago.
+    const top = floor ? this.floorY(position.x, position.z, pet.py - stand) : 0;
     // "Was above the floor a step ago" catches fast falls that would otherwise skip past it in one step.
     const landing = floor && position.y <= top + stand + 0.03 && pet.py > top + stand - (this.rules.stepUp ?? petTune.stepUp) && velocity.y <= 0.5;
     if (landing) {

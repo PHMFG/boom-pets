@@ -475,84 +475,91 @@ group('perches')['spots'] = [round(number, 2) for perch in perches for number in
 
 
 # ── Templates the game places itself ─────────────────────────────────────────
-# The furniture that falls from the sky. The part of each a pet is safe on (`tuning.lava.pieces`) is the seat
-# itself, drawn a little wider: a pet that looks on it is on it. Each is built round the middle of its seat, with its back (where it has one)
-# toward the back of the map; the game turns some a quarter. Wood and teal, dark on a pale floor, and no
-# colour a player wears.
-# The top a pet stands on: `lava.height` in the game's tuning. High enough that the piece's side shows, from
-# above, under the ring of whoever stands on it. Every piece was first drawn 0.3 high and is lifted by RAISE on a
-# taller base, so its proportions above the seat are as they were.
+# The furniture that falls from the sky and piles up. The game stacks it: every piece of a layer has its top at the
+# same height, and a piece of the next layer lands partly on it, so EVERY TOP IS FLAT and exactly the rectangle
+# the game counts as its floor (`lava.pieces` in the game's tuning: width along X, depth along Y). What makes a
+# piece a sofa or a bed (cushions, arm rolls, pillows, a rail) stands no more than TRIM above the top, where it is
+# hidden inside the base of whatever lands on it, and never beyond the rectangle. Each is built round the middle of
+# its top, with its back (where it has one) toward the back of the map; the game turns some a quarter. Wood and
+# teal at the sides and no colour a player wears; and PALE ON TOP, every one, because the pets spend the round
+# standing on these and whatever pets walk on is pale (docs/DESIGN.md, "Finding your pet").
+# The top a pet stands on is `lava.height` in the game's tuning: high enough that the piece's side shows, from
+# above, under the ring of whoever stands on it.
 TOP = 0.7
-RAISE = TOP - 0.3
+TRIM = 0.12
+# A piece may hang out past the layer below it, so each has a leg to stand on: a plain dark column under it, of
+# its own footprint, as deep as the pile will ever show. The game puts it there when the piece lands.
+LEG = 6.0
 
 
-# Every piece is built at the size it was first drawn and then widened by this, without getting taller: the
-# floor grew, and the furniture with it.
-WIDER = 1.2
+def furniture(name, size, *pieces):
+    """One piece: `size` is its top as the game counts it (width, depth). Its leg is a part of its own, `<name>_leg`."""
+    width, depth = size
+    part(tag(settle(join(name, *pieces)), outline=0.045))
+    part(tag(settle(box(name + '_leg', (width - 0.12, depth - 0.12, LEG), 'rim', at=(0, 0, -LEG / 2 + 0.02), bevel=0.05)), outline=0.045, shadow=False))
 
 
-def furniture(name, *pieces):
-    whole = settle(join(name, *pieces))
-    whole.data.transform(Matrix.Diagonal((WIDER, WIDER, 1, 1)))
-    return part(tag(whole, outline=0.045))
+def block(name, size, color, bevel=0.07):
+    """The body of a piece: from the floor up to its top, exactly as wide and deep as its top is."""
+    return box(name, (size[0], size[1], TOP), color, at=(0, 0, TOP / 2), bevel=bevel, segments=3)
 
 
-def base(name, size, color, at=(0, 0), bevel=0.06):
-    """What a piece stands on: a block from the floor up, as tall as it was plus RAISE."""
-    return box(name, (size[0], size[1], size[2] + RAISE), color, at=(at[0], at[1], (size[2] + RAISE) / 2), bevel=bevel)
-
-
-# A pouf: one seat, round.
+# A pouf: one seat. A fat square cushion with a band and a button.
+POUF = (1.2, 1.2)
 furniture(
-    'pouf',
-    lathe('pouf_body', [(0, 0), (0.5, 0), (0.64, 0.08), (0.66, TOP - 0.1), (0.6, TOP), (0, TOP)], 'cushion', sides=14, smooth=60),
-    lathe('pouf_band', [(0.655, 0.26), (0.7, 0.26), (0.7, 0.4), (0.655, 0.4)], 'cushionLight', sides=14),
-    ball('pouf_button', 0.1, 'cushionLight', at=(0, 0, TOP), scale=(1, 1, 0.45)),
+    'pouf', POUF,
+    block('pouf_body', POUF, 'cushion', bevel=0.16),
+    box('pouf_band', (POUF[0] + 0.03, POUF[1] + 0.03, 0.14), 'cushionLight', at=(0, 0, 0.36), bevel=0.05),
+    box('pouf_top', (POUF[0] - 0.2, POUF[1] - 0.2, 0.06), 'linen', at=(0, 0, TOP), bevel=0.028),
+    ball('pouf_button', 0.11, 'cushion', at=(0, 0, TOP + 0.02), scale=(1, 1, 0.45)),
 )
 
-# An armchair: one seat, between two low arms and under a fat back.
+# An armchair: one seat, between two low arm rolls and in front of a low back roll.
+ARMCHAIR = (1.4, 1.3)
 furniture(
-    'armchair',
-    base('armchair_base', (1.42, 1.3, 0.18), 'woodDark', at=(0, 0.06)),
-    box('armchair_seat', (1.16, 1.08, 0.14), 'cushion', at=(0, -0.04, 0.23 + RAISE), bevel=0.06),
-    box('armchair_back', (1.42, 0.34, 0.92), 'cushion', at=(0, 0.62, 0.56 + RAISE), bevel=0.14, segments=3),
-    box('armchair_arm_l', (0.26, 1.02, 0.34), 'cushionLight', at=(-0.62, 0.0, 0.3 + RAISE), bevel=0.11, segments=3),
-    box('armchair_arm_r', (0.26, 1.02, 0.34), 'cushionLight', at=(0.62, 0.0, 0.3 + RAISE), bevel=0.11, segments=3),
+    'armchair', ARMCHAIR,
+    block('armchair_base', ARMCHAIR, 'woodDark'),
+    box('armchair_seat', (0.94, 1.0, 0.08), 'linen', at=(0, -0.13, TOP), bevel=0.035),
+    box('armchair_back', (ARMCHAIR[0], 0.24, TRIM * 2), 'cushion', at=(0, ARMCHAIR[1] / 2 - 0.12, TOP), bevel=0.08, segments=3),
+    box('armchair_arm_l', (0.22, 0.98, TRIM * 2), 'cushionLight', at=(-ARMCHAIR[0] / 2 + 0.11, -0.14, TOP), bevel=0.08, segments=3),
+    box('armchair_arm_r', (0.22, 0.98, TRIM * 2), 'cushionLight', at=(ARMCHAIR[0] / 2 - 0.11, -0.14, TOP), bevel=0.08, segments=3),
 )
 
-# A low table: two can stand on it, side by side.
+# A low table: two can stand on it, side by side. Solid to the floor, with a drawer front, so it is a block and not four posts.
+TABLE = (2.3, 1.3)
 furniture(
-    'table',
-    box('table_top', (2.2, 1.36, 0.14), 'wood', at=(0, 0, TOP - 0.07), bevel=0.045),
-    # The runner is the sofa's colour, never the pale of the floor: a pale strip across the top reads as a gap in the table.
-    box('table_runner', (0.56, 1.37, 0.03), 'cushion', at=(0, 0, TOP), bevel=0.01),
-    *[box('table_leg_%d' % index, (0.26, 0.26, TOP - 0.14), 'woodDark', at=(x, y, (TOP - 0.14) / 2), bevel=0.05)
-      for index, (x, y) in enumerate(((-0.9, -0.5), (0.9, -0.5), (-0.9, 0.5), (0.9, 0.5)))],
-    # A rail between the legs, so the table is a solid thing from above and not four posts.
-    box('table_rail', (1.9, 0.14, 0.18), 'woodDark', at=(0, -0.5, TOP - 0.3), bevel=0.04),
-    box('table_rail_back', (1.9, 0.14, 0.18), 'woodDark', at=(0, 0.5, TOP - 0.3), bevel=0.04),
+    'table', TABLE,
+    block('table_body', (TABLE[0] - 0.16, TABLE[1] - 0.16), 'woodDark'),
+    box('table_top', (TABLE[0], TABLE[1], 0.14), 'wood', at=(0, 0, TOP - 0.07), bevel=0.045),
+    # A pale cloth over nearly all of it, with the wood showing round its edge and a teal runner across the middle.
+    box('table_cloth', (TABLE[0] - 0.24, TABLE[1] - 0.24, 0.03), 'linen', at=(0, 0, TOP), bevel=0.012),
+    box('table_runner', (0.5, TABLE[1] - 0.24, 0.03), 'cushionLight', at=(0, 0, TOP + 0.015), bevel=0.01),
+    box('table_drawer', (0.9, 0.05, 0.22), 'wood', at=(0, -TABLE[1] / 2 + 0.08, 0.34), bevel=0.02),
+    ball('table_knob', 0.06, 'linen', at=(0, -TABLE[1] / 2 + 0.05, 0.34)),
 )
 
-# A sofa: three cushions, three seats.
+# A sofa: three cushions, three seats, a low roll at each end and along the back.
+SOFA = (3.4, 1.3)
 furniture(
-    'sofa',
-    base('sofa_base', (3.5, 1.5, 0.18), 'woodDark', at=(0, 0.13)),
-    *[box('sofa_cushion_%d' % index, (0.95, 1.12, 0.14), 'cushion', at=(x, -0.02, 0.23 + RAISE), bevel=0.06) for index, x in enumerate((-0.97, 0.0, 0.97))],
-    box('sofa_back', (3.5, 0.36, 0.95), 'cushion', at=(0, 0.72, 0.58 + RAISE), bevel=0.15, segments=3),
-    box('sofa_arm_l', (0.3, 1.2, 0.36), 'cushionLight', at=(-1.6, 0.02, 0.31 + RAISE), bevel=0.12, segments=3),
-    box('sofa_arm_r', (0.3, 1.2, 0.36), 'cushionLight', at=(1.6, 0.02, 0.31 + RAISE), bevel=0.12, segments=3),
+    'sofa', SOFA,
+    block('sofa_base', SOFA, 'woodDark'),
+    *[box('sofa_cushion_%d' % index, (0.92, 1.0, 0.08), 'linen', at=(x, -0.13, TOP), bevel=0.035) for index, x in enumerate((-0.96, 0.0, 0.96))],
+    box('sofa_back', (SOFA[0], 0.24, TRIM * 2), 'cushion', at=(0, SOFA[1] / 2 - 0.12, TOP), bevel=0.08, segments=3),
+    box('sofa_arm_l', (0.24, 0.98, TRIM * 2), 'cushionLight', at=(-SOFA[0] / 2 + 0.12, -0.14, TOP), bevel=0.08, segments=3),
+    box('sofa_arm_r', (0.24, 0.98, TRIM * 2), 'cushionLight', at=(SOFA[0] / 2 - 0.12, -0.14, TOP), bevel=0.08, segments=3),
 )
 
-# A bed: four fit on its blanket. The pillows and the headboard lie beyond the part that is safe.
+# A bed: four fit on it. A mattress on a frame, a blanket folded back, two flat pillows and a low rail at its head.
+BED = (2.1, 2.1)
 furniture(
-    'bed',
-    base('bed_frame', (2.14, 2.7, 0.18), 'woodDark', at=(0, 0.3)),
-    box('bed_mattress', (1.98, 2.5, 0.14), 'linen', at=(0, 0.3, 0.23 + RAISE), bevel=0.06),
-    box('bed_blanket', (2.02, 1.72, 0.035), 'cushion', at=(0, -0.11, 0.3 + RAISE), bevel=0.012),
-    box('bed_fold', (2.02, 0.22, 0.05), 'cushionLight', at=(0, 0.78, 0.305 + RAISE), bevel=0.02),
-    box('bed_pillow_l', (0.82, 0.46, 0.12), 'cushionLight', at=(-0.47, 1.22, 0.35 + RAISE), bevel=0.055, segments=3),
-    box('bed_pillow_r', (0.82, 0.46, 0.12), 'cushionLight', at=(0.47, 1.22, 0.35 + RAISE), bevel=0.055, segments=3),
-    box('bed_head', (2.14, 0.22, 0.95 + RAISE), 'wood', at=(0, 1.62, 0.055 + (0.95 + RAISE) / 2), bevel=0.08, segments=3),
+    'bed', BED,
+    block('bed_frame', BED, 'woodDark'),
+    box('bed_mattress', (BED[0] - 0.12, BED[1] - 0.12, 0.1), 'linen', at=(0, 0, TOP - 0.02), bevel=0.04),
+    box('bed_blanket', (BED[0] - 0.08, 0.8, 0.035), 'cushionLight', at=(0, -0.6, TOP + 0.04), bevel=0.012),
+    box('bed_fold', (BED[0] - 0.08, 0.16, 0.05), 'cushion', at=(0, -0.14, TOP + 0.045), bevel=0.02),
+    box('bed_pillow_l', (0.8, 0.4, 0.09), 'cushionLight', at=(-0.46, 0.68, TOP + 0.05), bevel=0.04, segments=3),
+    box('bed_pillow_r', (0.8, 0.4, 0.09), 'cushionLight', at=(0.46, 0.68, TOP + 0.05), bevel=0.04, segments=3),
+    box('bed_head', (BED[0], 0.16, TRIM * 2), 'wood', at=(0, BED[1] / 2 - 0.08, TOP), bevel=0.05, segments=3),
 )
 
 # A spout of lava: the game shoots one up out of the sea, well away from the slab, and lets it drop.

@@ -18,6 +18,10 @@ const ZOOM_IN = 1.4;
 const FOLLOW = 3.2;
 /** How fast it tips down to a hero's eye level and back up. */
 const TIP = 2.6;
+/** A hit's jolt: how hard the picture is thrown the way the hit went (metres a second for a jolt of 1), and the spring that brings it back. */
+const JOLT = { throw: 14, stiffness: 150, damping: 14, most: 0.8 };
+/** Seconds the camera takes to gather speed as a shot of one thing begins, and as it leaves one for the fight: it does not start at full tilt. */
+const GATHER = 0.45;
 const damp = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 
 /** A shot of one thing. `at` is asked every frame, so the thing may move. */
@@ -39,6 +43,7 @@ export class CameraRig {
   readonly camera = new PerspectiveCamera(32, 1, 0.5, 400);
   /** 1 is full shake; "Menos tremor e brilho" lowers it. */
   shakeScale = 1;
+  private settling = false;
   private readonly center = new Vector3();
   private readonly goal = new Vector3();
   private distance = 34;
@@ -47,11 +52,15 @@ export class CameraRig {
   private trauma = 0;
   private punch = 0;
   private punchSpeed = 0;
+  /** How far a hit has thrown the picture along the floor, and how fast it is moving. */
+  private readonly lurch = { x: 0, z: 0, vx: 0, vz: 0 };
   private size = { width: 1, height: 1 };
   private insets: Insets = { left: 0, bottom: 0, top: 0 };
   private hold: (Shot & { left: number }) | null = null;
   private pitch = PITCH;
   private time = 0;
+  /** How far the camera has gathered speed since a shot began or ended, 0 to 1. */
+  private gathered = 1;
 
   setViewport(width: number, height: number, insets: Insets): void {
     this.size = { width, height };
@@ -71,32 +80,57 @@ export class CameraRig {
     this.punchSpeed -= amount * 9;
   }
 
+  /**
+   * A shove along the floor that springs back: the whole picture lurches the way a hit went, which a shake, going
+   * every way at once, cannot say. `(dx, dz)` is the direction; `amount` is 0 to 1, a full-charge hit.
+   */
+  jolt(dx: number, dz: number, amount: number): void {
+    const length = Math.hypot(dx, dz);
+    if (length < 0.001) return;
+    this.lurch.vx += (dx / length) * amount * JOLT.throw;
+    this.lurch.vz += (dz / length) * amount * JOLT.throw;
+  }
+
   /** Looks at one spot for a while (a gacha, the podium), optionally circling it. */
   focus(x: number, z: number, distance: number, seconds: number, spin = 0): void {
     this.hold = { at: () => ({ x, z }), distance, seconds, left: seconds, spin };
   }
 
-  /** Looks at one thing for a while, following it if it moves. */
+  /** Looks at one thing for a while, following it if it moves. The move there starts gently and gathers speed. */
   look(shot: Shot): void {
     this.hold = { ...shot, left: shot.seconds };
+    this.gathered = 0;
   }
 
   /**
    * Starts a shot already in place, with no move from wherever the camera was: for when the picture is
    * hidden (behind the curtain between worlds) and a move would only be seen as its tail end.
-   * `yaw` is the side it starts from, in radians round its subject.
+   * `yaw` is the side it starts from, in radians round its subject. `back` starts it that many metres
+   * farther off than the shot asks, so the one move left to see is a slow push in toward the subject;
+   * with "less shake" on it starts where it will stay.
    */
-  cut(shot: Shot, yaw = 0): void {
+  cut(shot: Shot, yaw = 0, back = 0): void {
     this.look(shot);
     const at = shot.at();
     this.center.set(at.x, at.y ?? 0.6, at.z);
-    this.distance = shot.distance;
+    this.distance = shot.distance + (this.shakeScale < 1 ? 0 : back);
     this.pitch = MathUtils.degToRad(shot.pitch ?? MathUtils.radToDeg(PITCH));
     this.yaw = yaw;
+    this.gathered = 1;
   }
 
-  release(): void {
+  /** Back to framing the fight. `gently` is for leaving a shot of one thing between rounds: the way back up starts slowly, like the way down did. */
+  release(gently = false): void {
     this.hold = null;
+    if (gently) this.gathered = 0;
+  }
+
+  /**
+   * Puts the camera where it is going, at once, the next time it frames. For when the world has changed behind
+   * the curtain: what the curtain opens on is the new picture, not the end of the way there from the old one.
+   */
+  settle(): void {
+    this.settling = true;
   }
 
   /** Frames the given points on the floor. Call once per frame. */
@@ -114,6 +148,9 @@ export class CameraRig {
     }
     if (points.length === 0) minX = maxX = minZ = maxZ = 0;
 
+    this.gathered = Math.min(1, this.gathered + dt / GATHER);
+    // Slow away, then up to its usual pace.
+    const pace = this.gathered * this.gathered * (3 - 2 * this.gathered);
     let pitch = PITCH;
     if (this.hold) {
       const hold = this.hold;
@@ -123,8 +160,8 @@ export class CameraRig {
       this.goalDistance = hold.distance;
       if (hold.pitch !== undefined) pitch = MathUtils.degToRad(hold.pitch);
       // Swinging keeps to the front of the thing; circling goes all the way round it. With "less shake" on, it does neither.
-      if (this.shakeScale < 1) this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3, dt);
-      else if (hold.sway) this.yaw += (Math.sin(this.time * 0.6) * hold.sway - this.yaw) * damp(2, dt);
+      if (this.shakeScale < 1) this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3 * pace, dt);
+      else if (hold.sway) this.yaw += (Math.sin(this.time * 0.6) * hold.sway - this.yaw) * damp(2 * pace, dt);
       else this.yaw += (hold.spin ?? 0) * dt;
       if (hold.left <= 0) this.hold = null;
     } else {
@@ -148,21 +185,42 @@ export class CameraRig {
       this.goal.set((minX + maxX) / 2, 0, lookZ);
       this.goalDistance = Math.max(MIN_DISTANCE, forHeight, forWidth);
       // Unwind any circling by the shortest way round.
-      this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3, dt);
+      this.yaw += Math.atan2(Math.sin(-this.yaw), Math.cos(-this.yaw)) * damp(3 * pace, dt);
     }
 
-    this.center.lerp(this.goal, damp(FOLLOW, dt));
-    this.distance += (this.goalDistance - this.distance) * damp(this.goalDistance > this.distance ? ZOOM_OUT : ZOOM_IN, dt);
+    if (this.settling) {
+      this.settling = false;
+      this.center.copy(this.goal);
+      this.distance = this.goalDistance;
+      this.pitch = pitch;
+      if (!this.hold) this.yaw = 0;
+      this.gathered = 1;
+    }
+    this.center.lerp(this.goal, damp(FOLLOW * pace, dt));
+    this.distance += (this.goalDistance - this.distance) * damp((this.goalDistance > this.distance ? ZOOM_OUT : ZOOM_IN) * pace, dt);
     this.punchSpeed += (-this.punch * 90 - this.punchSpeed * 11) * dt;
     this.punch += this.punchSpeed * dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.7);
+    // The jolt is a spring too, in two half steps so that a slow frame cannot fling it.
+    const lurch = this.lurch;
+    for (let half = 0; half < 2; half++) {
+      lurch.vx += (-lurch.x * JOLT.stiffness - lurch.vx * JOLT.damping) * (dt / 2);
+      lurch.vz += (-lurch.z * JOLT.stiffness - lurch.vz * JOLT.damping) * (dt / 2);
+      lurch.x += lurch.vx * (dt / 2);
+      lurch.z += lurch.vz * (dt / 2);
+    }
+    const thrown = Math.hypot(lurch.x, lurch.z);
+    const held = (thrown > JOLT.most ? JOLT.most / thrown : 1) * this.shakeScale;
 
-    this.pitch += (pitch - this.pitch) * damp(TIP, dt);
+    this.pitch += (pitch - this.pitch) * damp(TIP * pace, dt);
 
     const distance = this.distance * (1 + this.punch);
     const flat = Math.cos(this.pitch) * distance;
     this.camera.position.set(this.center.x + Math.sin(this.yaw) * flat, this.center.y + Math.sin(this.pitch) * distance, this.center.z + Math.cos(this.yaw) * flat);
     this.camera.lookAt(this.center);
+    // Moved after it has taken aim, so the picture slides and does not turn.
+    this.camera.position.x += lurch.x * held;
+    this.camera.position.z += lurch.z * held;
     // Shake grows with the square of trauma: small hits barely move the picture, big ones throw it.
     const shake = this.trauma * this.trauma * this.shakeScale;
     if (shake > 0.0005) {

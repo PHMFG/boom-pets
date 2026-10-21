@@ -4,15 +4,16 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { renderSVG } from 'uqr';
 import { seatShapeSvg } from '../../shared/glyphs';
 import { GAME_CONTROLS, GAME_ICON } from '../../shared/games';
+import { between, motion } from '../../shared/motion';
 import { MENU_ICON } from '../../shared/powers';
 import { strings } from '../../shared/strings.pt-BR';
 import { VERSION } from '../../shared/version';
 import { colors, seats as seatTokens } from '../../shared/tokens';
 import { Session } from '../app/Session';
-import { Finale, Iris, Loading, ModeIntro, RoundResults } from './Interludes';
+import { Finale, Iris, Loading, ModeIntro, roundRowAt, RoundResults } from './Interludes';
 import { Nameplates } from './Nameplates';
 import { Presence } from './Presence';
-import { hud, useStore, type FeedWho, type PlayerCard } from './store';
+import { hud, useStore, type FeedWho, type PlayerCard, type RoundResult } from './store';
 import './game.css';
 
 const NETWORK_NAME_KEY = 'boom.networkName';
@@ -26,8 +27,63 @@ type MenuItem = (typeof MENU)[number];
 
 /** The title's letters fly apart on the way out, which takes a little longer than a plain squish. */
 const TITLE_EXIT_MS = 380;
+/** The timings of what is shown between rounds (`between` in motion.ts), for the stylesheet. */
+const BETWEEN_VARS = {
+  '--between-list-lead': `${between.list.leadMs}ms`,
+  '--between-list-open': `${between.list.openMs}ms ${between.list.openCss}`,
+  '--between-list-open-ease': between.list.openCss,
+  '--between-table-stagger': `${between.table.staggerMs}ms`,
+  '--between-reel-settle': `${between.reel.settleMs}ms`,
+  '--between-reel-jolt': `${between.reel.joltMs}ms`,
+  '--between-reel-ease': between.reel.css,
+  '--between-reel-swell': between.reel.swell,
+  '--between-card-burst': `${between.card.burstMs}ms`,
+  '--between-card-stamp': `${between.card.stampMs}ms`,
+  '--between-card-stamp-delay': `${between.card.stampDelayMs}ms`,
+  '--between-card-stamped': `${between.card.stampDelayMs + between.card.stampMs * 0.55}ms`,
+  '--between-swap': `${motion.squishOut.ms}ms`,
+  '--between-points-fly': `${between.points.flyMs}ms ${motion.iris.css}`,
+  '--between-points-ms': `${between.points.flyMs}ms`,
+} as CSSProperties;
 
 const seatStyle = (seat: number, extra: Record<string, string | number> = {}) => ({ '--seat': seatTokens[seat % seatTokens.length]!.color, ...extra }) as CSSProperties;
+
+/** When what a round paid a row leaves the list for that player's card: once the row has landed. Milliseconds after the list was put up. */
+const flightAt = (index: number) => roundRowAt(index) + motion.popIn.ms;
+/** What a round paid one player, on its way from the list to their card. Positions are in pixels inside the game screen. */
+type Flight = { id: number; seat: number; points: number; x: number; y: number; dx: number; dy: number };
+
+/**
+ * As a round ends, what it paid each player flies from their row of the list to their card at the bottom, one
+ * after another as the rows land, and the card's score counts up when it gets there (`Score`). Returns the
+ * flights in the air, and when the list they come from was put up.
+ */
+function usePointFlights(result: RoundResult | null, screen: { current: HTMLElement | null }): { flights: Flight[]; since: number } {
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const since = useMemo(() => performance.now(), [result]);
+  useEffect(() => {
+    if (!result) return;
+    const timers = result.rows.map((row, index) =>
+      window.setTimeout(() => {
+        const root = screen.current;
+        const from = root?.querySelectorAll('.round-results .round-points')[index]?.getBoundingClientRect();
+        const to = root?.querySelector(`.seat-card[data-seat="${row.seat}"] .seat-score`)?.getBoundingClientRect();
+        if (!root || !from || !to || row.points <= 0) return;
+        const frame = root.getBoundingClientRect();
+        const x = from.left + from.width / 2 - frame.left;
+        const y = from.top + from.height / 2 - frame.top;
+        const flight = { id: index, seat: row.seat, points: row.points, x, y, dx: to.left + to.width / 2 - frame.left - x, dy: to.top + to.height / 2 - frame.top - y };
+        setFlights(current => [...current, flight]);
+        timers.push(window.setTimeout(() => setFlights(current => current.filter(other => other !== flight)), between.points.flyMs));
+      }, flightAt(index)),
+    );
+    return () => {
+      timers.forEach(timer => window.clearTimeout(timer));
+      setFlights([]);
+    };
+  }, [result, screen]);
+  return { flights, since };
+}
 
 function readSavedNetworkName(): string {
   try {
@@ -39,6 +95,7 @@ function readSavedNetworkName(): string {
 
 /** The whole game screen: the 3D stage with the flat HUD for every phase drawn over it. */
 export function GameScreen() {
+  const screen = useRef<HTMLElement>(null);
   const stageHost = useRef<HTMLDivElement>(null);
   const plateLayer = useRef<HTMLDivElement>(null);
   const joinCard = useRef<HTMLElement>(null);
@@ -200,10 +257,23 @@ export function GameScreen() {
   };
 
   const lobbyUp = !title && inLobby;
+  // For a moment after the lobby arrives its free seats open their places in the strip; one that is freed later,
+  // by a player leaving, simply takes the place that player's card had.
+  const wasLobby = useRef(false);
+  const lobbySince = useRef(0);
+  if (lobbyUp && !wasLobby.current) lobbySince.current = performance.now();
+  wasLobby.current = lobbyUp;
+  const stripOpening = lobbyUp && performance.now() - lobbySince.current < motion.move.ms;
+  // What the round paid flies from the list to the cards; a card's score waits for it before it counts up.
+  const { flights, since: resultSince } = usePointFlights(phase === 'roundEnd' ? roundResult : null, screen);
+  const paidAt = (seat: number) => {
+    const index = phase === 'roundEnd' && roundResult ? roundResult.rows.findIndex(row => row.seat === seat && row.points > 0) : -1;
+    return index < 0 ? null : resultSince + flightAt(index) + between.points.flyMs * 0.9;
+  };
   const prompt = startIn !== null ? text.startingIn(startIn) : seats.length === 0 ? (options.bots ? text.startBots : '') : text.start;
 
   return (
-    <main className={`game phase-${phase}${title ? ' is-title' : ''}`}>
+    <main ref={screen} className={`game phase-${phase}${title ? ' is-title' : ''}`} style={BETWEEN_VARS}>
       <div ref={stageHost} className="game-stage" />
       <div ref={plateLayer} className="nameplate-layer" />
 
@@ -334,7 +404,8 @@ export function GameScreen() {
       <Presence show={!title && phase === 'intro' && intro !== null}>
         {() => <ModeIntro mode={shownIntro.current?.mode ?? null} upcoming={shownIntro.current?.upcoming ?? null} final={shownIntro.current?.final ?? false} round={round} rounds={rounds} />}
       </Presence>
-      <Presence show={!title && phase === 'roundEnd' && roundResult !== null}>{() => <RoundResults result={shownRoundResult.current ?? { mode: 'brawl', double: false, rows: [] }} />}</Presence>
+      {/* The list belongs to the round that is over: when the curtain shuts on that round's world, it leaves with it. */}
+      <Presence show={!title && phase === 'roundEnd' && roundResult !== null && !curtain}>{() => <RoundResults result={shownRoundResult.current ?? { mode: 'brawl', double: false, rows: [] }} />}</Presence>
       <Presence show={!title && phase === 'finale' && finale !== null}>
         {() => (
           <div className="finale" ref={finaleBox}>
@@ -438,21 +509,24 @@ export function GameScreen() {
           <section ref={resultsPanel} className="results sticker">
             <h1>{strings.hud.resultsTitle}</h1>
             <ol>
+              {/* The table builds itself like a round's list: a row's place opens as the row pops in, so the box is never up empty. */}
               {results.map((row, index) => (
-                <li key={row.seat} className="result-row" style={seatStyle(row.seat, { '--order': index })}>
-                  <span className="result-place">{strings.hud.place(row.place)}</span>
-                  {row.portrait && <img className="result-portrait" src={row.portrait} alt="" />}
-                  <span className="result-name">{row.name}</span>
-                  {row.award && (
-                    <span className="result-award">
-                      <span aria-hidden="true">{row.award.icon}</span> {row.award.name}
-                    </span>
-                  )}
-                  <span className="result-score">{strings.hud.points(row.score)}</span>
+                <li key={row.seat} className="result-slot" style={{ '--order': index } as CSSProperties}>
+                  <div className="result-row" style={seatStyle(row.seat)}>
+                    <span className="result-place">{strings.hud.place(row.place)}</span>
+                    {row.portrait && <img className="result-portrait" src={row.portrait} alt="" />}
+                    <span className="result-name">{row.name}</span>
+                    {row.award && (
+                      <span className="result-award">
+                        <span aria-hidden="true">{row.award.icon}</span> {row.award.name}
+                      </span>
+                    )}
+                    <span className="result-score">{strings.hud.points(row.score)}</span>
+                  </div>
                 </li>
               ))}
             </ol>
-            <p className="results-keys">
+            <p className="results-keys" style={{ '--order': results.length } as CSSProperties}>
               {strings.hud.again} · {strings.hud.toLobby}
             </p>
           </section>
@@ -461,13 +535,30 @@ export function GameScreen() {
 
       <Presence show={!title}>
         {() => (
-          <div ref={strip} className="seat-strip">
-            {(inLobby ? seatTokens.map((_, index) => index) : players.map(player => player.seat)).map(seat => (
-              <SeatCard key={`${seat}-${cards.has(seat) ? 'taken' : 'free'}`} seat={seat} player={cards.get(seat)} lobby={inLobby || phase === 'matchEnd'} brawl={gameMode === 'brawl'} />
-            ))}
+          <div ref={strip} className={stripOpening ? 'seat-strip is-opening' : 'seat-strip'}>
+            {seatTokens.map((_, seat) =>
+              cards.has(seat) ? (
+                <SeatCard key={`${seat}-taken`} seat={seat} player={cards.get(seat)} lobby={inLobby || phase === 'matchEnd'} brawl={gameMode === 'brawl'} paidAt={paidAt(seat)} />
+              ) : (
+                // A seat nobody took is shown in the lobby only. As a match starts its place closes, and the cards of those playing slide together.
+                <Presence key={`${seat}-free`} show={inLobby} ms={motion.move.ms}>
+                  {() => <SeatCard seat={seat} player={undefined} lobby brawl={false} paidAt={null} />}
+                </Presence>
+              ),
+            )}
           </div>
         )}
       </Presence>
+
+      {flights.map(flight => {
+        const token = seatTokens[flight.seat % seatTokens.length]!;
+        return (
+          // Whose points they are is said twice, like everywhere: the seat's colour under them and its shape beside them.
+          <span key={flight.id} className="points-chip sticker" style={seatStyle(flight.seat, { left: `${flight.x}px`, top: `${flight.y}px`, '--dx': `${flight.dx}px`, '--dy': `${flight.dy}px` })}>
+            <span className="points-shape" dangerouslySetInnerHTML={{ __html: seatShapeSvg(token.shape, token.color) }} />+{flight.points}
+          </span>
+        );
+      })}
 
       {debug && (
         <dl className="debug-overlay">
@@ -503,15 +594,44 @@ function Who({ who }: { who: FeedWho }) {
   );
 }
 
-/** One player in the strip along the bottom: who they are, their score, luck and current power. */
-function SeatCard({ seat, player, lobby, brawl }: { seat: number; player: PlayerCard | undefined; lobby: boolean; brawl: boolean }) {
+/**
+ * A player's score on their card. A point made in play shows at once. As a round ends the card keeps its old
+ * number until what the round paid has flown in from the list of places (`at`, a moment of `performance.now()`),
+ * and then counts up to the new one, punching at every step.
+ */
+function Score({ value, at }: { value: number; at: number | null }) {
+  const [shown, setShown] = useState(value);
+  const last = useRef(value);
+  last.current = shown;
+  useEffect(() => {
+    if (at === null) return setShown(value);
+    let frame = 0;
+    const from = last.current;
+    const step = (now: number) => {
+      const t = Math.min(1, Math.max(0, (now - at) / between.points.countMs));
+      setShown(Math.round(from + (value - from) * t));
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [value, at]);
+  return (
+    <span key={shown} className="seat-score">
+      {shown}
+    </span>
+  );
+}
+
+/** One player in the strip along the bottom: who they are, their score, luck and current power. `paidAt` is when what the round paid them reaches the card, as a round ends. */
+function SeatCard({ seat, player, lobby, brawl, paidAt, className = '' }: { seat: number; player: PlayerCard | undefined; lobby: boolean; brawl: boolean; paidAt: number | null; className?: string }) {
   const token = seatTokens[seat % seatTokens.length]!;
-  const classes = ['seat-card', 'sticker'];
+  // `className` is how `Presence` marks a free seat as leaving.
+  const classes = ['seat-card', 'sticker', className];
   if (!player) classes.push('is-free');
   if (player && !player.connected) classes.push('is-away');
   if (player?.ghost) classes.push('is-ghost');
   return (
-    <div className={classes.join(' ')} style={seatStyle(seat, { '--order': seat })}>
+    <div className={classes.join(' ')} data-seat={seat} style={seatStyle(seat, { '--order': seat })}>
       <span className="seat-shape" dangerouslySetInnerHTML={{ __html: seatShapeSvg(token.shape, player ? token.color : 'none') }} />
       {player?.portrait && (
         <span className="seat-portrait">
@@ -544,11 +664,7 @@ function SeatCard({ seat, player, lobby, brawl }: { seat: number; player: Player
           </span>
         )}
       </span>
-      {player && !lobby && (
-        <span key={player.score} className="seat-score">
-          {player.score}
-        </span>
-      )}
+      {player && !lobby && <Score value={player.score} at={paidAt} />}
       {player && lobby && player.ready && <span className="seat-ready">{strings.lobby.ready}</span>}
       {player?.bounty && (
         <span className="seat-crown" aria-hidden="true">

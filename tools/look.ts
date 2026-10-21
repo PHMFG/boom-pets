@@ -11,6 +11,7 @@
 //                                        at each moment, that many pictures that many milliseconds apart: to judge motion
 //   pnpm look title | how | lobby        those screens
 //   pnpm look finale                     a one-round match through the winner's moment to the table
+//   pnpm look finale --video --rematch   and then Enter for another match (or --lobby for Esc), filmed for five seconds
 //   pnpm look brawl,lava --flow          a whole match of those games, a picture every 0.5 s of the screens between rounds
 //   --port=5207                          serve on that port (otherwise a free one is found); a game already served there is used as it is
 //   pnpm look brawl,lava --flow --video  the same match filmed, and the moments that pass too fast for a picture every 0.5 s
@@ -260,6 +261,13 @@ try {
     await waitFor('matchEnd');
     await page.waitForTimeout(1800);
     await shoot('finale-table');
+    if (has('rematch') || has('lobby')) {
+      // What the room sees every time it plays again, or goes back to the lobby: filmed from the key press.
+      await page.waitForTimeout(600);
+      mark(has('rematch') ? 'after-rematch' : 'after-lobby');
+      await page.keyboard.press(has('rematch') ? 'Enter' : 'Escape');
+      await page.waitForTimeout(5200);
+    }
   } else if (has('flow')) {
     // The screens between rounds, as they are: a picture every half second from the end of each round to the next GO.
     clear(`${label}flow-`);
@@ -348,6 +356,7 @@ try {
       if (moment.name.endsWith('-reveal')) window(moment.name, moment.at - 1.2, 3);
       if (moment.name.endsWith('-finale')) window(moment.name, moment.at - 0.8, 3);
       if (moment.name === 'finale-winner') window(moment.name, moment.at - 0.4, 3);
+      if (moment.name.startsWith('after-')) window(moment.name, moment.at - 0.2, 5);
       if (moment.name.endsWith('-countdown')) window(moment.name, moment.at - 0.5, 2);
       if (moment.name.startsWith('watch-')) window(moment.name, moment.at, watchFor);
     }

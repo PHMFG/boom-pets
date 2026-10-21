@@ -344,43 +344,76 @@ export const lava = {
   columns: 20,
   rows: 16,
   /**
-   * How high a piece of furniture stands. High enough that, from above, its side shows under the ring of the pet
-   * standing on it: at 0.3 a pouf vanished under its pet and nobody could tell who was up. A pet walks up onto
-   * it in one stride (`stepUp`, a little more than the height), which nowhere else in the game allows.
+   * How high a piece of furniture stands, which is how high each layer of the pile is: every piece of a layer
+   * has its top at the same height. High enough that, from above, a piece's side shows under the ring of the pet
+   * standing on it. A pet walks up one layer in one stride (`stepUp`, a little more than the height) and no more:
+   * anything two layers up is a wall.
    */
   height: 0.7,
   stepUp: 0.75,
+  /** How close to the side of a piece it cannot climb a pet may come. */
+  side: 0.25,
   /**
-   * The furniture that falls from the sky: how many pets each piece is meant for, and the part of its top a
-   * pet is safe on (a circle's radius, or a rectangle's width and depth). The safe part is a little smaller
-   * than the piece is drawn, so a pet that looks on it is on it. `seats` is what a wave is counted in and
-   * where bots stand; it is not a limit. Pets that keep still can squeeze more onto a piece than it seats,
-   * and one shove undoes that: the squeeze and the shove are the game.
+   * How fast a pet walks on furniture, as a share of normal. The brawl's pace is for an arena sixteen metres
+   * across; a table is a metre and a bit, and at full pace a pet is off its far edge before a thumb can stop it.
+   */
+  pileSpeed: 0.62,
+  /**
+   * The lava never stops rising. Where it stands when the round starts, under the floor; and how far over a
+   * layer's top it stands at the moment it takes whoever is still on that layer.
+   */
+  start: -0.75,
+  toe: 0.05,
+  /**
+   * The furniture that falls from the sky: how many pets each piece is meant for, and how wide and deep its top
+   * is. Every top is flat and a rectangle, so one piece can stand on another and a pet can walk from one to the
+   * next. `seats` is what a layer is counted in and where bots stand; it is not a limit. Pets that keep still can
+   * squeeze more onto a piece than it seats, and one shove undoes that: the squeeze and the shove are the game.
    */
   pieces: {
-    pouf: { seats: 1, radius: 0.6, width: 0, depth: 0 },
-    armchair: { seats: 1, radius: 0.6, width: 0, depth: 0 },
-    table: { seats: 2, radius: 0, width: 2.05, depth: 1.1 },
-    sofa: { seats: 3, radius: 0, width: 3.25, depth: 1.1 },
-    bed: { seats: 4, radius: 0, width: 1.75, depth: 1.75 },
+    pouf: { seats: 1, width: 1.2, depth: 1.2 },
+    armchair: { seats: 1, width: 1.4, depth: 1.3 },
+    table: { seats: 2, width: 2.3, depth: 1.3 },
+    sofa: { seats: 3, width: 3.4, depth: 1.3 },
+    bed: { seats: 4, width: 2.1, depth: 2.1 },
   },
-  /** Pieces never land closer together than this, edge to edge, or nearer the wall than this. */
-  gap: 1.8,
-  /** Seconds after a wave starts before the first piece lands, and between one landing and the next. Every piece's spot is marked on the floor from the start of the wave. */
+  /**
+   * How a layer is laid out. Its pieces stand side by side, touching, so that it is one floor: `shared` is the
+   * least length two of them have in common along the side they touch by, and `seam` how far one runs into the
+   * other, so no pet falls between. The first piece of a layer reaches at least `overlap` over the one below,
+   * and often much more: that part is the way up, where a pet is carried up as the piece lands or steps up after,
+   * and a wide one is room for everybody to wait in. It reaches mostly toward the back of the floor: a higher piece
+   * behind hides nobody. No piece lands nearer the wall than `edge`, and the first piece of the first layer lands
+   * between these distances in front of the middle.
+   */
+  shared: 0.8,
+  seam: 0.04,
+  overlap: 1,
+  edge: 0.8,
+  front: [1.5, 4.5],
+  /** Seconds after a layer is called before its first piece lands, and between one landing and the next. Every piece is marked where it will land from the moment its layer is called. */
   dropFirst: 1.3,
   dropEvery: 0.55,
-  /** Seconds between the last piece landing and the alarm on the first wave, how much shorter each wave after it, and the shortest it gets. */
-  calm: 3,
+  /** Seconds between the last piece of a layer landing and the alarm, for the first layer; how much shorter for each layer after it; and the shortest it gets. */
+  calm: 3.8,
   calmStep: 0.4,
-  calmMin: 1.2,
-  /** For this many waves at the start there is a seat for every pet: the first to learn on, the second with less time, and nobody has to be left out of either. After that there is one too few. */
-  spareWaves: 2,
-  /** From this wave on there are two seats too few (never fewer than one seat): a room that has learnt to squeeze up is thinned all the same. */
-  scarceFrom: 5,
-  /** Seconds the alarm sounds before the lava is up, and seconds it stays up. */
-  alarm: 3,
-  flood: 2,
-  /** A's shove: a short lunge that pushes whoever it touches, then a rest, longer after a miss. */
+  calmMin: 2,
+  /**
+   * For this many layers at the start there is a seat for every pet: the first is the one to learn on, and the
+   * next two are for learning to climb, which is the game. Nobody has to be left out of them; whoever goes, fell or
+   * was shoved. After that there is one seat too few.
+   */
+  spareWaves: 3,
+  /** From this layer on there are two seats too few (never fewer than one seat): a room that has learnt to squeeze up is thinned all the same. */
+  scarceFrom: 6,
+  /**
+   * Seconds the alarm sounds before the lava takes the layer below the newest, and seconds the screen says so after
+   * it has. The alarm is short: the lava is seen coming all the time now, a layer lasts six to eight seconds, and
+   * a siren for three of them was a siren for half the round.
+   */
+  alarm: 2.2,
+  flood: 1.2,
+  /** A's shove: a short lunge that pushes whoever it touches, then a rest, longer after a miss. Off the edge of a piece it is a fall to the layer below, or into the lava. */
   shoveSpeed: 9,
   shoveSeconds: 0.2,
   shoveForce: 6,
